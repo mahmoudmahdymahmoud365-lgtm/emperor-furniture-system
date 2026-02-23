@@ -211,6 +211,13 @@ export function getReceipts(): Receipt[] { return receiptsSnap; }
 export function addReceipt(data: Omit<Receipt, "id">): Receipt {
   const r = { id: nextId("R", receipts), ...data };
   receipts.push(r);
+  // Update linked invoice paidTotal
+  if (data.invoiceId) {
+    const invIdx = invoices.findIndex((i) => i.id === data.invoiceId);
+    if (invIdx >= 0) {
+      invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal + data.amount };
+    }
+  }
   notify();
   return r;
 }

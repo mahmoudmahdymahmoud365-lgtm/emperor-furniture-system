@@ -20,7 +20,7 @@ const menuItems = [
   { title: "العملاء", icon: Users, path: "/customers" },
   { title: "المنتجات", icon: Package, path: "/products" },
   { title: "الفواتير", icon: FileText, path: "/invoices" },
-  { title: "المقبوضات", icon: CreditCard, path: "/receipts" },
+  { title: "الأقساط", icon: CreditCard, path: "/installments" },
   { title: "الموظفين", icon: UserCog, path: "/employees" },
   { title: "الفروع", icon: Building2, path: "/branches" },
   { title: "التقارير", icon: BarChart3, path: "/reports" },

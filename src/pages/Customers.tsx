@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, FileBarChart } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomers } from "@/data/hooks";
@@ -17,6 +18,7 @@ const emptyForm: Omit<Customer, "id"> = {
 
 export default function Customers() {
   const { customers, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export default function Customers() {
                       <td className="p-3 hidden lg:table-cell">{c.jobTitle}</td>
                       <td className="p-3">
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => navigate(`/customer-report/${c.id}`)} title="تقرير العميل"><FileBarChart className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
