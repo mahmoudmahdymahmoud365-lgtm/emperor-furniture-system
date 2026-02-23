@@ -8,13 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { useToast } from "@/hooks/use-toast";
-import { useReceipts } from "@/data/hooks";
+import { useReceipts, useInvoices } from "@/data/hooks";
 
-export default function Receipts() {
+export default function Installments() {
   const { receipts, addReceipt } = useReceipts();
+  const { invoices } = useInvoices();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
   const { toast } = useToast();
+
+  // Auto-fill customer when invoice selected
+  const handleInvoiceChange = (invoiceId: string) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    setForm({ ...form, invoiceId, customer: inv?.customer || form.customer });
+  };
 
   const handleSave = () => {
     if (!form.invoiceId || !form.amount) {
@@ -22,7 +29,7 @@ export default function Receipts() {
       return;
     }
     addReceipt({ ...form, date: new Date().toISOString().split("T")[0] });
-    toast({ title: "تم التسجيل", description: "تم تسجيل المقبوضة بنجاح" });
+    toast({ title: "تم التسجيل", description: "تم تسجيل القسط بنجاح وتم تحديث الفاتورة" });
     setForm({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
     setOpen(false);
   };
@@ -31,14 +38,26 @@ export default function Receipts() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="page-header mb-0">المقبوضات</h1>
+          <h1 className="page-header mb-0">الأقساط</h1>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل مقبوضة</Button></DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل قسط</Button></DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader><DialogTitle>تسجيل مقبوضة جديدة</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>تسجيل قسط جديد</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
-                <div className="space-y-1.5"><Label>رقم الفاتورة *</Label><Input value={form.invoiceId} onChange={(e) => setForm({ ...form, invoiceId: e.target.value })} dir="ltr" /></div>
-                <div className="space-y-1.5"><Label>العميل</Label><Input value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} /></div>
+                <div className="space-y-1.5">
+                  <Label>رقم الفاتورة *</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={form.invoiceId}
+                    onChange={(e) => handleInvoiceChange(e.target.value)}
+                  >
+                    <option value="">اختر الفاتورة</option>
+                    {invoices.map((inv) => (
+                      <option key={inv.id} value={inv.id}>{inv.id} — {inv.customer}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5"><Label>العميل</Label><Input value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} readOnly className="bg-muted" /></div>
                 <div className="space-y-1.5"><Label>المبلغ *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} dir="ltr" /></div>
                 <div className="space-y-1.5"><Label>طريقة الدفع</Label><Input value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>ملاحظات</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
@@ -58,8 +77,8 @@ export default function Receipts() {
             { key: "date", label: "التاريخ" },
             { key: "method", label: "طريقة الدفع" },
           ]}
-          fileName="المقبوضات"
-          title="المقبوضات"
+          fileName="الأقساط"
+          title="الأقساط"
         />
 
         <Card>

@@ -1,12 +1,14 @@
+import { useRef } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, Users, UserCog } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Users, UserCog, Printer } from "lucide-react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useInvoices, useCustomers, useEmployees } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useReceipts } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + (i.qty * i.unitPrice - i.lineDiscount), 0);
@@ -15,28 +17,65 @@ export default function Reports() {
   const { invoices } = useInvoices();
   const { customers } = useCustomers();
   const { employees } = useEmployees();
+  const { receipts } = useReceipts();
   const [dateFrom, setDateFrom] = useState("2025-06-01");
   const [dateTo, setDateTo] = useState("2025-06-30");
+  const commPrintRef = useRef<HTMLDivElement>(null);
 
   const filteredInvoices = invoices.filter((inv) => inv.date >= dateFrom && inv.date <= dateTo);
 
-  // Customer balances from real data
+  // Customer balances using receipts (actual payments)
   const customerBalances = customers.map((c) => {
     const custInvoices = invoices.filter((inv) => inv.customer === c.fullName);
     const totalInvoices = custInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
-    const totalPaid = custInvoices.reduce((s, inv) => s + inv.paidTotal, 0);
+    const totalPaid = receipts.filter((r) => r.customer === c.fullName).reduce((s, r) => s + r.amount, 0);
     return { name: c.fullName, totalInvoices, totalPaid, balance: totalInvoices - totalPaid };
   });
 
-  // Commission data from real invoices
+  // Commission data - filtered by date
+  const filteredForComm = invoices.filter((inv) => inv.date >= dateFrom && inv.date <= dateTo);
   const empCommissions = employees
     .filter((e) => e.role === "مبيعات")
     .map((e) => {
-      const empInvoices = invoices.filter((inv) => inv.employee === e.name);
+      const empInvoices = filteredForComm.filter((inv) => inv.employee === e.name);
       const totalSales = empInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
       const commissionAmount = empInvoices.reduce((s, inv) => s + calcTotal(inv.items) * (inv.commissionPercent / 100), 0);
       return { name: e.name, monthlySalary: e.monthlySalary, totalSales, commissionAmount, totalDue: e.monthlySalary + commissionAmount };
     });
+
+  const handlePrintCommissions = () => {
+    const content = commPrintRef.current;
+    if (!content) return;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html dir="rtl">
+        <head>
+          <title>تقرير العمولات والمرتبات</title>
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Cairo', sans-serif; padding: 30px; color: #1a1a1a; }
+            table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+            th, td { padding: 10px 14px; border: 1px solid #ddd; text-align: right; font-size: 13px; }
+            th { background: #0d5c63; color: #fff; font-weight: 600; }
+            tr:nth-child(even) { background: #f8f9fa; }
+            h1 { color: #0d5c63; font-size: 22px; margin-bottom: 4px; }
+            .subtitle { color: #666; font-size: 13px; margin-bottom: 16px; }
+            .total-row td { font-weight: 800; background: #e8f5e9 !important; }
+            @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>${content.innerHTML}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
+
+  const totalCommDue = empCommissions.reduce((s, e) => s + e.totalDue, 0);
 
   return (
     <AppLayout>
@@ -99,7 +138,7 @@ export default function Reports() {
                   <CardTitle className="text-base">أرصدة العملاء</CardTitle>
                   <ExportButtons
                     data={customerBalances as any}
-                    headers={[{ key: "name", label: "العميل" }, { key: "totalInvoices", label: "إجمالي الفواتير" }, { key: "totalPaid", label: "المدفوع" }, { key: "balance", label: "الرصيد المتبقي" }]}
+                    headers={[{ key: "name", label: "العميل" }, { key: "totalInvoices", label: "إجمالي الفواتير" }, { key: "totalPaid", label: "المدفوع (أقساط)" }, { key: "balance", label: "الرصيد المتبقي" }]}
                     fileName="أرصدة_العملاء"
                     title="أرصدة العملاء"
                   />
@@ -110,7 +149,7 @@ export default function Reports() {
                   <thead><tr className="border-b bg-muted/50">
                     <th className="text-right p-3 font-medium text-muted-foreground">العميل</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">إجمالي الفواتير</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المدفوع</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">المدفوع (أقساط)</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الرصيد المتبقي</th>
                   </tr></thead>
                   <tbody>
@@ -133,12 +172,21 @@ export default function Reports() {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <CardTitle className="text-base">تقرير العمولات والمرتبات</CardTitle>
-                  <ExportButtons
-                    data={empCommissions as any}
-                    headers={[{ key: "name", label: "الموظف" }, { key: "monthlySalary", label: "المرتب الثابت" }, { key: "totalSales", label: "إجمالي المبيعات" }, { key: "commissionAmount", label: "إجمالي العمولات" }, { key: "totalDue", label: "المستحق الكلي" }]}
-                    fileName="تقرير_العمولات"
-                    title="تقرير العمولات والمرتبات"
-                  />
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePrintCommissions}>
+                      <Printer className="h-4 w-4 ml-1" />طباعة
+                    </Button>
+                    <ExportButtons
+                      data={empCommissions as any}
+                      headers={[{ key: "name", label: "الموظف" }, { key: "monthlySalary", label: "المرتب الثابت" }, { key: "totalSales", label: "إجمالي المبيعات" }, { key: "commissionAmount", label: "إجمالي العمولات" }, { key: "totalDue", label: "المستحق الكلي" }]}
+                      fileName="تقرير_العمولات"
+                      title="تقرير العمولات والمرتبات"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4 mt-2">
+                  <div className="space-y-1"><Label className="text-xs">من</Label><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} dir="ltr" className="w-40" /></div>
+                  <div className="space-y-1"><Label className="text-xs">إلى</Label><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} dir="ltr" className="w-40" /></div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -166,6 +214,37 @@ export default function Reports() {
             </Card>
           </TabsContent>
         </Tabs>
+      </div>
+
+      {/* Hidden print content for commissions */}
+      <div className="hidden">
+        <div ref={commPrintRef}>
+          <h1>تقرير العمولات والمرتبات</h1>
+          <p className="subtitle">الفترة من {dateFrom} إلى {dateTo}</p>
+          <table>
+            <thead><tr>
+              <th>الموظف</th><th>المرتب الثابت</th><th>إجمالي المبيعات</th><th>إجمالي العمولات</th><th>المستحق الكلي</th>
+            </tr></thead>
+            <tbody>
+              {empCommissions.map((c) => (
+                <tr key={c.name}>
+                  <td>{c.name}</td>
+                  <td>{c.monthlySalary.toLocaleString()} ج.م</td>
+                  <td>{c.totalSales.toLocaleString()} ج.م</td>
+                  <td>{c.commissionAmount.toLocaleString()} ج.م</td>
+                  <td style={{ fontWeight: 700 }}>{c.totalDue.toLocaleString()} ج.م</td>
+                </tr>
+              ))}
+              <tr className="total-row">
+                <td colSpan={4} style={{ fontWeight: 800 }}>الإجمالي المستحق</td>
+                <td style={{ fontWeight: 800 }}>{totalCommDue.toLocaleString()} ج.م</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ marginTop: 30, textAlign: "center", color: "#999", fontSize: 11, borderTop: "1px solid #ddd", paddingTop: 12 }}>
+            تقرير صادر بتاريخ {new Date().toLocaleDateString("ar-EG")} — شركة الأثاث المتميز
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

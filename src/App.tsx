@@ -8,7 +8,8 @@ import Login from "./pages/Login";
 import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import Invoices from "./pages/Invoices";
-import Receipts from "./pages/Receipts";
+import Installments from "./pages/Installments";
+import CustomerReport from "./pages/CustomerReport";
 import Employees from "./pages/Employees";
 import Branches from "./pages/Branches";
 import Reports from "./pages/Reports";
@@ -28,7 +29,8 @@ const App = () => (
           <Route path="/customers" element={<Customers />} />
           <Route path="/products" element={<Products />} />
           <Route path="/invoices" element={<Invoices />} />
-          <Route path="/receipts" element={<Receipts />} />
+          <Route path="/installments" element={<Installments />} />
+          <Route path="/customer-report/:customerId" element={<CustomerReport />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/branches" element={<Branches />} />
           <Route path="/reports" element={<Reports />} />
