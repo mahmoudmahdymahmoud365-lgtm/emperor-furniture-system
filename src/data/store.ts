@@ -57,6 +57,9 @@ const receipts: Receipt[] = [
   { id: "R002", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 5000, date: "2025-06-20", method: "تحويل بنكي", notes: "دفعة ثانية" },
 ];
 
+// Track last added customer name
+let lastAddedCustomer = "";
+
 // ---- Generic helpers ----
 
 function nextId(prefix: string, list: { id: string }[]): string {
@@ -76,7 +79,7 @@ export function subscribe(fn: Listener) {
   return () => listeners.delete(fn);
 }
 
-// ---- Snapshot caches (avoids new array refs on every read) ----
+// ---- Snapshot caches ----
 let customersSnap: Customer[] = [...customers];
 let productsSnap: Product[] = [...products];
 let invoicesSnap: Invoice[] = [...invoices];
@@ -102,10 +105,12 @@ function notify() {
 // CUSTOMERS
 // ==============================
 export function getCustomers(): Customer[] { return customersSnap; }
+export function getLastAddedCustomer(): string { return lastAddedCustomer; }
 
 export function addCustomer(data: Omit<Customer, "id">): Customer {
   const c = { id: nextId("C", customers), ...data };
   customers.push(c);
+  lastAddedCustomer = c.fullName;
   notify();
   return c;
 }
@@ -159,6 +164,11 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
   if (idx >= 0) { invoices[idx] = { ...invoices[idx], ...data }; notify(); }
 }
 
+export function deleteInvoice(id: string) {
+  const idx = invoices.findIndex((i) => i.id === id);
+  if (idx >= 0) { invoices.splice(idx, 1); notify(); }
+}
+
 // ==============================
 // EMPLOYEES
 // ==============================
@@ -204,14 +214,13 @@ export function deleteBranch(id: string) {
 }
 
 // ==============================
-// RECEIPTS
+// RECEIPTS (Installments)
 // ==============================
 export function getReceipts(): Receipt[] { return receiptsSnap; }
 
 export function addReceipt(data: Omit<Receipt, "id">): Receipt {
   const r = { id: nextId("R", receipts), ...data };
   receipts.push(r);
-  // Update linked invoice paidTotal
   if (data.invoiceId) {
     const invIdx = invoices.findIndex((i) => i.id === data.invoiceId);
     if (invIdx >= 0) {
@@ -220,4 +229,35 @@ export function addReceipt(data: Omit<Receipt, "id">): Receipt {
   }
   notify();
   return r;
+}
+
+export function updateReceipt(id: string, data: Partial<Receipt>) {
+  const idx = receipts.findIndex((r) => r.id === id);
+  if (idx >= 0) {
+    const old = receipts[idx];
+    const updated = { ...old, ...data };
+    // Adjust invoice paidTotal if amount changed
+    if (data.amount !== undefined && data.amount !== old.amount) {
+      const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
+      if (invIdx >= 0) {
+        invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal - old.amount + updated.amount };
+      }
+    }
+    receipts[idx] = updated;
+    notify();
+  }
+}
+
+export function deleteReceipt(id: string) {
+  const idx = receipts.findIndex((r) => r.id === id);
+  if (idx >= 0) {
+    const old = receipts[idx];
+    // Subtract from invoice paidTotal
+    const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
+    if (invIdx >= 0) {
+      invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - old.amount) };
+    }
+    receipts.splice(idx, 1);
+    notify();
+  }
 }

@@ -1,5 +1,5 @@
 import {
-  TrendingUp, Users, FileText, DollarSign, ArrowUpLeft, ArrowDownLeft,
+  TrendingUp, Users, FileText, DollarSign, AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -31,6 +31,40 @@ export default function Dashboard() {
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
   const totalPending = totalSales - totalPaid;
 
+  // Overdue customers: have balance and last payment > 30 days ago
+  const now = new Date();
+  const overdueCustomers = (() => {
+    const customerBalances = new Map<string, { balance: number; lastPayment: string | null }>();
+    invoices.forEach(inv => {
+      const total = calcTotal(inv.items);
+      const remaining = total - inv.paidTotal;
+      if (remaining > 0) {
+        const existing = customerBalances.get(inv.customer);
+        customerBalances.set(inv.customer, {
+          balance: (existing?.balance || 0) + remaining,
+          lastPayment: existing?.lastPayment || null,
+        });
+      }
+    });
+    receipts.forEach(r => {
+      const existing = customerBalances.get(r.customer);
+      if (existing) {
+        if (!existing.lastPayment || r.date > existing.lastPayment) {
+          existing.lastPayment = r.date;
+        }
+      }
+    });
+    const overdue: { name: string; balance: number; lastPayment: string | null; daysSince: number }[] = [];
+    customerBalances.forEach((data, name) => {
+      const lastDate = data.lastPayment ? new Date(data.lastPayment) : null;
+      const daysSince = lastDate ? Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)) : 999;
+      if (daysSince >= 30) {
+        overdue.push({ name, balance: data.balance, lastPayment: data.lastPayment, daysSince });
+      }
+    });
+    return overdue;
+  })();
+
   const stats = [
     { title: "إجمالي المبيعات", value: `${totalSales.toLocaleString()} ج.م`, icon: DollarSign, change: "+١٢%", up: true },
     { title: "عدد الفواتير", value: String(invoices.length), icon: FileText, change: `${invoices.length}`, up: true },
@@ -38,17 +72,12 @@ export default function Dashboard() {
     { title: "عدد العملاء", value: String(customers.length), icon: Users, change: `${customers.length}`, up: true },
   ];
 
-  // Product breakdown for pie chart
   const productMap = new Map<string, number>();
   invoices.forEach((inv) => inv.items.forEach((item) => {
     productMap.set(item.productName, (productMap.get(item.productName) || 0) + (item.qty * item.unitPrice - item.lineDiscount));
   }));
-  const topProducts = Array.from(productMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, value]) => ({ name, value }));
+  const topProducts = Array.from(productMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
 
-  // Monthly sales (simple grouping)
   const monthMap = new Map<string, number>();
   invoices.forEach((inv) => {
     const m = inv.date.substring(0, 7);
@@ -63,6 +92,33 @@ export default function Dashboard() {
           <h1 className="page-header">لوحة التحكم</h1>
           <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في نظام إدارة الأثاث</p>
         </div>
+
+        {/* Overdue Alerts */}
+        {overdueCustomers.length > 0 && (
+          <Card className="border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2" style={{ color: "hsl(30, 90%, 50%)" }}>
+                <AlertTriangle className="h-5 w-5" />
+                تنبيه: عملاء متأخرون عن الدفع (أكثر من 30 يوم)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {overdueCustomers.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                    <div>
+                      <span className="font-semibold">{c.name}</span>
+                      <span className="text-xs text-muted-foreground mr-2">
+                        (آخر دفعة: {c.lastPayment || "لم يدفع"} — {c.daysSince === 999 ? "لم يدفع أبداً" : `منذ ${c.daysSince} يوم`})
+                      </span>
+                    </div>
+                    <span className="text-destructive font-bold">{c.balance.toLocaleString()} ج.م</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (

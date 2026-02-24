@@ -1,16 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, Printer } from "lucide-react";
+import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
-import { useInvoices } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts } from "@/data/hooks";
 import type { InvoiceItem, Invoice } from "@/data/types";
+
+const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + calcLineTotal(item), 0);
@@ -23,8 +25,15 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Invoices() {
-  const { invoices, addInvoice } = useInvoices();
+  const { invoices, addInvoice, updateInvoice, deleteInvoice } = useInvoices();
+  const { customers, lastAddedCustomer } = useCustomers();
+  const { employees } = useEmployees();
+  const { products, addProduct } = useProducts();
+  const { branches } = useBranches();
+  const { addReceipt } = useReceipts();
+
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [customer, setCustomer] = useState("");
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
@@ -34,6 +43,40 @@ export default function Invoices() {
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Payment dialog
+  const [payOpen, setPayOpen] = useState(false);
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [payAmount, setPayAmount] = useState(0);
+  const [payMethod, setPayMethod] = useState("نقدي");
+  const [payNotes, setPayNotes] = useState("");
+
+  // New product dialog
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductPrice, setNewProductPrice] = useState(0);
+  const [newProductItemIdx, setNewProductItemIdx] = useState<number>(0);
+
+  // Suggestion dropdowns
+  const [customerFocus, setCustomerFocus] = useState(false);
+  const [employeeFocus, setEmployeeFocus] = useState(false);
+  const [branchFocus, setBranchFocus] = useState(false);
+  const [productFocusIdx, setProductFocusIdx] = useState<number | null>(null);
+
+  // Customer suggestions: last added first
+  const customerSuggestions = useMemo(() => {
+    const list = customers.map(c => c.fullName);
+    if (lastAddedCustomer && list.includes(lastAddedCustomer)) {
+      const filtered = list.filter(n => n !== lastAddedCustomer);
+      return [lastAddedCustomer, ...filtered];
+    }
+    return list;
+  }, [customers, lastAddedCustomer]);
+
+  const filteredCustomers = customerSuggestions.filter(n => n.includes(customer));
+  const filteredEmployees = employees.filter(e => e.active && e.name.includes(employee)).map(e => e.name);
+  const activeBranches = branches.filter(b => b.active).map(b => b.name);
+  const filteredBranches = activeBranches.filter(n => n.includes(branch));
+
   const handlePrint = (inv: Invoice) => {
     setPrintInvoice(inv);
     setTimeout(() => {
@@ -41,24 +84,8 @@ export default function Invoices() {
       if (!content) return;
       const win = window.open("", "_blank");
       if (!win) return;
-      win.document.write(`
-        <html dir="rtl">
-          <head>
-            <title>فاتورة ${inv.id}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-            <style>
-              * { box-sizing: border-box; margin: 0; padding: 0; }
-              body { font-family: 'Cairo', sans-serif; }
-              @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-            </style>
-          </head>
-          <body>${content.innerHTML}</body>
-        </html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
-      win.close();
+      win.document.write(`<html dir="rtl"><head><title>فاتورة ${inv.id}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'Cairo', sans-serif; } @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style></head><body>${content.innerHTML}</body></html>`);
+      win.document.close(); win.focus(); win.print(); win.close();
       setPrintInvoice(null);
     }, 100);
   };
@@ -68,35 +95,124 @@ export default function Invoices() {
   const updateItem = (i: number, field: keyof InvoiceItem, value: string | number) =>
     setItems(items.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
 
+  const selectProduct = (i: number, productName: string) => {
+    const p = products.find(pr => pr.name === productName);
+    setItems(items.map((item, idx) => idx === i ? { ...item, productName, unitPrice: p?.defaultPrice || item.unitPrice } : item));
+    setProductFocusIdx(null);
+  };
+
+  const resetForm = () => {
+    setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0);
+    setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
+    setEditingId(null);
+  };
+
+  const handleEdit = (inv: Invoice) => {
+    setEditingId(inv.id);
+    setCustomer(inv.customer);
+    setBranch(inv.branch);
+    setEmployee(inv.employee);
+    setCommissionPercent(inv.commissionPercent);
+    setItems([...inv.items]);
+    setOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteInvoice(id);
+    toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح" });
+  };
+
   const handleSave = () => {
     if (!customer || items.some((i) => !i.productName)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
       return;
     }
-    addInvoice({
-      customer, branch, employee,
-      date: new Date().toISOString().split("T")[0],
-      items: [...items], status: "مسودة", paidTotal: 0, commissionPercent,
-    });
-    toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
-    setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0);
-    setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
+    if (editingId) {
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent });
+      toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
+    } else {
+      addInvoice({
+        customer, branch, employee,
+        date: new Date().toISOString().split("T")[0],
+        items: [...items], status: "مسودة", paidTotal: 0, commissionPercent,
+      });
+      toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
+    }
+    resetForm();
     setOpen(false);
   };
+
+  const handlePay = () => {
+    if (!payInvoice || !payAmount) return;
+    const total = calcTotal(payInvoice.items);
+    const remaining = total - payInvoice.paidTotal;
+    if (payAmount > remaining) {
+      toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" });
+      return;
+    }
+    addReceipt({ invoiceId: payInvoice.id, customer: payInvoice.customer, amount: payAmount, date: new Date().toISOString().split("T")[0], method: payMethod, notes: payNotes });
+    toast({ title: "تم الدفع", description: `تم تسجيل دفعة ${payAmount.toLocaleString()} ج.م` });
+    setPayOpen(false); setPayInvoice(null); setPayAmount(0); setPayMethod("نقدي"); setPayNotes("");
+  };
+
+  const handleAddNewProduct = () => {
+    if (!newProductName) return;
+    addProduct({ name: newProductName, category: "", defaultPrice: newProductPrice, unit: "قطعة", notes: "" });
+    selectProduct(newProductItemIdx, newProductName);
+    setNewProductOpen(false); setNewProductName(""); setNewProductPrice(0);
+    toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد" });
+  };
+
+  const [payMethodFocus, setPayMethodFocus] = useState(false);
 
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="page-header mb-0">فواتير المبيعات</h1>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />فاتورة جديدة</Button></DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>إنشاء فاتورة جديدة</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "تعديل الفاتورة" : "إنشاء فاتورة جديدة"}</DialogTitle></DialogHeader>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                <div className="space-y-1.5"><Label>العميل *</Label><Input value={customer} onChange={(e) => setCustomer(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>الفرع</Label><Input value={branch} onChange={(e) => setBranch(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>الموظف</Label><Input value={employee} onChange={(e) => setEmployee(e.target.value)} /></div>
+                {/* Customer with suggestions */}
+                <div className="space-y-1.5 relative">
+                  <Label>العميل *</Label>
+                  <Input value={customer} onChange={(e) => setCustomer(e.target.value)} onFocus={() => setCustomerFocus(true)} onBlur={() => setTimeout(() => setCustomerFocus(false), 200)} />
+                  {customerFocus && filteredCustomers.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {filteredCustomers.map((name, i) => (
+                        <button key={i} className={`w-full text-right px-3 py-2 text-sm hover:bg-accent ${i === 0 && name === lastAddedCustomer ? "font-bold text-primary" : ""}`} onMouseDown={() => setCustomer(name)}>
+                          {name} {i === 0 && name === lastAddedCustomer && <span className="text-xs text-muted-foreground">(آخر عميل)</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Branch with suggestions */}
+                <div className="space-y-1.5 relative">
+                  <Label>الفرع</Label>
+                  <Input value={branch} onChange={(e) => setBranch(e.target.value)} onFocus={() => setBranchFocus(true)} onBlur={() => setTimeout(() => setBranchFocus(false), 200)} />
+                  {branchFocus && filteredBranches.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {filteredBranches.map((name, i) => (
+                        <button key={i} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => setBranch(name)}>{name}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Employee with suggestions */}
+                <div className="space-y-1.5 relative">
+                  <Label>الموظف</Label>
+                  <Input value={employee} onChange={(e) => setEmployee(e.target.value)} onFocus={() => setEmployeeFocus(true)} onBlur={() => setTimeout(() => setEmployeeFocus(false), 200)} />
+                  {employeeFocus && filteredEmployees.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {filteredEmployees.map((name, i) => (
+                        <button key={i} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => setEmployee(name)}>{name}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-1.5"><Label>نسبة العمولة %</Label><Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} dir="ltr" /></div>
               </div>
 
@@ -106,18 +222,36 @@ export default function Invoices() {
                   <Button variant="outline" size="sm" onClick={addItem}><Plus className="h-3 w-3 ml-1" />إضافة بند</Button>
                 </div>
                 <div className="space-y-3">
-                  {items.map((item, i) => (
-                    <div key={i} className="grid grid-cols-5 gap-2 items-end p-3 bg-muted/50 rounded-lg">
-                      <div className="space-y-1"><Label className="text-xs">المنتج</Label><Input value={item.productName} onChange={(e) => updateItem(i, "productName", e.target.value)} className="text-sm" /></div>
-                      <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
-                      <div className="space-y-1"><Label className="text-xs">السعر</Label><Input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
-                      <div className="space-y-1"><Label className="text-xs">الخصم</Label><Input type="number" value={item.lineDiscount} onChange={(e) => updateItem(i, "lineDiscount", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium whitespace-nowrap">{calcLineTotal(item).toLocaleString()}</span>
-                        {items.length > 1 && <Button variant="ghost" size="icon" onClick={() => removeItem(i)} className="text-destructive h-8 w-8"><Trash2 className="h-3 w-3" /></Button>}
+                  {items.map((item, i) => {
+                    const filteredProducts = products.filter(p => p.name.includes(item.productName));
+                    return (
+                      <div key={i} className="grid grid-cols-5 gap-2 items-end p-3 bg-muted/50 rounded-lg">
+                        <div className="space-y-1 relative">
+                          <Label className="text-xs">المنتج</Label>
+                          <Input value={item.productName} onChange={(e) => updateItem(i, "productName", e.target.value)} onFocus={() => setProductFocusIdx(i)} onBlur={() => setTimeout(() => setProductFocusIdx(null), 200)} className="text-sm" />
+                          {productFocusIdx === i && (
+                            <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                              {filteredProducts.map((p, pi) => (
+                                <button key={pi} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => selectProduct(i, p.name)}>
+                                  {p.name} <span className="text-xs text-muted-foreground">({p.defaultPrice.toLocaleString()} ج.م)</span>
+                                </button>
+                              ))}
+                              <button className="w-full text-right px-3 py-2 text-sm hover:bg-accent text-primary font-medium border-t" onMouseDown={() => { setNewProductItemIdx(i); setNewProductName(item.productName); setNewProductOpen(true); }}>
+                                <PackagePlus className="h-3 w-3 inline ml-1" />إضافة منتج جديد
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
+                        <div className="space-y-1"><Label className="text-xs">السعر</Label><Input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
+                        <div className="space-y-1"><Label className="text-xs">الخصم</Label><Input type="number" value={item.lineDiscount} onChange={(e) => updateItem(i, "lineDiscount", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium whitespace-nowrap">{calcLineTotal(item).toLocaleString()}</span>
+                          {items.length > 1 && <Button variant="ghost" size="icon" onClick={() => removeItem(i)} className="text-destructive h-8 w-8"><Trash2 className="h-3 w-3" /></Button>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="flex justify-end mt-4 p-3 bg-primary/5 rounded-lg">
                   <div className="text-left">
@@ -127,7 +261,7 @@ export default function Invoices() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} className="w-full mt-4">حفظ الفاتورة</Button>
+              <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث الفاتورة" : "حفظ الفاتورة"}</Button>
             </DialogContent>
           </Dialog>
         </div>
@@ -135,29 +269,14 @@ export default function Invoices() {
         <ExportButtons
           data={invoices.map((inv) => {
             const total = calcTotal(inv.items);
-            return {
-              id: inv.id,
-              customer: inv.customer,
-              date: inv.date,
-              total,
-              commissionPercent: inv.commissionPercent + "%",
-              paidTotal: inv.paidTotal,
-              remaining: total - inv.paidTotal,
-              status: inv.status,
-            };
+            return { id: inv.id, customer: inv.customer, date: inv.date, total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
           })}
           headers={[
-            { key: "id", label: "رقم الفاتورة" },
-            { key: "customer", label: "العميل" },
-            { key: "date", label: "التاريخ" },
-            { key: "total", label: "الإجمالي" },
-            { key: "commissionPercent", label: "العمولة %" },
-            { key: "paidTotal", label: "المدفوع" },
-            { key: "remaining", label: "المتبقي" },
-            { key: "status", label: "الحالة" },
+            { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },
+            { key: "total", label: "الإجمالي" }, { key: "commissionPercent", label: "العمولة %" },
+            { key: "paidTotal", label: "المدفوع" }, { key: "remaining", label: "المتبقي" }, { key: "status", label: "الحالة" },
           ]}
-          fileName="الفواتير"
-          title="فواتير المبيعات"
+          fileName="الفواتير" title="فواتير المبيعات"
         />
 
         <Card>
@@ -190,14 +309,21 @@ export default function Invoices() {
                         <td className="p-3">{inv.date}</td>
                         <td className="p-3">{total.toLocaleString()} ج.م</td>
                         <td className="p-3">{inv.commissionPercent}%</td>
-                        <td className="p-3 text-accent-foreground">{commissionAmount.toLocaleString()} ج.م</td>
+                        <td className="p-3 font-semibold" style={{ color: "hsl(30, 90%, 50%)" }}>{commissionAmount.toLocaleString()} ج.م</td>
                         <td className="p-3 text-success">{inv.paidTotal.toLocaleString()} ج.م</td>
                         <td className="p-3 text-destructive">{remaining.toLocaleString()} ج.م</td>
                         <td className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[inv.status] || ""}`}>{inv.status}</span>
                         </td>
                         <td className="p-3">
-                          <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
+                          <div className="flex gap-1">
+                            {remaining > 0 && (
+                              <Button variant="ghost" size="icon" onClick={() => { setPayInvoice(inv); setPayOpen(true); }} title="دفع"><DollarSign className="h-4 w-4 text-success" /></Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -207,6 +333,49 @@ export default function Invoices() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Payment Dialog */}
+        <Dialog open={payOpen} onOpenChange={(v) => { setPayOpen(v); if (!v) { setPayInvoice(null); setPayAmount(0); setPayMethod("نقدي"); setPayNotes(""); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>تسجيل دفعة — {payInvoice?.id}</DialogTitle></DialogHeader>
+            {payInvoice && (
+              <div className="space-y-4 mt-4">
+                <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                  <div className="flex justify-between"><span>العميل:</span><span className="font-medium">{payInvoice.customer}</span></div>
+                  <div className="flex justify-between"><span>الإجمالي:</span><span>{calcTotal(payInvoice.items).toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between"><span>المدفوع:</span><span className="text-success">{payInvoice.paidTotal.toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between font-bold"><span>المتبقي:</span><span className="text-destructive">{(calcTotal(payInvoice.items) - payInvoice.paidTotal).toLocaleString()} ج.م</span></div>
+                </div>
+                <div className="space-y-1.5"><Label>المبلغ *</Label><Input type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} dir="ltr" /></div>
+                <div className="space-y-1.5 relative">
+                  <Label>طريقة الدفع</Label>
+                  <Input value={payMethod} onChange={(e) => setPayMethod(e.target.value)} onFocus={() => setPayMethodFocus(true)} onBlur={() => setTimeout(() => setPayMethodFocus(false), 200)} />
+                  {payMethodFocus && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                      {PAYMENT_METHODS.filter(m => m.includes(payMethod)).map((m, i) => (
+                        <button key={i} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => setPayMethod(m)}>{m}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5"><Label>ملاحظات</Label><Input value={payNotes} onChange={(e) => setPayNotes(e.target.value)} /></div>
+                <Button onClick={handlePay} className="w-full">تسجيل الدفعة</Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* New Product Dialog */}
+        <Dialog open={newProductOpen} onOpenChange={setNewProductOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>إضافة منتج جديد</DialogTitle></DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-1.5"><Label>اسم المنتج *</Label><Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(Number(e.target.value))} dir="ltr" /></div>
+              <Button onClick={handleAddNewProduct} className="w-full">إضافة المنتج</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="hidden">
           {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} />}
