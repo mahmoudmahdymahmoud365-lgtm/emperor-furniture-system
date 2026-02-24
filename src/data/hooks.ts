@@ -1,12 +1,6 @@
-// ==============================
-// React Hooks — thin wrappers around the store.
-// When migrating to SQLite, only store.ts changes; these hooks stay the same.
-// ==============================
-
 import { useSyncExternalStore, useCallback } from "react";
 import * as store from "./store";
 
-// Generic hook to subscribe to store changes
 function useStoreData<T>(getter: () => T): T {
   return useSyncExternalStore(store.subscribe, getter, getter);
 }
@@ -16,6 +10,7 @@ export function useCustomers() {
   const customers = useStoreData(store.getCustomers);
   return {
     customers,
+    lastAddedCustomer: store.getLastAddedCustomer(),
     addCustomer: useCallback(store.addCustomer, []),
     updateCustomer: useCallback(store.updateCustomer, []),
     deleteCustomer: useCallback(store.deleteCustomer, []),
@@ -40,6 +35,7 @@ export function useInvoices() {
     invoices,
     addInvoice: useCallback(store.addInvoice, []),
     updateInvoice: useCallback(store.updateInvoice, []),
+    deleteInvoice: useCallback(store.deleteInvoice, []),
   };
 }
 
@@ -65,11 +61,13 @@ export function useBranches() {
   };
 }
 
-// ---- Receipts ----
+// ---- Receipts (Installments) ----
 export function useReceipts() {
   const receipts = useStoreData(store.getReceipts);
   return {
     receipts,
     addReceipt: useCallback(store.addReceipt, []),
+    updateReceipt: useCallback(store.updateReceipt, []),
+    deleteReceipt: useCallback(store.deleteReceipt, []),
   };
 }
