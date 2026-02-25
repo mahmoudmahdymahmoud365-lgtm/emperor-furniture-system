@@ -90,7 +90,7 @@ export default function Dashboard() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="page-header">لوحة التحكم</h1>
-          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في نظام إدارة الأثاث</p>
+          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في نظام إلادارة </p>
         </div>
 
         {/* Overdue Alerts */}
