@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus } from "lucide-react";
+import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
 import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts } from "@/data/hooks";
@@ -43,6 +44,11 @@ export default function Invoices() {
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Search & filter
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
   // Payment dialog
   const [payOpen, setPayOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
@@ -61,13 +67,12 @@ export default function Invoices() {
   const [employeeFocus, setEmployeeFocus] = useState(false);
   const [branchFocus, setBranchFocus] = useState(false);
   const [productFocusIdx, setProductFocusIdx] = useState<number | null>(null);
+  const [payMethodFocus, setPayMethodFocus] = useState(false);
 
-  // Customer suggestions: last added first
   const customerSuggestions = useMemo(() => {
     const list = customers.map(c => c.fullName);
     if (lastAddedCustomer && list.includes(lastAddedCustomer)) {
-      const filtered = list.filter(n => n !== lastAddedCustomer);
-      return [lastAddedCustomer, ...filtered];
+      return [lastAddedCustomer, ...list.filter(n => n !== lastAddedCustomer)];
     }
     return list;
   }, [customers, lastAddedCustomer]);
@@ -76,6 +81,15 @@ export default function Invoices() {
   const filteredEmployees = employees.filter(e => e.active && e.name.includes(employee)).map(e => e.name);
   const activeBranches = branches.filter(b => b.active).map(b => b.name);
   const filteredBranches = activeBranches.filter(n => n.includes(branch));
+
+  // Filtered invoices
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      const matchSearch = !search || inv.id.includes(search) || inv.customer.includes(search) || inv.employee.includes(search);
+      const matchStatus = !filterStatus || inv.status === filterStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [invoices, search, filterStatus]);
 
   const handlePrint = (inv: Invoice) => {
     setPrintInvoice(inv);
@@ -108,47 +122,34 @@ export default function Invoices() {
   };
 
   const handleEdit = (inv: Invoice) => {
-    setEditingId(inv.id);
-    setCustomer(inv.customer);
-    setBranch(inv.branch);
-    setEmployee(inv.employee);
-    setCommissionPercent(inv.commissionPercent);
-    setItems([...inv.items]);
-    setOpen(true);
+    setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
+    setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
+    setItems([...inv.items]); setOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteInvoice(id);
-    toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح" });
+  const confirmDelete = () => {
+    if (deleteId) { deleteInvoice(deleteId); toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح" }); setDeleteId(null); }
   };
 
   const handleSave = () => {
     if (!customer || items.some((i) => !i.productName)) {
-      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
-      return;
+      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" }); return;
     }
     if (editingId) {
       updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({
-        customer, branch, employee,
-        date: new Date().toISOString().split("T")[0],
-        items: [...items], status: "مسودة", paidTotal: 0, commissionPercent,
-      });
+      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], items: [...items], status: "مسودة", paidTotal: 0, commissionPercent });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
-    resetForm();
-    setOpen(false);
+    resetForm(); setOpen(false);
   };
 
   const handlePay = () => {
     if (!payInvoice || !payAmount) return;
-    const total = calcTotal(payInvoice.items);
-    const remaining = total - payInvoice.paidTotal;
+    const remaining = calcTotal(payInvoice.items) - payInvoice.paidTotal;
     if (payAmount > remaining) {
-      toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" });
-      return;
+      toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
     }
     addReceipt({ invoiceId: payInvoice.id, customer: payInvoice.customer, amount: payAmount, date: new Date().toISOString().split("T")[0], method: payMethod, notes: payNotes });
     toast({ title: "تم الدفع", description: `تم تسجيل دفعة ${payAmount.toLocaleString()} ج.م` });
@@ -163,8 +164,6 @@ export default function Invoices() {
     toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد" });
   };
 
-  const [payMethodFocus, setPayMethodFocus] = useState(false);
-
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
@@ -175,7 +174,7 @@ export default function Invoices() {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? "تعديل الفاتورة" : "إنشاء فاتورة جديدة"}</DialogTitle></DialogHeader>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                {/* Customer with suggestions */}
+                {/* Customer */}
                 <div className="space-y-1.5 relative">
                   <Label>العميل *</Label>
                   <Input value={customer} onChange={(e) => setCustomer(e.target.value)} onFocus={() => setCustomerFocus(true)} onBlur={() => setTimeout(() => setCustomerFocus(false), 200)} />
@@ -189,7 +188,7 @@ export default function Invoices() {
                     </div>
                   )}
                 </div>
-                {/* Branch with suggestions */}
+                {/* Branch */}
                 <div className="space-y-1.5 relative">
                   <Label>الفرع</Label>
                   <Input value={branch} onChange={(e) => setBranch(e.target.value)} onFocus={() => setBranchFocus(true)} onBlur={() => setTimeout(() => setBranchFocus(false), 200)} />
@@ -201,7 +200,7 @@ export default function Invoices() {
                     </div>
                   )}
                 </div>
-                {/* Employee with suggestions */}
+                {/* Employee */}
                 <div className="space-y-1.5 relative">
                   <Label>الموظف</Label>
                   <Input value={employee} onChange={(e) => setEmployee(e.target.value)} onFocus={() => setEmployeeFocus(true)} onBlur={() => setTimeout(() => setEmployeeFocus(false), 200)} />
@@ -223,7 +222,7 @@ export default function Invoices() {
                 </div>
                 <div className="space-y-3">
                   {items.map((item, i) => {
-                    const filteredProducts = products.filter(p => p.name.includes(item.productName));
+                    const fp = products.filter(p => p.name.includes(item.productName));
                     return (
                       <div key={i} className="grid grid-cols-5 gap-2 items-end p-3 bg-muted/50 rounded-lg">
                         <div className="space-y-1 relative">
@@ -231,7 +230,7 @@ export default function Invoices() {
                           <Input value={item.productName} onChange={(e) => updateItem(i, "productName", e.target.value)} onFocus={() => setProductFocusIdx(i)} onBlur={() => setTimeout(() => setProductFocusIdx(null), 200)} className="text-sm" />
                           {productFocusIdx === i && (
                             <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
-                              {filteredProducts.map((p, pi) => (
+                              {fp.map((p, pi) => (
                                 <button key={pi} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => selectProduct(i, p.name)}>
                                   {p.name} <span className="text-xs text-muted-foreground">({p.defaultPrice.toLocaleString()} ج.م)</span>
                                 </button>
@@ -260,24 +259,37 @@ export default function Invoices() {
                   </div>
                 </div>
               </div>
-
               <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث الفاتورة" : "حفظ الفاتورة"}</Button>
             </DialogContent>
           </Dialog>
         </div>
 
-        <ExportButtons
-          data={invoices.map((inv) => {
-            const total = calcTotal(inv.items);
-            return { id: inv.id, customer: inv.customer, date: inv.date, total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
-          })}
-          headers={[
-            { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },
-            { key: "total", label: "الإجمالي" }, { key: "commissionPercent", label: "العمولة %" },
-            { key: "paidTotal", label: "المدفوع" }, { key: "remaining", label: "المتبقي" }, { key: "status", label: "الحالة" },
-          ]}
-          fileName="الفواتير" title="فواتير المبيعات"
-        />
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="بحث بالرقم أو العميل أو الموظف..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
+          </div>
+          <select className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="">كل الحالات</option>
+            <option value="مسودة">مسودة</option>
+            <option value="مؤكدة">مؤكدة</option>
+            <option value="تم التسليم">تم التسليم</option>
+            <option value="مغلقة">مغلقة</option>
+          </select>
+          <ExportButtons
+            data={filteredInvoices.map((inv) => {
+              const total = calcTotal(inv.items);
+              return { id: inv.id, customer: inv.customer, date: inv.date, total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
+            })}
+            headers={[
+              { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },
+              { key: "total", label: "الإجمالي" }, { key: "commissionPercent", label: "العمولة %" },
+              { key: "paidTotal", label: "المدفوع" }, { key: "remaining", label: "المتبقي" }, { key: "status", label: "الحالة" },
+            ]}
+            fileName="الفواتير" title="فواتير المبيعات"
+          />
+        </div>
 
         <Card>
           <CardContent className="p-0">
@@ -298,7 +310,7 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => {
+                  {filteredInvoices.map((inv) => {
                     const total = calcTotal(inv.items);
                     const commissionAmount = total * (inv.commissionPercent / 100);
                     const remaining = total - inv.paidTotal;
@@ -322,12 +334,15 @@ export default function Invoices() {
                             )}
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل"><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
+                  {filteredInvoices.length === 0 && (
+                    <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -376,6 +391,8 @@ export default function Invoices() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم حذف جميع بياناتها." />
 
         <div className="hidden">
           {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} />}

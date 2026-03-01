@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/data/hooks";
 
@@ -18,6 +19,7 @@ export default function Products() {
   const [formData, setFormData] = useState(emptyProduct);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const filtered = products.filter((p) => p.name.includes(search) || p.category.includes(search));
@@ -37,6 +39,14 @@ export default function Products() {
     setFormData(emptyProduct);
     setEditingId(null);
     setOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) {
+      deleteProduct(deleteId);
+      toast({ title: "تم الحذف" });
+      setDeleteId(null);
+    }
   };
 
   return (
@@ -65,18 +75,7 @@ export default function Products() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="بحث بالاسم أو الفئة..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
           </div>
-          <ExportButtons
-            data={filtered as any}
-            headers={[
-              { key: "id", label: "الكود" },
-              { key: "name", label: "المنتج" },
-              { key: "category", label: "الفئة" },
-              { key: "defaultPrice", label: "السعر" },
-              { key: "unit", label: "الوحدة" },
-            ]}
-            fileName="المنتجات"
-            title="قائمة المنتجات"
-          />
+          <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" }]} fileName="المنتجات" title="قائمة المنتجات" />
         </div>
 
         <Card>
@@ -104,7 +103,7 @@ export default function Products() {
                       <td className="p-3">
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteProduct(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>
                     </tr>
@@ -114,6 +113,8 @@ export default function Products() {
             </div>
           </CardContent>
         </Card>
+
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا المنتج؟" />
       </div>
     </AppLayout>
   );

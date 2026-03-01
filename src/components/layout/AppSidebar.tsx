@@ -61,7 +61,10 @@ export function AppSidebar() {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {!collapsed && (
-            <h1 className="text-lg font-bold truncate">نظام الأثاث</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <img src="/logo.png" alt="لوجو" className="h-8 w-8 rounded-md object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <h1 className="text-lg font-bold truncate">الامبراطور للأثاث</h1>
+            </div>
           )}
           <button
             onClick={() => {

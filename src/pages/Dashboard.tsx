@@ -1,7 +1,8 @@
 import {
-  TrendingUp, Users, FileText, DollarSign, AlertTriangle,
+  TrendingUp, Users, FileText, DollarSign, AlertTriangle, Printer, Phone,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
@@ -31,18 +32,20 @@ export default function Dashboard() {
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
   const totalPending = totalSales - totalPaid;
 
-  // Overdue customers: have balance and last payment > 30 days ago
   const now = new Date();
   const overdueCustomers = (() => {
-    const customerBalances = new Map<string, { balance: number; lastPayment: string | null }>();
+    const customerBalances = new Map<string, { balance: number; lastPayment: string | null; invoiceIds: string[]; phone: string }>();
     invoices.forEach(inv => {
       const total = calcTotal(inv.items);
       const remaining = total - inv.paidTotal;
       if (remaining > 0) {
         const existing = customerBalances.get(inv.customer);
+        const cust = customers.find(c => c.fullName === inv.customer);
         customerBalances.set(inv.customer, {
           balance: (existing?.balance || 0) + remaining,
           lastPayment: existing?.lastPayment || null,
+          invoiceIds: [...(existing?.invoiceIds || []), inv.id],
+          phone: cust?.phone || existing?.phone || "",
         });
       }
     });
@@ -54,16 +57,54 @@ export default function Dashboard() {
         }
       }
     });
-    const overdue: { name: string; balance: number; lastPayment: string | null; daysSince: number }[] = [];
+    const overdue: { name: string; balance: number; lastPayment: string | null; daysSince: number; invoiceIds: string[]; phone: string }[] = [];
     customerBalances.forEach((data, name) => {
       const lastDate = data.lastPayment ? new Date(data.lastPayment) : null;
       const daysSince = lastDate ? Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)) : 999;
       if (daysSince >= 30) {
-        overdue.push({ name, balance: data.balance, lastPayment: data.lastPayment, daysSince });
+        overdue.push({ name, balance: data.balance, lastPayment: data.lastPayment, daysSince, invoiceIds: data.invoiceIds, phone: data.phone });
       }
     });
     return overdue;
   })();
+
+  const handlePrintOverdue = () => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const rows = overdueCustomers.map(c => `
+      <tr>
+        <td style="padding:10px;border-bottom:1px solid #eee;">${c.name}</td>
+        <td style="padding:10px;border-bottom:1px solid #eee;" dir="ltr">${c.phone || "-"}</td>
+        <td style="padding:10px;border-bottom:1px solid #eee;">${c.invoiceIds.join(", ")}</td>
+        <td style="padding:10px;border-bottom:1px solid #eee;">${c.lastPayment || "لم يدفع"}</td>
+        <td style="padding:10px;border-bottom:1px solid #eee;">${c.daysSince === 999 ? "لم يدفع أبداً" : `${c.daysSince} يوم`}</td>
+        <td style="padding:10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:bold;">${c.balance.toLocaleString()} ج.م</td>
+      </tr>
+    `).join("");
+    win.document.write(`<html dir="rtl"><head><title>تقرير العملاء المتأخرين</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:30px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
+      <div style="text-align:center;margin-bottom:24px;">
+        <h1 style="font-size:22px;color:#0d5c63;">الامبراطور للأثاث</h1>
+        <h2 style="font-size:16px;color:#666;margin-top:4px;">تقرير العملاء المتأخرين عن الدفع</h2>
+        <p style="font-size:12px;color:#999;margin-top:4px;">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")}</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead><tr style="background:#0d5c63;color:#fff;">
+          <th style="padding:10px;text-align:right;">العميل</th>
+          <th style="padding:10px;text-align:right;">الهاتف</th>
+          <th style="padding:10px;text-align:right;">أرقام الفواتير</th>
+          <th style="padding:10px;text-align:right;">آخر دفعة</th>
+          <th style="padding:10px;text-align:right;">المدة</th>
+          <th style="padding:10px;text-align:right;">المبلغ المستحق</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#f5f5f5;font-weight:bold;">
+          <td colspan="5" style="padding:10px;">الإجمالي</td>
+          <td style="padding:10px;color:#dc2626;">${overdueCustomers.reduce((s, c) => s + c.balance, 0).toLocaleString()} ج.م</td>
+        </tr></tfoot>
+      </table>
+    </body></html>`);
+    win.document.close(); win.focus(); win.print(); win.close();
+  };
 
   const stats = [
     { title: "إجمالي المبيعات", value: `${totalSales.toLocaleString()} ج.م`, icon: DollarSign, change: "+١٢%", up: true },
@@ -90,29 +131,41 @@ export default function Dashboard() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="page-header">لوحة التحكم</h1>
-          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في نظام إلادارة </p>
+          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في الامبراطور للأثاث</p>
         </div>
 
         {/* Overdue Alerts */}
         {overdueCustomers.length > 0 && (
           <Card className="border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2" style={{ color: "hsl(30, 90%, 50%)" }}>
-                <AlertTriangle className="h-5 w-5" />
-                تنبيه: عملاء متأخرون عن الدفع (أكثر من 30 يوم)
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2" style={{ color: "hsl(30, 90%, 50%)" }}>
+                  <AlertTriangle className="h-5 w-5" />
+                  تنبيه: عملاء متأخرون عن الدفع (أكثر من 30 يوم)
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={handlePrintOverdue}>
+                  <Printer className="h-4 w-4 ml-1" />طباعة
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {overdueCustomers.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-background rounded-lg border">
-                    <div>
-                      <span className="font-semibold">{c.name}</span>
-                      <span className="text-xs text-muted-foreground mr-2">
-                        (آخر دفعة: {c.lastPayment || "لم يدفع"} — {c.daysSince === 999 ? "لم يدفع أبداً" : `منذ ${c.daysSince} يوم`})
-                      </span>
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{c.name}</span>
+                        {c.phone && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3 w-3" />{c.phone}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        الفواتير: {c.invoiceIds.join(", ")} — آخر دفعة: {c.lastPayment || "لم يدفع"} — {c.daysSince === 999 ? "لم يدفع أبداً" : `منذ ${c.daysSince} يوم`}
+                      </div>
                     </div>
-                    <span className="text-destructive font-bold">{c.balance.toLocaleString()} ج.م</span>
+                    <span className="text-destructive font-bold whitespace-nowrap">{c.balance.toLocaleString()} ج.م</span>
                   </div>
                 ))}
               </div>

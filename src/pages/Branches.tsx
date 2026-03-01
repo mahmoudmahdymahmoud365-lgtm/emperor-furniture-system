@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useBranches } from "@/data/hooks";
 
@@ -15,19 +16,18 @@ export default function Branches() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", address: "", rent: 0, active: true });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSave = () => {
     if (!form.name) { toast({ title: "خطأ", description: "يرجى إدخال اسم الفرع", variant: "destructive" }); return; }
-    if (editingId) {
-      updateBranch(editingId, form);
-    } else {
-      addBranch(form);
-    }
+    if (editingId) { updateBranch(editingId, form); } else { addBranch(form); }
     toast({ title: editingId ? "تم التحديث" : "تمت الإضافة" });
-    setForm({ name: "", address: "", rent: 0, active: true });
-    setEditingId(null);
-    setOpen(false);
+    setForm({ name: "", address: "", rent: 0, active: true }); setEditingId(null); setOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) { deleteBranch(deleteId); toast({ title: "تم الحذف" }); setDeleteId(null); }
   };
 
   return (
@@ -49,18 +49,7 @@ export default function Branches() {
           </Dialog>
         </div>
 
-        <ExportButtons
-          data={branches as any}
-          headers={[
-            { key: "id", label: "الكود" },
-            { key: "name", label: "الاسم" },
-            { key: "address", label: "العنوان" },
-            { key: "rent", label: "الإيجار" },
-            { key: "active", label: "الحالة" },
-          ]}
-          fileName="الفروع"
-          title="قائمة الفروع"
-        />
+        <ExportButtons data={branches as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "الاسم" },{ key: "address", label: "العنوان" },{ key: "rent", label: "الإيجار" },{ key: "active", label: "الحالة" }]} fileName="الفروع" title="قائمة الفروع" />
 
         <Card>
           <CardContent className="p-0">
@@ -91,7 +80,7 @@ export default function Branches() {
                       <td className="p-3">
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => { setForm(b); setEditingId(b.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteBranch(b.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(b.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>
                     </tr>
@@ -101,6 +90,8 @@ export default function Branches() {
             </div>
           </CardContent>
         </Card>
+
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا الفرع؟" />
       </div>
     </AppLayout>
   );
