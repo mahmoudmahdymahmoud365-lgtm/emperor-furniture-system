@@ -1,12 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Printer } from "lucide-react";
+import { Plus, Edit, Trash2, Printer, Search } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useReceipts, useInvoices } from "@/data/hooks";
 import type { Receipt, InvoiceItem } from "@/data/types";
@@ -21,32 +22,30 @@ export default function Installments() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
   const [methodFocus, setMethodFocus] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
-  const printRef = useRef<HTMLDivElement>(null);
+
+  const filteredReceipts = useMemo(() => {
+    return receipts.filter(r => !search || r.id.includes(search) || r.invoiceId.includes(search) || r.customer.includes(search) || r.method.includes(search));
+  }, [receipts, search]);
 
   const handleInvoiceChange = (invoiceId: string) => {
     const inv = invoices.find((i) => i.id === invoiceId);
     setForm({ ...form, invoiceId, customer: inv?.customer || form.customer });
   };
 
-  const resetForm = () => {
-    setForm({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
-    setEditingId(null);
-  };
+  const resetForm = () => { setForm({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" }); setEditingId(null); };
 
   const handleSave = () => {
     if (!form.invoiceId || !form.amount) {
-      toast({ title: "خطأ", description: "يرجى ملء الحقول المطلوبة", variant: "destructive" });
-      return;
+      toast({ title: "خطأ", description: "يرجى ملء الحقول المطلوبة", variant: "destructive" }); return;
     }
-    // Check remaining
     const inv = invoices.find(i => i.id === form.invoiceId);
     if (inv && !editingId) {
-      const total = calcTotal(inv.items);
-      const remaining = total - inv.paidTotal;
+      const remaining = calcTotal(inv.items) - inv.paidTotal;
       if (form.amount > remaining) {
-        toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" });
-        return;
+        toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
       }
     }
     if (editingId) {
@@ -56,8 +55,7 @@ export default function Installments() {
       addReceipt({ ...form, date: new Date().toISOString().split("T")[0] });
       toast({ title: "تم التسجيل", description: "تم تسجيل القسط بنجاح وتم تحديث الفاتورة" });
     }
-    resetForm();
-    setOpen(false);
+    resetForm(); setOpen(false);
   };
 
   const handleEdit = (r: Receipt) => {
@@ -66,22 +64,20 @@ export default function Installments() {
     setOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteReceipt(id);
-    toast({ title: "تم الحذف", description: "تم حذف القسط وتحديث الفاتورة" });
+  const confirmDelete = () => {
+    if (deleteId) { deleteReceipt(deleteId); toast({ title: "تم الحذف", description: "تم حذف القسط وتحديث الفاتورة" }); setDeleteId(null); }
   };
 
   const handlePrint = (r: Receipt) => {
-    const inv = invoices.find(i => i.id === r.invoiceId);
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`<html dir="rtl"><head><title>إيصال ${r.id}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'Cairo', sans-serif; padding: 40px; } @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }</style></head><body>
+    win.document.write(`<html dir="rtl"><head><title>إيصال ${r.id}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:40px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
       <div style="max-width:500px;margin:0 auto;border:2px solid #0d5c63;border-radius:12px;overflow:hidden;">
         <div style="background:#0d5c63;color:#fff;padding:16px 24px;text-align:center;">
-          <h1 style="font-size:20px;margin:0;">إيصال قسط</h1>
+          <h1 style="font-size:20px;margin:0;">الامبراطور للأثاث — إيصال قسط</h1>
           <p style="font-size:14px;margin:4px 0 0;">${r.id}</p>
         </div>
-        <div style="padding:24px;space-y:12px;">
+        <div style="padding:24px;">
           <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;"><span>العميل:</span><strong>${r.customer}</strong></div>
           <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;"><span>رقم الفاتورة:</span><strong>${r.invoiceId}</strong></div>
           <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;"><span>التاريخ:</span><strong>${r.date}</strong></div>
@@ -89,7 +85,7 @@ export default function Installments() {
           <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;"><span>المبلغ:</span><strong style="color:#0d5c63;">${r.amount.toLocaleString()} ج.م</strong></div>
           ${r.notes ? `<div style="padding:8px 0;color:#666;font-size:13px;">ملاحظات: ${r.notes}</div>` : ""}
         </div>
-        <div style="text-align:center;padding:12px;border-top:1px solid #eee;font-size:11px;color:#999;">شركة الأثاث المتميز — إيصال إلكتروني</div>
+        <div style="text-align:center;padding:12px;border-top:1px solid #eee;font-size:11px;color:#999;">الامبراطور للأثاث — إيصال إلكتروني</div>
       </div>
     </body></html>`);
     win.document.close(); win.focus(); win.print(); win.close();
@@ -136,15 +132,14 @@ export default function Installments() {
           </Dialog>
         </div>
 
-        <ExportButtons
-          data={receipts as any}
-          headers={[
-            { key: "id", label: "الكود" }, { key: "invoiceId", label: "رقم الفاتورة" },
-            { key: "customer", label: "العميل" }, { key: "amount", label: "المبلغ" },
-            { key: "date", label: "التاريخ" }, { key: "method", label: "طريقة الدفع" },
-          ]}
-          fileName="الأقساط" title="الأقساط"
-        />
+        {/* Search */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="بحث بالكود أو الفاتورة أو العميل..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
+          </div>
+          <ExportButtons data={filteredReceipts as any} headers={[{ key: "id", label: "الكود" },{ key: "invoiceId", label: "رقم الفاتورة" },{ key: "customer", label: "العميل" },{ key: "amount", label: "المبلغ" },{ key: "date", label: "التاريخ" },{ key: "method", label: "طريقة الدفع" }]} fileName="الأقساط" title="الأقساط" />
+        </div>
 
         <Card>
           <CardContent className="p-0">
@@ -162,7 +157,7 @@ export default function Installments() {
                   </tr>
                 </thead>
                 <tbody>
-                  {receipts.map((r) => (
+                  {filteredReceipts.map((r) => (
                     <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="p-3 font-medium text-primary">{r.id}</td>
                       <td className="p-3">{r.invoiceId}</td>
@@ -174,16 +169,21 @@ export default function Installments() {
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة"><Printer className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>
                     </tr>
                   ))}
+                  {filteredReceipts.length === 0 && (
+                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
+
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا القسط؟ سيتم تحديث الفاتورة تلقائياً." />
       </div>
     </AppLayout>
   );

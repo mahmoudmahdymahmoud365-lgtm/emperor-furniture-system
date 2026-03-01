@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useEmployees } from "@/data/hooks";
 
@@ -15,19 +16,18 @@ export default function Employees() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSave = () => {
     if (!form.name) { toast({ title: "خطأ", description: "يرجى إدخال الاسم", variant: "destructive" }); return; }
-    if (editingId) {
-      updateEmployee(editingId, { ...form, active: true });
-    } else {
-      addEmployee({ ...form, active: true });
-    }
+    if (editingId) { updateEmployee(editingId, { ...form, active: true }); } else { addEmployee({ ...form, active: true }); }
     toast({ title: editingId ? "تم التحديث" : "تمت الإضافة" });
-    setForm({ name: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" });
-    setEditingId(null);
-    setOpen(false);
+    setForm({ name: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" }); setEditingId(null); setOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) { deleteEmployee(deleteId); toast({ title: "تم الحذف" }); setDeleteId(null); }
   };
 
   return (
@@ -51,19 +51,7 @@ export default function Employees() {
           </Dialog>
         </div>
 
-        <ExportButtons
-          data={employees as any}
-          headers={[
-            { key: "id", label: "الكود" },
-            { key: "name", label: "الاسم" },
-            { key: "phone", label: "الهاتف" },
-            { key: "branch", label: "الفرع" },
-            { key: "monthlySalary", label: "المرتب الشهري" },
-            { key: "role", label: "الدور" },
-          ]}
-          fileName="الموظفين"
-          title="قائمة الموظفين"
-        />
+        <ExportButtons data={employees as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "الاسم" },{ key: "phone", label: "الهاتف" },{ key: "branch", label: "الفرع" },{ key: "monthlySalary", label: "المرتب الشهري" },{ key: "role", label: "الدور" }]} fileName="الموظفين" title="قائمة الموظفين" />
 
         <Card>
           <CardContent className="p-0">
@@ -92,7 +80,7 @@ export default function Employees() {
                       <td className="p-3">
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => { setForm({ name: e.name, phone: e.phone, branch: e.branch, monthlySalary: e.monthlySalary, role: e.role }); setEditingId(e.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteEmployee(e.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(e.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>
                     </tr>
@@ -102,6 +90,8 @@ export default function Employees() {
             </div>
           </CardContent>
         </Card>
+
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا الموظف؟" />
       </div>
     </AppLayout>
   );
