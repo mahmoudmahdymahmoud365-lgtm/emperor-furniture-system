@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, Users, UserCog, Printer } from "lucide-react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useInvoices, useCustomers, useEmployees, useReceipts } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + (i.qty * i.unitPrice - i.lineDiscount), 0);
@@ -18,6 +18,7 @@ export default function Reports() {
   const { customers } = useCustomers();
   const { employees } = useEmployees();
   const { receipts } = useReceipts();
+  const { settings } = useCompanySettings();
   const [dateFrom, setDateFrom] = useState("2025-06-01");
   const [dateTo, setDateTo] = useState("2025-06-30");
   const commPrintRef = useRef<HTMLDivElement>(null);
@@ -219,6 +220,10 @@ export default function Reports() {
       {/* Hidden print content for commissions */}
       <div className="hidden">
         <div ref={commPrintRef}>
+          <div style={{ textAlign: "center", marginBottom: "16px" }}>
+            {settings.logoUrl && <img src={settings.logoUrl} alt="logo" style={{ height: "40px", margin: "0 auto 8px" }} />}
+            <p style={{ fontSize: "18px", fontWeight: 700, color: "#0d5c63" }}>{settings.name}</p>
+          </div>
           <h1>تقرير العمولات والمرتبات</h1>
           <p className="subtitle">الفترة من {dateFrom} إلى {dateTo}</p>
           <table>
@@ -242,7 +247,7 @@ export default function Reports() {
             </tbody>
           </table>
           <div style={{ marginTop: 30, textAlign: "center", color: "#999", fontSize: 11, borderTop: "1px solid #ddd", paddingTop: 12 }}>
-            تقرير صادر بتاريخ {new Date().toLocaleDateString("ar-EG")} — شركة الأثاث المتميز
+            تقرير صادر بتاريخ {new Date().toLocaleDateString("ar-EG")} — {settings.name}
           </div>
         </div>
       </div>

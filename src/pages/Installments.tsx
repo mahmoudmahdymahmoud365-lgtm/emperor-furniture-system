@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Plus, Edit, Trash2, Printer, Search } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useReceipts, useInvoices } from "@/data/hooks";
+import { useReceipts, useInvoices, useCompanySettings } from "@/data/hooks";
 import type { Receipt, InvoiceItem } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
@@ -18,6 +18,7 @@ const calcTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * 
 export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
   const { invoices } = useInvoices();
+  const { settings } = useCompanySettings();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
@@ -74,7 +75,10 @@ export default function Installments() {
     win.document.write(`<html dir="rtl"><head><title>إيصال ${r.id}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:40px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
       <div style="max-width:500px;margin:0 auto;border:2px solid #0d5c63;border-radius:12px;overflow:hidden;">
         <div style="background:#0d5c63;color:#fff;padding:16px 24px;text-align:center;">
-          <h1 style="font-size:20px;margin:0;">الامبراطور للأثاث — إيصال قسط</h1>
+          ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" style="height:36px;margin:0 auto 8px;display:block;" />` : ""}
+          <h1 style="font-size:20px;margin:0;">${settings.name} — إيصال قسط</h1>
+          <p style="font-size:14px;margin:4px 0 0;">${r.id}</p>
+        </div>
           <p style="font-size:14px;margin:4px 0 0;">${r.id}</p>
         </div>
         <div style="padding:24px;">
@@ -85,7 +89,7 @@ export default function Installments() {
           <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;"><span>المبلغ:</span><strong style="color:#0d5c63;">${r.amount.toLocaleString()} ج.م</strong></div>
           ${r.notes ? `<div style="padding:8px 0;color:#666;font-size:13px;">ملاحظات: ${r.notes}</div>` : ""}
         </div>
-        <div style="text-align:center;padding:12px;border-top:1px solid #eee;font-size:11px;color:#999;">الامبراطور للأثاث — إيصال إلكتروني</div>
+        <div style="text-align:center;padding:12px;border-top:1px solid #eee;font-size:11px;color:#999;">${settings.name} — إيصال إلكتروني</div>
       </div>
     </body></html>`);
     win.document.close(); win.focus(); win.print(); win.close();

@@ -10,10 +10,11 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
-import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
+const STATUSES = ["مسودة", "مؤكدة", "تم التسليم", "مغلقة"];
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + calcLineTotal(item), 0);
@@ -32,37 +33,35 @@ export default function Invoices() {
   const { products, addProduct } = useProducts();
   const { branches } = useBranches();
   const { addReceipt } = useReceipts();
+  const { settings } = useCompanySettings();
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customer, setCustomer] = useState("");
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const [commissionPercent, setCommissionPercent] = useState(0);
   const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Search & filter
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Payment dialog
   const [payOpen, setPayOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payMethod, setPayMethod] = useState("نقدي");
   const [payNotes, setPayNotes] = useState("");
 
-  // New product dialog
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState(0);
   const [newProductItemIdx, setNewProductItemIdx] = useState<number>(0);
 
-  // Suggestion dropdowns
   const [customerFocus, setCustomerFocus] = useState(false);
   const [employeeFocus, setEmployeeFocus] = useState(false);
   const [branchFocus, setBranchFocus] = useState(false);
@@ -82,7 +81,6 @@ export default function Invoices() {
   const activeBranches = branches.filter(b => b.active).map(b => b.name);
   const filteredBranches = activeBranches.filter(n => n.includes(branch));
 
-  // Filtered invoices
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
       const matchSearch = !search || inv.id.includes(search) || inv.customer.includes(search) || inv.employee.includes(search);
@@ -116,7 +114,7 @@ export default function Invoices() {
   };
 
   const resetForm = () => {
-    setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0);
+    setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
     setEditingId(null);
   };
@@ -124,6 +122,7 @@ export default function Invoices() {
   const handleEdit = (inv: Invoice) => {
     setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
+    setDeliveryDate(inv.deliveryDate || "");
     setItems([...inv.items]); setOpen(true);
   };
 
@@ -131,15 +130,20 @@ export default function Invoices() {
     if (deleteId) { deleteInvoice(deleteId); toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح" }); setDeleteId(null); }
   };
 
+  const handleStatusChange = (invId: string, newStatus: string) => {
+    updateInvoice(invId, { status: newStatus });
+    toast({ title: "تم التحديث", description: `تم تغيير حالة الفاتورة إلى "${newStatus}"` });
+  };
+
   const handleSave = () => {
     if (!customer || items.some((i) => !i.productName)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" }); return;
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent });
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], items: [...items], status: "مسودة", paidTotal: 0, commissionPercent });
+      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
@@ -215,6 +219,14 @@ export default function Invoices() {
                 <div className="space-y-1.5"><Label>نسبة العمولة %</Label><Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} dir="ltr" /></div>
               </div>
 
+              {/* Delivery Date */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label>تاريخ التسليم المتوقع</Label>
+                  <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} dir="ltr" />
+                </div>
+              </div>
+
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold">بنود الفاتورة</h3>
@@ -272,18 +284,16 @@ export default function Invoices() {
           </div>
           <select className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">كل الحالات</option>
-            <option value="مسودة">مسودة</option>
-            <option value="مؤكدة">مؤكدة</option>
-            <option value="تم التسليم">تم التسليم</option>
-            <option value="مغلقة">مغلقة</option>
+            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <ExportButtons
             data={filteredInvoices.map((inv) => {
               const total = calcTotal(inv.items);
-              return { id: inv.id, customer: inv.customer, date: inv.date, total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
+              return { id: inv.id, customer: inv.customer, date: inv.date, deliveryDate: inv.deliveryDate || "-", total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
             })}
             headers={[
               { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },
+              { key: "deliveryDate", label: "تاريخ التسليم" },
               { key: "total", label: "الإجمالي" }, { key: "commissionPercent", label: "العمولة %" },
               { key: "paidTotal", label: "المدفوع" }, { key: "remaining", label: "المتبقي" }, { key: "status", label: "الحالة" },
             ]}
@@ -300,6 +310,7 @@ export default function Invoices() {
                     <th className="text-right p-3 font-medium text-muted-foreground">رقم الفاتورة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">العميل</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">التسليم</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الإجمالي</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">العمولة %</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">مبلغ العمولة</th>
@@ -319,13 +330,20 @@ export default function Invoices() {
                         <td className="p-3 font-medium text-primary">{inv.id}</td>
                         <td className="p-3">{inv.customer}</td>
                         <td className="p-3">{inv.date}</td>
+                        <td className="p-3 text-xs">{inv.deliveryDate || "-"}</td>
                         <td className="p-3">{total.toLocaleString()} ج.م</td>
                         <td className="p-3">{inv.commissionPercent}%</td>
                         <td className="p-3 font-semibold" style={{ color: "hsl(30, 90%, 50%)" }}>{commissionAmount.toLocaleString()} ج.م</td>
                         <td className="p-3 text-success">{inv.paidTotal.toLocaleString()} ج.م</td>
                         <td className="p-3 text-destructive">{remaining.toLocaleString()} ج.م</td>
                         <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[inv.status] || ""}`}>{inv.status}</span>
+                          <select
+                            className={`px-2 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${statusColors[inv.status] || ""}`}
+                            value={inv.status}
+                            onChange={(e) => handleStatusChange(inv.id, e.target.value)}
+                          >
+                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         </td>
                         <td className="p-3">
                           <div className="flex gap-1">
@@ -341,7 +359,7 @@ export default function Invoices() {
                     );
                   })}
                   {filteredInvoices.length === 0 && (
-                    <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                    <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
                   )}
                 </tbody>
               </table>
@@ -395,7 +413,7 @@ export default function Invoices() {
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم حذف جميع بياناتها." />
 
         <div className="hidden">
-          {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} />}
+          {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} settings={settings} />}
         </div>
       </div>
     </AppLayout>

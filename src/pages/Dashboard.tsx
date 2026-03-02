@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useInvoices, useCustomers, useReceipts } from "@/data/hooks";
+import { useInvoices, useCustomers, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const { invoices } = useInvoices();
   const { customers } = useCustomers();
   const { receipts } = useReceipts();
+  const { settings } = useCompanySettings();
 
   const totalSales = invoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
@@ -83,7 +84,8 @@ export default function Dashboard() {
     `).join("");
     win.document.write(`<html dir="rtl"><head><title>تقرير العملاء المتأخرين</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:30px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
       <div style="text-align:center;margin-bottom:24px;">
-        <h1 style="font-size:22px;color:#0d5c63;">الامبراطور للأثاث</h1>
+        ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" style="height:50px;margin:0 auto 8px;" />` : ""}
+        <h1 style="font-size:22px;color:#0d5c63;">${settings.name}</h1>
         <h2 style="font-size:16px;color:#666;margin-top:4px;">تقرير العملاء المتأخرين عن الدفع</h2>
         <p style="font-size:12px;color:#999;margin-top:4px;">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")}</p>
       </div>
@@ -131,7 +133,7 @@ export default function Dashboard() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="page-header">لوحة التحكم</h1>
-          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في الامبراطور للأثاث</p>
+          <p className="text-muted-foreground -mt-4 mb-6">مرحباً بك في {settings.name}</p>
         </div>
 
         {/* Overdue Alerts */}

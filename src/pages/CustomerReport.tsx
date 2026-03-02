@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowRight } from "lucide-react";
-import { useCustomers, useInvoices, useReceipts } from "@/data/hooks";
+import { useCustomers, useInvoices, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
@@ -15,6 +15,7 @@ export default function CustomerReport() {
   const { customers } = useCustomers();
   const { invoices } = useInvoices();
   const { receipts } = useReceipts();
+  const { settings } = useCompanySettings();
   const printRef = useRef<HTMLDivElement>(null);
 
   const customer = customers.find((c) => c.id === customerId);
@@ -190,6 +191,10 @@ export default function CustomerReport() {
       {/* Hidden print content */}
       <div className="hidden">
         <div ref={printRef}>
+          <div style={{ textAlign: "center", marginBottom: "16px" }}>
+            {settings.logoUrl && <img src={settings.logoUrl} alt="logo" style={{ height: "40px", margin: "0 auto 8px" }} />}
+            <p style={{ fontSize: "18px", fontWeight: 700, color: "#0d5c63" }}>{settings.name}</p>
+          </div>
           <h1>تقرير العميل: {customer.fullName}</h1>
           <div className="info-grid">
             <div className="info-item"><span className="info-label">الهاتف: </span>{customer.phone}</div>
@@ -241,7 +246,7 @@ export default function CustomerReport() {
           </table>
 
           <div style={{ marginTop: 30, textAlign: "center", color: "#999", fontSize: 11, borderTop: "1px solid #ddd", paddingTop: 12 }}>
-            تقرير صادر بتاريخ {new Date().toLocaleDateString("ar-EG")} — شركة الأثاث المتميز
+            تقرير صادر بتاريخ {new Date().toLocaleDateString("ar-EG")} — {settings.name}
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import type { CompanySettings } from "@/data/types";
 
 interface InvoiceItem {
   productName: string;
@@ -13,6 +14,7 @@ interface Invoice {
   branch: string;
   employee: string;
   date: string;
+  deliveryDate?: string;
   items: InvoiceItem[];
   status: string;
   paidTotal: number;
@@ -23,9 +25,10 @@ const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + ca
 
 interface InvoicePrintProps {
   invoice: Invoice;
+  settings: CompanySettings;
 }
 
-const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice }, ref) => {
+const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, settings }, ref) => {
   const total = calcTotal(invoice.items);
   const remaining = total - invoice.paidTotal;
 
@@ -33,15 +36,18 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice },
     <div ref={ref} className="print-invoice" dir="rtl" style={{ fontFamily: "Cairo, sans-serif", padding: "40px", maxWidth: "800px", margin: "0 auto", color: "#1a1a1a" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #0d5c63", paddingBottom: "20px", marginBottom: "30px" }}>
-        <div>
-          <h1 style={{ fontSize: "28px", fontWeight: "800", color: "#0d5c63", margin: 0 }}>شركة الأثاث المتميز</h1>
-          <p style={{ color: "#666", margin: "4px 0 0", fontSize: "14px" }}>للأثاث والمفروشات الحديثة</p>
-          <p style={{ color: "#888", margin: "2px 0 0", fontSize: "12px" }}>هاتف: 01000000000 | البريد: info@furniture.com</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {settings.logoUrl && <img src={settings.logoUrl} alt="logo" style={{ height: "50px", width: "50px", objectFit: "contain", borderRadius: "8px" }} />}
+          <div>
+            <h1 style={{ fontSize: "28px", fontWeight: "800", color: "#0d5c63", margin: 0 }}>{settings.name}</h1>
+            {settings.address && <p style={{ color: "#666", margin: "4px 0 0", fontSize: "14px" }}>{settings.address}</p>}
+            <p style={{ color: "#888", margin: "2px 0 0", fontSize: "12px" }}>
+              {settings.phone && `هاتف: ${settings.phone}`}{settings.phone && settings.email && " | "}{settings.email && `البريد: ${settings.email}`}
+            </p>
+          </div>
         </div>
         <div style={{ textAlign: "left" }}>
-          <div style={{ background: "#0d5c63", color: "#fff", padding: "8px 20px", borderRadius: "8px", fontSize: "14px", fontWeight: "700" }}>
-            فاتورة مبيعات
-          </div>
+          <div style={{ background: "#0d5c63", color: "#fff", padding: "8px 20px", borderRadius: "8px", fontSize: "14px", fontWeight: "700" }}>فاتورة مبيعات</div>
           <p style={{ fontSize: "22px", fontWeight: "800", color: "#0d5c63", margin: "8px 0 0" }}>{invoice.id}</p>
         </div>
       </div>
@@ -56,6 +62,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice },
         <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", border: "1px solid #e9ecef" }}>
           <h3 style={{ fontSize: "13px", color: "#888", margin: "0 0 8px", fontWeight: "600" }}>بيانات الفاتورة</h3>
           <p style={{ fontSize: "14px", margin: "0 0 4px" }}>التاريخ: <strong>{invoice.date}</strong></p>
+          {invoice.deliveryDate && <p style={{ fontSize: "14px", margin: "0 0 4px" }}>تاريخ التسليم: <strong>{invoice.deliveryDate}</strong></p>}
           <p style={{ fontSize: "14px", margin: "0 0 4px" }}>الموظف: <strong>{invoice.employee || "—"}</strong></p>
           <p style={{ fontSize: "14px", margin: 0 }}>الحالة: <strong>{invoice.status}</strong></p>
         </div>
@@ -107,7 +114,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice },
 
       {/* Footer */}
       <div style={{ marginTop: "40px", paddingTop: "16px", borderTop: "2px solid #e9ecef", textAlign: "center" }}>
-        <p style={{ fontSize: "12px", color: "#999", margin: 0 }}>شكراً لتعاملكم معنا — شركة الأثاث المتميز</p>
+        <p style={{ fontSize: "12px", color: "#999", margin: 0 }}>شكراً لتعاملكم معنا — {settings.name}</p>
         <p style={{ fontSize: "11px", color: "#bbb", margin: "4px 0 0" }}>هذه الفاتورة صادرة إلكترونياً ولا تحتاج إلى توقيع</p>
       </div>
     </div>

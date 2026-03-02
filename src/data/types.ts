@@ -36,10 +36,19 @@ export interface Invoice {
   branch: string;
   employee: string;
   date: string;
+  deliveryDate: string;
   items: InvoiceItem[];
   status: string;
   paidTotal: number;
   commissionPercent: number;
+}
+
+export interface CompanySettings {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  logoUrl: string;
 }
 
 export interface Employee {
