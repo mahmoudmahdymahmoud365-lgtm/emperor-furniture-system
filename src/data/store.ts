@@ -4,7 +4,43 @@
 // All functions are synchronous now; make them async when switching to SQLite.
 // ==============================
 
-import type { Customer, Product, Invoice, Employee, Branch, Receipt } from "./types";
+import type { Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings } from "./types";
+
+// ---- Company Settings (persisted in localStorage) ----
+const DEFAULT_SETTINGS: CompanySettings = {
+  name: "الامبراطور للأثاث",
+  address: "",
+  phone: "",
+  email: "",
+  logoUrl: "/logo.png",
+};
+
+function loadSettings(): CompanySettings {
+  try {
+    const saved = localStorage.getItem("companySettings");
+    if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+  } catch {}
+  return { ...DEFAULT_SETTINGS };
+}
+
+let companySettings: CompanySettings = loadSettings();
+
+export function getCompanySettings(): CompanySettings { return companySettings; }
+export function updateCompanySettings(data: Partial<CompanySettings>) {
+  companySettings = { ...companySettings, ...data };
+  localStorage.setItem("companySettings", JSON.stringify(companySettings));
+  notify();
+}
+
+// ---- Auth (simple localStorage) ----
+const AUTH_KEY = "isLoggedIn";
+export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
+export function login(email: string, password: string): boolean {
+  // Simple auth - accept any non-empty credentials
+  if (email && password) { localStorage.setItem(AUTH_KEY, "true"); return true; }
+  return false;
+}
+export function logout() { localStorage.removeItem(AUTH_KEY); }
 
 // ---- Initial seed data ----
 
@@ -25,13 +61,13 @@ const products: Product[] = [
 const invoices: Invoice[] = [
   {
     id: "INV-001", customer: "أحمد محمد علي", branch: "القاهرة", employee: "محمد سعيد",
-    date: "2025-06-15",
+    date: "2025-06-15", deliveryDate: "",
     items: [{ productName: "غرفة نوم كاملة", qty: 1, unitPrice: 25000, lineDiscount: 1000 }],
     status: "مؤكدة", paidTotal: 15000, commissionPercent: 3,
   },
   {
     id: "INV-002", customer: "سارة أحمد حسن", branch: "الجيزة", employee: "علي حسن",
-    date: "2025-06-16",
+    date: "2025-06-16", deliveryDate: "",
     items: [
       { productName: "طقم أنتريه مودرن", qty: 1, unitPrice: 18000, lineDiscount: 0 },
       { productName: "دولاب ملابس", qty: 2, unitPrice: 8000, lineDiscount: 500 },

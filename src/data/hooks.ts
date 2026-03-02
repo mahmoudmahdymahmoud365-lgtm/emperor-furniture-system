@@ -5,6 +5,15 @@ function useStoreData<T>(getter: () => T): T {
   return useSyncExternalStore(store.subscribe, getter, getter);
 }
 
+// ---- Company Settings ----
+export function useCompanySettings() {
+  const settings = useStoreData(store.getCompanySettings);
+  return {
+    settings,
+    updateSettings: useCallback(store.updateCompanySettings, []),
+  };
+}
+
 // ---- Customers ----
 export function useCustomers() {
   const customers = useStoreData(store.getCustomers);
