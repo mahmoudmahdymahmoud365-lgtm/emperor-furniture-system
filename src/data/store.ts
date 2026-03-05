@@ -7,8 +7,8 @@
 import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, UserRole, RolePermissions,
-  DEFAULT_PERMISSIONS,
 } from "./types";
+import { DEFAULT_PERMISSIONS } from "./types";
 
 // ---- Company Settings (persisted in localStorage) ----
 const DEFAULT_SETTINGS: CompanySettings = {
