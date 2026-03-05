@@ -205,7 +205,7 @@ export default function Reports() {
                         <td className="p-3">{c.name}</td>
                         <td className="p-3">{c.monthlySalary.toLocaleString()} ج.م</td>
                         <td className="p-3">{c.totalSales.toLocaleString()} ج.م</td>
-                        <td className="p-3 text-accent-foreground">{c.commissionAmount.toLocaleString()} ج.م</td>
+                        <td className="p-3 text-orange-500 font-semibold">{c.commissionAmount.toLocaleString()} ج.م</td>
                         <td className="p-3 font-bold text-primary">{c.totalDue.toLocaleString()} ج.م</td>
                       </tr>
                     ))}
