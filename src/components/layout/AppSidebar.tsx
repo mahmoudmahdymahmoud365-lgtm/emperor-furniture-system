@@ -3,20 +3,23 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, FileText, CreditCard, Building2,
   UserCog, BarChart3, ChevronRight, Menu, X, LogOut, Settings,
+  ScrollText, Shield,
 } from "lucide-react";
-import { logout } from "@/data/store";
+import { logout, getUserPermissions } from "@/data/store";
 import { useCompanySettings } from "@/data/hooks";
 
-const menuItems = [
-  { title: "لوحة التحكم", icon: LayoutDashboard, path: "/" },
-  { title: "العملاء", icon: Users, path: "/customers" },
-  { title: "المنتجات", icon: Package, path: "/products" },
-  { title: "الفواتير", icon: FileText, path: "/invoices" },
-  { title: "الأقساط", icon: CreditCard, path: "/installments" },
-  { title: "الموظفين", icon: UserCog, path: "/employees" },
-  { title: "الفروع", icon: Building2, path: "/branches" },
-  { title: "التقارير", icon: BarChart3, path: "/reports" },
-  { title: "الإعدادات", icon: Settings, path: "/settings" },
+const allMenuItems = [
+  { title: "لوحة التحكم", icon: LayoutDashboard, path: "/", perm: "dashboard" },
+  { title: "العملاء", icon: Users, path: "/customers", perm: "customers" },
+  { title: "المنتجات", icon: Package, path: "/products", perm: "products" },
+  { title: "الفواتير", icon: FileText, path: "/invoices", perm: "invoices" },
+  { title: "الأقساط", icon: CreditCard, path: "/installments", perm: "installments" },
+  { title: "الموظفين", icon: UserCog, path: "/employees", perm: "employees" },
+  { title: "الفروع", icon: Building2, path: "/branches", perm: "branches" },
+  { title: "التقارير", icon: BarChart3, path: "/reports", perm: "reports" },
+  { title: "سجل العمليات", icon: ScrollText, path: "/audit-log", perm: "auditLog" },
+  { title: "المستخدمين", icon: Shield, path: "/users", perm: "users" },
+  { title: "الإعدادات", icon: Settings, path: "/settings", perm: "settings" },
 ];
 
 export function AppSidebar() {
@@ -25,6 +28,12 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { settings } = useCompanySettings();
+  const permissions = getUserPermissions();
+
+  const menuItems = allMenuItems.filter((item) => {
+    const perm = item.perm as keyof typeof permissions;
+    return permissions[perm] !== false;
+  });
 
   const handleLogout = () => {
     logout();

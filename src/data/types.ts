@@ -78,3 +78,73 @@ export interface Receipt {
   method: string;
   notes: string;
 }
+
+// ==============================
+// Audit Log
+// ==============================
+export type AuditAction = "create" | "update" | "delete";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings";
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: AuditAction;
+  entity: AuditEntity;
+  entityId: string;
+  entityName: string;
+  details: string;
+}
+
+// ==============================
+// User Roles & Permissions
+// ==============================
+export type UserRole = "admin" | "sales" | "accountant";
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  active: boolean;
+}
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "مدير النظام",
+  sales: "مبيعات",
+  accountant: "محاسب",
+};
+
+export interface RolePermissions {
+  dashboard: boolean;
+  customers: boolean;
+  products: boolean;
+  invoices: boolean;
+  installments: boolean;
+  employees: boolean;
+  branches: boolean;
+  reports: boolean;
+  settings: boolean;
+  auditLog: boolean;
+  users: boolean;
+  backup: boolean;
+}
+
+export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
+  admin: {
+    dashboard: true, customers: true, products: true, invoices: true,
+    installments: true, employees: true, branches: true, reports: true,
+    settings: true, auditLog: true, users: true, backup: true,
+  },
+  sales: {
+    dashboard: true, customers: true, products: true, invoices: true,
+    installments: true, employees: false, branches: false, reports: false,
+    settings: false, auditLog: false, users: false, backup: false,
+  },
+  accountant: {
+    dashboard: true, customers: true, products: true, invoices: true,
+    installments: true, employees: true, branches: true, reports: true,
+    settings: false, auditLog: true, users: false, backup: false,
+  },
+};
