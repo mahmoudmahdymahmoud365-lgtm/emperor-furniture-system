@@ -99,7 +99,7 @@ export default function Installments() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="page-header mb-0">الأقساط</h1>
+          <h1 className="page-header mb-0">الأقساط/المدفوعات</h1>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل قسط</Button></DialogTrigger>
             <DialogContent className="max-w-md">
