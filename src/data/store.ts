@@ -65,8 +65,7 @@ let currentUser: UserAccount | null = null;
 export function getUsers(): UserAccount[] { return [...users]; }
 export function getCurrentUser(): UserAccount | null { return currentUser; }
 
-export function getUserPermissions(): import("./types").RolePermissions {
-  const { DEFAULT_PERMISSIONS } = require("./types");
+export function getUserPermissions(): RolePermissions {
   if (!currentUser) return DEFAULT_PERMISSIONS.sales;
   return DEFAULT_PERMISSIONS[currentUser.role] || DEFAULT_PERMISSIONS.sales;
 }
