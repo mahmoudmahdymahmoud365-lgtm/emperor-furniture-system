@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getCompanySettings } from "@/data/store";
 
 interface ExportButtonsProps {
   data: Record<string, unknown>[];
@@ -18,7 +19,6 @@ export function ExportButtons({ data, headers, fileName, title }: ExportButtonsP
       Object.fromEntries(headers.map((h) => [h.label, row[h.key] ?? ""]))
     );
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Set RTL
     ws["!cols"] = headers.map(() => ({ wch: 20 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, title);
@@ -26,47 +26,60 @@ export function ExportButtons({ data, headers, fileName, title }: ExportButtonsP
     toast({ title: "تم التصدير", description: `تم تصدير ${fileName}.xlsx بنجاح` });
   };
 
-  const exportToPDF = async () => {
-    const { default: jsPDF } = await import("jspdf");
-    await import("jspdf-autotable");
+  const exportToPDF = () => {
+    const settings = getCompanySettings();
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast({ title: "خطأ", description: "لم يتم فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.", variant: "destructive" });
+      return;
+    }
 
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const tableHeaders = headers.map((h) => `<th style="padding:10px 14px;text-align:right;background:#0d5c63;color:#fff;font-weight:600;font-size:13px;border:1px solid #0a4a50;">${h.label}</th>`).join("");
+    const tableRows = data.map((row, i) => {
+      const cells = headers.map((h) => `<td style="padding:10px 14px;border:1px solid #ddd;font-size:13px;">${row[h.key] ?? ""}</td>`).join("");
+      return `<tr style="background:${i % 2 === 0 ? '#fff' : '#f8f9fa'}">${cells}</tr>`;
+    }).join("");
 
-    // Use a built-in font (no Arabic shaping, but functional)
-    doc.setFont("helvetica");
-    doc.setFontSize(16);
-    doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(new Date().toLocaleDateString("ar-EG"), doc.internal.pageSize.getWidth() / 2, 22, { align: "center" });
-
-    const tableHeaders = headers.map((h) => h.label).reverse();
-    const tableRows = data.map((row) =>
-      headers.map((h) => String(row[h.key] ?? "")).reverse()
-    );
-
-    (doc as any).autoTable({
-      head: [tableHeaders],
-      body: tableRows,
-      startY: 28,
-      styles: {
-        font: "helvetica",
-        fontSize: 9,
-        cellPadding: 3,
-        halign: "right",
-      },
-      headStyles: {
-        fillColor: [30, 70, 50],
-        textColor: 255,
-        halign: "right",
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      margin: { top: 28 },
-    });
-
-    doc.save(`${fileName}.pdf`);
-    toast({ title: "تم التصدير", description: `تم تصدير ${fileName}.pdf بنجاح` });
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; padding: 30px; color: #1a1a1a; }
+    @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #0d5c63; padding-bottom: 16px; }
+    .header img { height: 50px; margin-bottom: 8px; }
+    .header h1 { font-size: 22px; color: #0d5c63; margin: 4px 0; }
+    .header h2 { font-size: 16px; color: #333; font-weight: 600; }
+    .header .info { font-size: 11px; color: #666; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    .footer { text-align: center; margin-top: 24px; padding-top: 12px; border-top: 1px solid #ddd; color: #999; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" onerror="this.style.display='none'" />` : ""}
+    <h1>${settings.name}</h1>
+    ${settings.address ? `<div class="info">${settings.address} ${settings.phone ? `| ${settings.phone}` : ""}</div>` : ""}
+    <h2>${title}</h2>
+    <div class="info">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")} — ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</div>
+  </div>
+  <table>
+    <thead><tr>${tableHeaders}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <div class="footer">
+    تم إنشاء هذا التقرير بواسطة ${settings.name} — ${new Date().toLocaleDateString("ar-EG")}
+  </div>
+</body>
+</html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+    toast({ title: "تم فتح التقرير", description: "يمكنك طباعة التقرير أو حفظه كـ PDF من نافذة الطباعة" });
   };
 
   return (

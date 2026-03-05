@@ -1,21 +1,54 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import { Settings as SettingsIcon, Save, Download, Upload, Database, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCompanySettings } from "@/data/hooks";
+import { useCompanySettings, useUsers } from "@/data/hooks";
+import { exportBackup, importBackup } from "@/data/store";
 
 export default function Settings() {
   const { settings, updateSettings } = useCompanySettings();
+  const { permissions } = useUsers();
   const { toast } = useToast();
   const [form, setForm] = useState({ ...settings });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     updateSettings(form);
     toast({ title: "تم الحفظ", description: "تم تحديث إعدادات الشركة بنجاح" });
+  };
+
+  const handleExportBackup = () => {
+    const json = exportBackup();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "تم التصدير", description: "تم تصدير النسخة الاحتياطية بنجاح" });
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      if (importBackup(result)) {
+        setForm({ ...settings });
+        toast({ title: "تم الاستعادة", description: "تم استعادة النسخة الاحتياطية بنجاح. يرجى إعادة تحميل الصفحة." });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -64,6 +97,41 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Backup Section */}
+        {permissions.backup && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                النسخ الاحتياطي واستعادة البيانات
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                يمكنك تصدير جميع بيانات النظام كنسخة احتياطية (JSON) أو استعادتها من ملف سابق.
+                في وضع Electron، يتم النسخ مباشرة من ملف SQLite.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={handleExportBackup}>
+                  <Download className="h-4 w-4 ml-2" />
+                  تصدير نسخة احتياطية
+                </Button>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-4 w-4 ml-2" />
+                  استعادة من ملف
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleImportBackup}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );

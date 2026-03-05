@@ -19,7 +19,7 @@ export default function Login() {
     if (login(email, password)) {
       navigate("/");
     } else {
-      toast({ title: "خطأ", description: "يرجى إدخال البريد وكلمة المرور", variant: "destructive" });
+      toast({ title: "خطأ", description: "البريد الإلكتروني أو كلمة المرور غير صحيحة", variant: "destructive" });
     }
   };
 
@@ -39,7 +39,7 @@ export default function Login() {
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <div className="relative">
                 <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pr-10" dir="ltr" />
+                <Input id="email" type="email" placeholder="admin@emperor.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pr-10" dir="ltr" />
               </div>
             </div>
             <div className="space-y-2">
@@ -51,6 +51,12 @@ export default function Login() {
             </div>
             <Button type="submit" className="w-full">تسجيل الدخول</Button>
           </form>
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+            <p className="font-semibold mb-1">حسابات تجريبية:</p>
+            <p>مدير: admin@emperor.com / admin123</p>
+            <p>مبيعات: sales@emperor.com / sales123</p>
+            <p>محاسب: accountant@emperor.com / acc123</p>
+          </div>
         </CardContent>
       </Card>
     </div>

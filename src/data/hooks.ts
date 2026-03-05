@@ -80,3 +80,25 @@ export function useReceipts() {
     deleteReceipt: useCallback(store.deleteReceipt, []),
   };
 }
+
+// ---- Audit Log ----
+export function useAuditLog() {
+  const log = useStoreData(store.getAuditLog);
+  return {
+    log,
+    clearAuditLog: useCallback(store.clearAuditLog, []),
+  };
+}
+
+// ---- Users ----
+export function useUsers() {
+  const users = useStoreData(store.getUsers);
+  return {
+    users,
+    currentUser: store.getCurrentUser(),
+    permissions: store.getUserPermissions(),
+    addUser: useCallback(store.addUser, []),
+    updateUser: useCallback(store.updateUser, []),
+    deleteUser: useCallback(store.deleteUser, []),
+  };
+}

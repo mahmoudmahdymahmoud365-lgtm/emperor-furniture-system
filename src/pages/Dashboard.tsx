@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   TrendingUp, Users, FileText, DollarSign, AlertTriangle, Printer, Phone,
-  CalendarDays, BarChart3, ArrowUpRight, ArrowDownRight, Package,
+  CalendarDays, BarChart3, ArrowUpRight, ArrowDownRight, Package, Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,12 +39,15 @@ function getDayLabel(dateStr: string) {
   return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
+type SalesPeriod = "daily" | "weekly" | "monthly" | "yearly";
+
 export default function Dashboard() {
   const { invoices } = useInvoices();
   const { customers } = useCustomers();
   const { receipts } = useReceipts();
   const { settings } = useCompanySettings();
-  const [salesPeriod, setSalesPeriod] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("monthly");
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const totalSales = invoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
@@ -58,7 +61,6 @@ export default function Dashboard() {
     .reduce((s, inv) => s + calcTotal(inv.items), 0);
   const todayInvoices = invoices.filter((inv) => inv.date === today).length;
 
-  // Weekly sales (last 7 days)
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weekAgoStr = formatDate(weekAgo);
@@ -66,7 +68,6 @@ export default function Dashboard() {
     .filter((inv) => inv.date >= weekAgoStr)
     .reduce((s, inv) => s + calcTotal(inv.items), 0);
 
-  // Sales chart data based on period
   const salesChartData = useMemo(() => {
     if (salesPeriod === "daily") {
       const dayMap = new Map<string, number>();
@@ -107,6 +108,16 @@ export default function Dashboard() {
       });
       return weeks.map((w) => ({ label: w.label, sales: w.sales }));
     }
+    if (salesPeriod === "yearly") {
+      const yearMap = new Map<string, number>();
+      invoices.forEach((inv) => {
+        const y = inv.date.substring(0, 4);
+        yearMap.set(y, (yearMap.get(y) || 0) + calcTotal(inv.items));
+      });
+      return Array.from(yearMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([year, sales]) => ({ label: year, sales }));
+    }
     // monthly
     const monthMap = new Map<string, number>();
     invoices.forEach((inv) => {
@@ -118,7 +129,6 @@ export default function Dashboard() {
       .map(([month, sales]) => ({ label: month, sales }));
   }, [invoices, salesPeriod]);
 
-  // Payments over time (area chart)
   const paymentsData = useMemo(() => {
     const monthMap = new Map<string, { paid: number; pending: number }>();
     invoices.forEach((inv) => {
@@ -134,7 +144,6 @@ export default function Dashboard() {
       .map(([month, data]) => ({ month, ...data }));
   }, [invoices]);
 
-  // Top products
   const topProducts = useMemo(() => {
     const productMap = new Map<string, number>();
     invoices.forEach((inv) =>
@@ -151,7 +160,6 @@ export default function Dashboard() {
       .map(([name, value]) => ({ name, value }));
   }, [invoices]);
 
-  // Branch performance
   const branchData = useMemo(() => {
     const branchMap = new Map<string, number>();
     invoices.forEach((inv) => {
@@ -160,7 +168,6 @@ export default function Dashboard() {
     return Array.from(branchMap.entries()).map(([name, value]) => ({ name, value }));
   }, [invoices]);
 
-  // Overdue customers
   const overdueCustomers = useMemo(() => {
     const customerBalances = new Map<string, { balance: number; lastPayment: string | null; invoiceIds: string[]; phone: string }>();
     invoices.forEach((inv) => {
@@ -194,6 +201,115 @@ export default function Dashboard() {
     return overdue;
   }, [invoices, customers, receipts]);
 
+  const periodLabels: Record<SalesPeriod, string> = {
+    daily: "اليومي",
+    weekly: "الأسبوعي",
+    monthly: "الشهري",
+    yearly: "السنوي",
+  };
+
+  const handleExportDashboardPDF = () => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    const statsHtml = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+        <div style="background:#f0fdf4;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">مبيعات اليوم</div>
+          <div style="font-size:18px;font-weight:800;color:#0d5c63;">${todaySales.toLocaleString()} ج.م</div>
+        </div>
+        <div style="background:#f0f9ff;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">مبيعات الأسبوع</div>
+          <div style="font-size:18px;font-weight:800;color:#0d5c63;">${weeklySales.toLocaleString()} ج.م</div>
+        </div>
+        <div style="background:#fefce8;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">إجمالي المبيعات</div>
+          <div style="font-size:18px;font-weight:800;color:#0d5c63;">${totalSales.toLocaleString()} ج.م</div>
+        </div>
+        <div style="background:#f0fdf4;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">المحصل</div>
+          <div style="font-size:18px;font-weight:800;color:#166534;">${totalPaid.toLocaleString()} ج.م</div>
+          <div style="font-size:10px;color:#666;">${collectionRate}% نسبة التحصيل</div>
+        </div>
+        <div style="background:#fef2f2;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">الأرصدة المعلقة</div>
+          <div style="font-size:18px;font-weight:800;color:#dc2626;">${totalPending.toLocaleString()} ج.م</div>
+        </div>
+        <div style="background:#f0f9ff;padding:14px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#666;">عدد العملاء</div>
+          <div style="font-size:18px;font-weight:800;color:#0d5c63;">${customers.length}</div>
+        </div>
+      </div>`;
+
+    const salesRows = salesChartData.map((d) =>
+      `<tr><td style="padding:8px;border:1px solid #ddd;">${d.label}</td><td style="padding:8px;border:1px solid #ddd;font-weight:600;">${d.sales.toLocaleString()} ج.م</td></tr>`
+    ).join("");
+
+    const productRows = topProducts.map((p, i) =>
+      `<tr><td style="padding:8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:8px;border:1px solid #ddd;">${p.name}</td><td style="padding:8px;border:1px solid #ddd;font-weight:600;">${p.value.toLocaleString()} ج.م</td></tr>`
+    ).join("");
+
+    const branchRows = branchData.map((b) =>
+      `<tr><td style="padding:8px;border:1px solid #ddd;">${b.name}</td><td style="padding:8px;border:1px solid #ddd;font-weight:600;">${b.value.toLocaleString()} ج.م</td></tr>`
+    ).join("");
+
+    const recentInvRows = invoices.slice(-10).reverse().map((inv) => {
+      const total = calcTotal(inv.items);
+      return `<tr>
+        <td style="padding:8px;border:1px solid #ddd;">${inv.id}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${inv.customer}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${inv.date}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${total.toLocaleString()} ج.م</td>
+        <td style="padding:8px;border:1px solid #ddd;">${inv.paidTotal.toLocaleString()} ج.م</td>
+        <td style="padding:8px;border:1px solid #ddd;">${inv.status}</td>
+      </tr>`;
+    }).join("");
+
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير لوحة التحكم - ${periodLabels[salesPeriod]}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Cairo',sans-serif;padding:30px;color:#1a1a1a}
+  @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+  th{background:#0d5c63;color:#fff;padding:10px;text-align:right;font-weight:600;border:1px solid #0a4a50}
+  h3{color:#0d5c63;font-size:16px;margin:20px 0 8px;border-bottom:2px solid #0d5c63;padding-bottom:4px}
+  .header{text-align:center;margin-bottom:24px;border-bottom:2px solid #0d5c63;padding-bottom:16px}
+  .header img{height:50px;margin-bottom:8px}
+  .header h1{font-size:22px;color:#0d5c63}
+  .header h2{font-size:16px;color:#333;font-weight:600}
+  .footer{text-align:center;margin-top:24px;padding-top:12px;border-top:1px solid #ddd;color:#999;font-size:11px}
+</style></head><body>
+  <div class="header">
+    ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" onerror="this.style.display='none'" />` : ""}
+    <h1>${settings.name}</h1>
+    ${settings.address ? `<div style="font-size:11px;color:#666;">${settings.address} ${settings.phone ? `| ${settings.phone}` : ""}</div>` : ""}
+    <h2>تقرير لوحة التحكم — التحليل ${periodLabels[salesPeriod]}</h2>
+    <div style="font-size:11px;color:#999;margin-top:4px;">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")} — ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</div>
+  </div>
+
+  ${statsHtml}
+
+  <h3>تحليل المبيعات (${periodLabels[salesPeriod]})</h3>
+  <table><thead><tr><th>الفترة</th><th>المبيعات</th></tr></thead><tbody>${salesRows}</tbody></table>
+
+  <h3>أعلى 5 منتجات مبيعاً</h3>
+  <table><thead><tr><th>#</th><th>المنتج</th><th>الإيرادات</th></tr></thead><tbody>${productRows}</tbody></table>
+
+  <h3>أداء الفروع</h3>
+  <table><thead><tr><th>الفرع</th><th>المبيعات</th></tr></thead><tbody>${branchRows}</tbody></table>
+
+  <h3>آخر الفواتير</h3>
+  <table><thead><tr><th>رقم</th><th>العميل</th><th>التاريخ</th><th>المبلغ</th><th>المدفوع</th><th>الحالة</th></tr></thead><tbody>${recentInvRows}</tbody></table>
+
+  <div class="footer">تقرير صادر بواسطة ${settings.name} — ${new Date().toLocaleDateString("ar-EG")}</div>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
   const handlePrintOverdue = () => {
     const win = window.open("", "_blank");
     if (!win) return;
@@ -211,10 +327,11 @@ export default function Dashboard() {
       )
       .join("");
     win.document.write(`<html dir="rtl"><head><title>تقرير العملاء المتأخرين</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:30px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
-      <div style="text-align:center;margin-bottom:24px;">
-        ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" style="height:50px;margin:0 auto 8px;" />` : ""}
+      <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #0d5c63;padding-bottom:16px;">
+        ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" style="height:50px;margin:0 auto 8px;" onerror="this.style.display='none'" />` : ""}
         <h1 style="font-size:22px;color:#0d5c63;">${settings.name}</h1>
-        <h2 style="font-size:16px;color:#666;margin-top:4px;">تقرير العملاء المتأخرين عن الدفع</h2>
+        ${settings.address ? `<div style="font-size:11px;color:#666;">${settings.address} ${settings.phone ? `| ${settings.phone}` : ""}</div>` : ""}
+        <h2 style="font-size:16px;color:#333;margin-top:4px;">تقرير العملاء المتأخرين عن الدفع</h2>
         <p style="font-size:12px;color:#999;margin-top:4px;">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")}</p>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
@@ -232,11 +349,13 @@ export default function Dashboard() {
           <td style="padding:10px;color:#dc2626;">${overdueCustomers.reduce((s, c) => s + c.balance, 0).toLocaleString()} ج.م</td>
         </tr></tfoot>
       </table>
+      <div style="text-align:center;margin-top:24px;padding-top:12px;border-top:1px solid #ddd;color:#999;font-size:11px;">
+        تقرير صادر بواسطة ${settings.name} — ${new Date().toLocaleDateString("ar-EG")}
+      </div>
     </body></html>`);
     win.document.close();
     win.focus();
-    win.print();
-    win.close();
+    setTimeout(() => win.print(), 500);
   };
 
   const stats = [
@@ -292,12 +411,18 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="page-header">لوحة التحكم</h1>
-          <p className="text-muted-foreground -mt-4 mb-6">
-            مرحباً بك في {settings.name}
-          </p>
+      <div className="space-y-6 animate-fade-in" ref={dashboardRef}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="page-header">لوحة التحكم</h1>
+            <p className="text-muted-foreground -mt-4 mb-6">
+              مرحباً بك في {settings.name}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExportDashboardPDF}>
+            <Download className="h-4 w-4 ml-1" />
+            تصدير PDF
+          </Button>
         </div>
 
         {/* Overdue Alerts */}
@@ -376,12 +501,13 @@ export default function Dashboard() {
                 <CardTitle className="text-base">تحليل المبيعات</CardTitle>
                 <Tabs
                   value={salesPeriod}
-                  onValueChange={(v) => setSalesPeriod(v as "daily" | "weekly" | "monthly")}
+                  onValueChange={(v) => setSalesPeriod(v as SalesPeriod)}
                 >
                   <TabsList className="h-8">
                     <TabsTrigger value="daily" className="text-xs px-3 h-7">يومي</TabsTrigger>
                     <TabsTrigger value="weekly" className="text-xs px-3 h-7">أسبوعي</TabsTrigger>
                     <TabsTrigger value="monthly" className="text-xs px-3 h-7">شهري</TabsTrigger>
+                    <TabsTrigger value="yearly" className="text-xs px-3 h-7">سنوي</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
