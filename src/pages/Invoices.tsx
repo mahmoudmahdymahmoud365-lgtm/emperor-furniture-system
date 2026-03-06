@@ -59,7 +59,10 @@ export default function Invoices() {
 
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProductName, setNewProductName] = useState("");
+  const [newProductCategory, setNewProductCategory] = useState("");
   const [newProductPrice, setNewProductPrice] = useState(0);
+  const [newProductUnit, setNewProductUnit] = useState("قطعة");
+  const [newProductNotes, setNewProductNotes] = useState("");
   const [newProductItemIdx, setNewProductItemIdx] = useState<number>(0);
 
   const [customerFocus, setCustomerFocus] = useState(false);
