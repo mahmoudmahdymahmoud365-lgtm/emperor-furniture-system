@@ -279,6 +279,7 @@ function rebuildSnapshots() {
   branchesSnap = [...branches];
   receiptsSnap = [...receipts];
   auditLogSnap = [...auditLog];
+  usersSnap = [...users];
 }
 
 function notify() {
