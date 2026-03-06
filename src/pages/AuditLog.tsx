@@ -22,6 +22,7 @@ const ENTITY_LABELS: Record<AuditEntity, string> = {
   branch: "فرع",
   receipt: "قسط",
   settings: "إعدادات",
+  offer: "عرض",
 };
 
 export default function AuditLog() {

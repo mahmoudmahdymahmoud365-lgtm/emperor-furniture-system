@@ -14,7 +14,7 @@ import { useEmployees } from "@/data/hooks";
 export default function Employees() {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" });
+  const [form, setForm] = useState({ name: "", nationalId: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();

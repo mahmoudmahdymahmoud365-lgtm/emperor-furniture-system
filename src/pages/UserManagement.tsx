@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Shield, Plus, Pencil, Trash2, User, Check, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2 } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
-import type { UserAccount, UserRole } from "@/data/types";
-import { ROLE_LABELS, DEFAULT_PERMISSIONS } from "@/data/types";
+import type { UserAccount, UserRole, RolePermissions } from "@/data/types";
+import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS } from "@/data/types";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 
 const emptyForm = { name: "", email: "", password: "", role: "sales" as UserRole, active: true };
@@ -21,12 +21,23 @@ export default function UserManagement() {
   const [editing, setEditing] = useState<UserAccount | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [permUser, setPermUser] = useState<UserAccount | null>(null);
+  const [customPerms, setCustomPerms] = useState<RolePermissions>({ ...DEFAULT_PERMISSIONS.sales });
 
   const openAdd = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: UserAccount) => {
     setEditing(u);
     setForm({ name: u.name, email: u.email, password: u.password, role: u.role, active: u.active });
     setDialogOpen(true);
+  };
+
+  const openPermissions = (u: UserAccount) => {
+    setPermUser(u);
+    const base = DEFAULT_PERMISSIONS[u.role];
+    const current = u.customPermissions ? { ...base, ...u.customPermissions } : { ...base };
+    setCustomPerms(current);
+    setPermDialogOpen(true);
   };
 
   const handleSave = () => {
@@ -44,6 +55,13 @@ export default function UserManagement() {
     setDialogOpen(false);
   };
 
+  const handleSavePermissions = () => {
+    if (!permUser) return;
+    updateUser(permUser.id, { customPermissions: customPerms });
+    toast({ title: "تم الحفظ", description: `تم تحديث صلاحيات ${permUser.name}` });
+    setPermDialogOpen(false);
+  };
+
   const handleDelete = () => {
     if (deleteId) {
       if (deleteId === currentUser?.id) {
@@ -56,7 +74,7 @@ export default function UserManagement() {
     }
   };
 
-  const rolePermissions = DEFAULT_PERMISSIONS;
+  const permKeys = Object.keys(PERMISSION_LABELS) as (keyof RolePermissions)[];
 
   return (
     <AppLayout>
@@ -99,6 +117,9 @@ export default function UserManagement() {
                           {u.id === currentUser?.id && (
                             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">أنت</span>
                           )}
+                          {u.customPermissions && (
+                            <span className="text-[10px] bg-accent text-accent-foreground px-1.5 py-0.5 rounded">مخصص</span>
+                          )}
                         </div>
                       </td>
                       <td className="p-3 text-muted-foreground" dir="ltr">{u.email}</td>
@@ -116,6 +137,9 @@ export default function UserManagement() {
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openPermissions(u)} title="تعديل الصلاحيات">
+                            <Settings2 className="h-3.5 w-3.5" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -135,7 +159,7 @@ export default function UserManagement() {
         {/* Permissions Reference */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">جدول الصلاحيات</CardTitle>
+            <CardTitle className="text-base">جدول الصلاحيات الافتراضية</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -149,17 +173,12 @@ export default function UserManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries({
-                    dashboard: "لوحة التحكم", customers: "العملاء", products: "المنتجات",
-                    invoices: "الفواتير", installments: "الأقساط", employees: "الموظفين",
-                    branches: "الفروع", reports: "التقارير", settings: "الإعدادات",
-                    auditLog: "سجل العمليات", users: "المستخدمين", backup: "النسخ الاحتياطي",
-                  }).map(([key, label]) => (
+                  {permKeys.map((key) => (
                     <tr key={key} className="border-b last:border-0">
-                      <td className="p-2">{label}</td>
+                      <td className="p-2">{PERMISSION_LABELS[key]}</td>
                       {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
                         <td key={role} className="text-center p-2">
-                          {rolePermissions[role][key as keyof typeof rolePermissions.admin] ? (
+                          {DEFAULT_PERMISSIONS[role][key] ? (
                             <Check className="h-4 w-4 text-success mx-auto" />
                           ) : (
                             <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />
@@ -212,6 +231,42 @@ export default function UserManagement() {
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
                 <Button onClick={handleSave}>{editing ? "تحديث" : "إضافة"}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Permissions Editor Dialog */}
+        <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>تعديل صلاحيات — {permUser?.name}</DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground mb-2">
+              الدور: <span className="font-medium text-primary">{permUser ? ROLE_LABELS[permUser.role] : ""}</span> — يمكنك تخصيص الصلاحيات أدناه
+            </p>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {permKeys.map((key) => (
+                <label key={key} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customPerms[key]}
+                    onChange={(e) => setCustomPerms({ ...customPerms, [key]: e.target.checked })}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm">{PERMISSION_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-between mt-4">
+              <Button variant="outline" size="sm" onClick={() => {
+                if (permUser) setCustomPerms({ ...DEFAULT_PERMISSIONS[permUser.role] });
+              }}>
+                إعادة للافتراضي
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setPermDialogOpen(false)}>إلغاء</Button>
+                <Button onClick={handleSavePermissions}>حفظ الصلاحيات</Button>
               </div>
             </div>
           </DialogContent>
