@@ -55,6 +55,7 @@ function loadUsers(): UserAccount[] {
 }
 
 const users: UserAccount[] = loadUsers();
+let usersSnap: UserAccount[] = [...users];
 
 function saveUsers() {
   localStorage.setItem("userAccounts", JSON.stringify(users));
@@ -62,7 +63,7 @@ function saveUsers() {
 
 let currentUser: UserAccount | null = null;
 
-export function getUsers(): UserAccount[] { return [...users]; }
+export function getUsers(): UserAccount[] { return usersSnap; }
 export function getCurrentUser(): UserAccount | null { return currentUser; }
 
 export function getUserPermissions(): RolePermissions {
