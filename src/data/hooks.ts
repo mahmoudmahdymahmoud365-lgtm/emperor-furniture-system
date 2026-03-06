@@ -102,3 +102,16 @@ export function useUsers() {
     deleteUser: useCallback(store.deleteUser, []),
   };
 }
+
+// ---- Offers ----
+export function useOffers() {
+  const offers = useStoreData(store.getOffers);
+  return {
+    offers,
+    activeOffers: store.getActiveOffers(),
+    getProductDiscount: store.getProductDiscount,
+    addOffer: useCallback(store.addOffer, []),
+    updateOffer: useCallback(store.updateOffer, []),
+    deleteOffer: useCallback(store.deleteOffer, []),
+  };
+}

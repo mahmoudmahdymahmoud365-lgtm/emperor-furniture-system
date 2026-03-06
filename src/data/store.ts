@@ -6,7 +6,8 @@
 
 import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
-  AuditLogEntry, AuditAction, AuditEntity, UserAccount, UserRole, RolePermissions,
+  AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
+  Offer,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
@@ -68,7 +69,11 @@ export function getCurrentUser(): UserAccount | null { return currentUser; }
 
 export function getUserPermissions(): RolePermissions {
   if (!currentUser) return DEFAULT_PERMISSIONS.sales;
-  return DEFAULT_PERMISSIONS[currentUser.role] || DEFAULT_PERMISSIONS.sales;
+  const base = DEFAULT_PERMISSIONS[currentUser.role] || DEFAULT_PERMISSIONS.sales;
+  if (currentUser.customPermissions) {
+    return { ...base, ...currentUser.customPermissions };
+  }
+  return base;
 }
 
 export function addUser(data: Omit<UserAccount, "id">): UserAccount {
@@ -115,10 +120,9 @@ export function login(email: string, password: string): boolean {
     currentUser = user;
     return true;
   }
-  // Fallback: accept any non-empty for backward compat
   if (email && password) {
     localStorage.setItem(AUTH_KEY, "true");
-    currentUser = DEFAULT_USERS[0]; // default admin
+    currentUser = DEFAULT_USERS[0];
     localStorage.setItem(CURRENT_USER_KEY, currentUser.id);
     return true;
   }
@@ -177,7 +181,6 @@ export function addAuditLog(
     details,
   };
   auditLog.unshift(entry);
-  // Keep last 1000 entries
   if (auditLog.length > 1000) auditLog.splice(1000);
   saveAuditLog();
   auditLogSnap = [...auditLog];
@@ -225,9 +228,9 @@ const invoices: Invoice[] = [
 ];
 
 const employees: Employee[] = [
-  { id: "E001", name: "محمد سعيد", phone: "01011111111", branch: "القاهرة", monthlySalary: 5000, role: "مبيعات", active: true },
-  { id: "E002", name: "علي حسن", phone: "01022222222", branch: "الجيزة", monthlySalary: 4500, role: "مبيعات", active: true },
-  { id: "E003", name: "نورا أحمد", phone: "01033333333", branch: "القاهرة", monthlySalary: 6000, role: "محاسب", active: true },
+  { id: "E001", name: "محمد سعيد", nationalId: "29001011234567", phone: "01011111111", branch: "القاهرة", monthlySalary: 5000, role: "مبيعات", active: true },
+  { id: "E002", name: "علي حسن", nationalId: "29101021234567", phone: "01022222222", branch: "الجيزة", monthlySalary: 4500, role: "مبيعات", active: true },
+  { id: "E003", name: "نورا أحمد", nationalId: "29201031234567", phone: "01033333333", branch: "القاهرة", monthlySalary: 6000, role: "محاسب", active: true },
 ];
 
 const branches: Branch[] = [
@@ -240,6 +243,85 @@ const receipts: Receipt[] = [
   { id: "R001", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 10000, date: "2025-06-15", method: "نقدي", notes: "" },
   { id: "R002", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 5000, date: "2025-06-20", method: "تحويل بنكي", notes: "دفعة ثانية" },
 ];
+
+// ==============================
+// OFFERS
+// ==============================
+function loadOffers(): Offer[] {
+  try {
+    const saved = localStorage.getItem("offers");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const offers: Offer[] = loadOffers();
+let offersSnap: Offer[] = [...offers];
+
+function saveOffers() {
+  localStorage.setItem("offers", JSON.stringify(offers));
+}
+
+export function getOffers(): Offer[] { return offersSnap; }
+
+export function getActiveOffers(): Offer[] {
+  const today = new Date().toISOString().split("T")[0];
+  return offersSnap.filter(o => {
+    if (!o.active) return false;
+    if (o.type === "timed" || o.endDate) {
+      if (o.startDate && today < o.startDate) return false;
+      if (o.endDate && today > o.endDate) return false;
+    }
+    return true;
+  });
+}
+
+export function getProductDiscount(productName: string): number {
+  const active = getActiveOffers();
+  let totalDiscount = 0;
+  for (const offer of active) {
+    if (offer.productName && offer.productName !== productName) continue;
+    if (offer.type === "percentage") {
+      totalDiscount += offer.value; // will be applied as percentage
+    } else if (offer.type === "fixed") {
+      totalDiscount += offer.value;
+    } else if (offer.type === "timed") {
+      totalDiscount += offer.value; // percentage for timed offers
+    }
+  }
+  return totalDiscount;
+}
+
+export function addOffer(data: Omit<Offer, "id">): Offer {
+  const o = { id: `OF${String(offers.length + 1).padStart(3, "0")}`, ...data };
+  offers.push(o);
+  saveOffers();
+  addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
+  notify();
+  return o;
+}
+
+export function updateOffer(id: string, data: Partial<Offer>) {
+  const idx = offers.findIndex((o) => o.id === id);
+  if (idx >= 0) {
+    const name = offers[idx].name;
+    offers[idx] = { ...offers[idx], ...data };
+    saveOffers();
+    addAuditLog("update", "offer", id, data.name || name, `تعديل عرض: ${data.name || name}`);
+    notify();
+  }
+}
+
+export function deleteOffer(id: string) {
+  const idx = offers.findIndex((o) => o.id === id);
+  if (idx >= 0) {
+    const name = offers[idx].name;
+    offers.splice(idx, 1);
+    saveOffers();
+    addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
+    notify();
+  }
+}
 
 // Track last added customer name
 let lastAddedCustomer = "";
@@ -280,6 +362,7 @@ function rebuildSnapshots() {
   receiptsSnap = [...receipts];
   auditLogSnap = [...auditLog];
   usersSnap = [...users];
+  offersSnap = [...offers];
 }
 
 function notify() {
@@ -507,7 +590,7 @@ export function deleteReceipt(id: string) {
 // ==============================
 export function exportBackup(): string {
   const data = {
-    version: 1,
+    version: 2,
     timestamp: new Date().toISOString(),
     customers: [...customers],
     products: [...products],
@@ -515,6 +598,7 @@ export function exportBackup(): string {
     employees: [...employees],
     branches: [...branches],
     receipts: [...receipts],
+    offers: [...offers],
     settings: { ...companySettings },
     users: [...users],
     auditLog: [...auditLog],
@@ -534,6 +618,7 @@ export function importBackup(jsonStr: string): boolean {
     branches.length = 0;
     receipts.length = 0;
     auditLog.length = 0;
+    offers.length = 0;
 
     (data.customers || []).forEach((c: Customer) => customers.push(c));
     (data.products || []).forEach((p: Product) => products.push(p));
@@ -542,6 +627,7 @@ export function importBackup(jsonStr: string): boolean {
     (data.branches || []).forEach((b: Branch) => branches.push(b));
     (data.receipts || []).forEach((r: Receipt) => receipts.push(r));
     (data.auditLog || []).forEach((a: AuditLogEntry) => auditLog.push(a));
+    (data.offers || []).forEach((o: Offer) => offers.push(o));
 
     if (data.settings) {
       companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
@@ -553,6 +639,7 @@ export function importBackup(jsonStr: string): boolean {
       saveUsers();
     }
     saveAuditLog();
+    saveOffers();
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
     notify();
     return true;
