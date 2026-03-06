@@ -165,10 +165,10 @@ export default function Invoices() {
 
   const handleAddNewProduct = () => {
     if (!newProductName) return;
-    addProduct({ name: newProductName, category: "", defaultPrice: newProductPrice, unit: "قطعة", notes: "" });
+    addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, notes: newProductNotes });
     selectProduct(newProductItemIdx, newProductName);
-    setNewProductOpen(false); setNewProductName(""); setNewProductPrice(0);
-    toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد" });
+    setNewProductOpen(false); setNewProductName(""); setNewProductCategory(""); setNewProductPrice(0); setNewProductUnit("قطعة"); setNewProductNotes("");
+    toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد وحفظه" });
   };
 
   return (
@@ -403,12 +403,17 @@ export default function Invoices() {
 
         {/* New Product Dialog */}
         <Dialog open={newProductOpen} onOpenChange={setNewProductOpen}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>إضافة منتج جديد</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="space-y-1.5"><Label>اسم المنتج *</Label><Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><Label>الفئة</Label><Input value={newProductCategory} onChange={(e) => setNewProductCategory(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={newProductUnit} onChange={(e) => setNewProductUnit(e.target.value)} /></div>
+              </div>
               <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(Number(e.target.value))} dir="ltr" /></div>
-              <Button onClick={handleAddNewProduct} className="w-full">إضافة المنتج</Button>
+              <div className="space-y-1.5"><Label>ملاحظات</Label><Input value={newProductNotes} onChange={(e) => setNewProductNotes(e.target.value)} /></div>
+              <Button onClick={handleAddNewProduct} className="w-full">إضافة المنتج وحفظه</Button>
             </div>
           </DialogContent>
         </Dialog>
