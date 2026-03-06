@@ -54,6 +54,7 @@ export interface CompanySettings {
 export interface Employee {
   id: string;
   name: string;
+  nationalId: string;
   phone: string;
   branch: string;
   monthlySalary: number;
@@ -80,10 +81,48 @@ export interface Receipt {
 }
 
 // ==============================
+// Offers & Discounts
+// ==============================
+export type OfferType = "percentage" | "fixed" | "timed";
+
+export interface Offer {
+  id: string;
+  name: string;
+  type: OfferType;
+  value: number; // percentage or fixed amount
+  productId: string; // "" = all products
+  productName: string; // "" = all
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  notes: string;
+}
+
+export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
+  percentage: "نسبة مئوية",
+  fixed: "مبلغ ثابت",
+  timed: "عرض بفترة زمنية",
+};
+
+// ==============================
+// Stored Images (IndexedDB)
+// ==============================
+export interface StoredImage {
+  id: string;
+  name: string;
+  type: string; // "بطاقة عميل" | "تصميم" | "أخرى"
+  relatedTo: string; // customer name, invoice id, etc.
+  fileName: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+}
+
+// ==============================
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";
-export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer";
 
 export interface AuditLogEntry {
   id: string;
@@ -108,6 +147,7 @@ export interface UserAccount {
   password: string;
   role: UserRole;
   active: boolean;
+  customPermissions?: Partial<RolePermissions>;
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -129,22 +169,39 @@ export interface RolePermissions {
   auditLog: boolean;
   users: boolean;
   backup: boolean;
+  offers: boolean;
 }
+
+export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
+  dashboard: "لوحة التحكم",
+  customers: "العملاء",
+  products: "المنتجات",
+  invoices: "الفواتير",
+  installments: "الأقساط",
+  employees: "الموظفين",
+  branches: "الفروع",
+  reports: "التقارير",
+  settings: "الإعدادات",
+  auditLog: "سجل العمليات",
+  users: "المستخدمين",
+  backup: "النسخ الاحتياطي",
+  offers: "العروض والخصومات",
+};
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: true, auditLog: true, users: true, backup: true,
+    settings: true, auditLog: true, users: true, backup: true, offers: true,
   },
   sales: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: false, branches: false, reports: false,
-    settings: false, auditLog: false, users: false, backup: false,
+    settings: false, auditLog: false, users: false, backup: false, offers: false,
   },
   accountant: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: false, auditLog: true, users: false, backup: false,
+    settings: false, auditLog: true, users: false, backup: false, offers: true,
   },
 };
