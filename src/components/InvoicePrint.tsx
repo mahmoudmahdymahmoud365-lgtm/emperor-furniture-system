@@ -18,6 +18,8 @@ interface Invoice {
   items: InvoiceItem[];
   status: string;
   paidTotal: number;
+  appliedOfferName?: string;
+  appliedDiscount?: number;
 }
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
@@ -29,7 +31,9 @@ interface InvoicePrintProps {
 }
 
 const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, settings }, ref) => {
-  const total = calcTotal(invoice.items);
+  const subtotal = calcTotal(invoice.items);
+  const discount = invoice.appliedDiscount || 0;
+  const total = subtotal - discount;
   const remaining = total - invoice.paidTotal;
 
   return (
@@ -96,9 +100,19 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
 
       {/* Totals */}
       <div style={{ display: "flex", justifyContent: "flex-start" }}>
-        <div style={{ width: "280px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid #e9ecef", overflow: "hidden" }}>
+        <div style={{ width: "300px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid #e9ecef", overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e9ecef" }}>
-            <span style={{ fontSize: "14px", color: "#666" }}>الإجمالي</span>
+            <span style={{ fontSize: "14px", color: "#666" }}>المجموع</span>
+            <span style={{ fontSize: "14px", fontWeight: "700" }}>{subtotal.toLocaleString()} ج.م</span>
+          </div>
+          {invoice.appliedOfferName && discount > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e9ecef", background: "#fff3cd" }}>
+              <span style={{ fontSize: "14px", color: "#856404" }}>خصم ({invoice.appliedOfferName})</span>
+              <span style={{ fontSize: "14px", fontWeight: "700", color: "#856404" }}>- {discount.toLocaleString()} ج.م</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e9ecef" }}>
+            <span style={{ fontSize: "14px", color: "#666" }}>الإجمالي بعد الخصم</span>
             <span style={{ fontSize: "14px", fontWeight: "700" }}>{total.toLocaleString()} ج.م</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e9ecef" }}>
