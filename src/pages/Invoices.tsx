@@ -5,12 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search } from "lucide-react";
+import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search, Tag } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
-import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings, useOffers } from "@/data/hooks";
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
@@ -34,6 +34,9 @@ export default function Invoices() {
   const { branches } = useBranches();
   const { addReceipt } = useReceipts();
   const { settings } = useCompanySettings();
+  const { activeOffers } = useOffers();
+
+  const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -116,10 +119,23 @@ export default function Invoices() {
     setProductFocusIdx(null);
   };
 
+  const selectedOffer = activeOffers.find(o => o.id === selectedOfferId) || null;
+
+  const calcOfferDiscount = () => {
+    if (!selectedOffer) return 0;
+    const subtotal = calcTotal(items);
+    if (selectedOffer.type === "fixed") return selectedOffer.value;
+    // percentage or timed
+    return Math.round(subtotal * selectedOffer.value / 100);
+  };
+
+  const offerDiscount = calcOfferDiscount();
+  const finalTotal = calcTotal(items) - offerDiscount;
+
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
-    setEditingId(null);
+    setEditingId(null); setSelectedOfferId("");
   };
 
   const handleEdit = (inv: Invoice) => {
@@ -267,10 +283,45 @@ export default function Invoices() {
                     );
                   })}
                 </div>
+                {/* Offer selector */}
+                {activeOffers.length > 0 && (
+                  <div className="mt-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      <Label className="font-semibold text-primary">تطبيق عرض / خصم</Label>
+                    </div>
+                    <select
+                      value={selectedOfferId}
+                      onChange={(e) => setSelectedOfferId(e.target.value)}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">بدون عرض</option>
+                      {activeOffers.map(o => (
+                        <option key={o.id} value={o.id}>
+                          {o.name} — {o.type === "fixed" ? `${o.value.toLocaleString()} ج.م` : `${o.value}%`} {o.productName ? `(${o.productName})` : "(الكل)"}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedOffer && (
+                      <div className="mt-2 text-sm text-primary font-medium">
+                        خصم: {offerDiscount.toLocaleString()} ج.م
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end mt-4 p-3 bg-primary/5 rounded-lg">
-                  <div className="text-left">
-                    <span className="text-muted-foreground text-sm">الإجمالي: </span>
-                    <span className="text-xl font-bold text-primary">{calcTotal(items).toLocaleString()} ج.م</span>
+                  <div className="text-left space-y-1">
+                    <div>
+                      <span className="text-muted-foreground text-sm">المجموع: </span>
+                      <span className={`text-sm font-semibold ${selectedOffer ? "line-through text-muted-foreground" : "text-xl text-primary"}`}>{calcTotal(items).toLocaleString()} ج.م</span>
+                    </div>
+                    {selectedOffer && (
+                      <div>
+                        <span className="text-muted-foreground text-sm">بعد الخصم: </span>
+                        <span className="text-xl font-bold text-primary">{finalTotal.toLocaleString()} ج.م</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
