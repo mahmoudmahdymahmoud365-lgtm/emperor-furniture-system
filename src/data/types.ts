@@ -41,6 +41,8 @@ export interface Invoice {
   status: string;
   paidTotal: number;
   commissionPercent: number;
+  appliedOfferName?: string;
+  appliedDiscount?: number;
 }
 
 export interface CompanySettings {

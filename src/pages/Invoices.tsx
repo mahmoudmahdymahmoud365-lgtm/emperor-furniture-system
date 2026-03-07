@@ -162,7 +162,7 @@ export default function Invoices() {
       updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent });
+      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0 });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
@@ -366,6 +366,7 @@ export default function Invoices() {
                     <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">التسليم</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الإجمالي</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">الخصم/العرض</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">العمولة %</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">مبلغ العمولة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">المدفوع</th>
@@ -376,7 +377,9 @@ export default function Invoices() {
                 </thead>
                 <tbody>
                   {filteredInvoices.map((inv) => {
-                    const total = calcTotal(inv.items);
+                    const subtotal = calcTotal(inv.items);
+                    const discount = inv.appliedDiscount || 0;
+                    const total = subtotal - discount;
                     const commissionAmount = total * (inv.commissionPercent / 100);
                     const remaining = total - inv.paidTotal;
                     return (
@@ -386,6 +389,11 @@ export default function Invoices() {
                         <td className="p-3">{inv.date}</td>
                         <td className="p-3 text-xs">{inv.deliveryDate || "-"}</td>
                         <td className="p-3">{total.toLocaleString()} ج.م</td>
+                        <td className="p-3 text-xs">
+                          {inv.appliedOfferName ? (
+                            <span className="text-primary font-medium">{inv.appliedOfferName} ({discount.toLocaleString()} ج.م)</span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="p-3">{inv.commissionPercent}%</td>
                         <td className="p-3 font-semibold" style={{ color: "hsl(30, 90%, 50%)" }}>{commissionAmount.toLocaleString()} ج.م</td>
                         <td className="p-3 text-success">{inv.paidTotal.toLocaleString()} ج.م</td>
@@ -413,7 +421,7 @@ export default function Invoices() {
                     );
                   })}
                   {filteredInvoices.length === 0 && (
-                    <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                    <tr><td colSpan={12} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
                   )}
                 </tbody>
               </table>
