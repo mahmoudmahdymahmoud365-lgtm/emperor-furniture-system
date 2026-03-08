@@ -516,25 +516,52 @@ let shiftsSnap: Shift[] = [...shifts];
 let attendanceSnap: AttendanceRecord[] = [...attendance];
 let expensesSnap: Expense[] = [...expensesList];
 
+// Dirty flags - only rebuild snapshots that changed
+let dirtyFlags = new Set<string>();
+
+function markDirty(entity: string) { dirtyFlags.add(entity); }
+
 function rebuildSnapshots() {
-  customersSnap = [...customers];
-  productsSnap = [...products];
-  invoicesSnap = [...invoices];
-  employeesSnap = [...employees];
-  branchesSnap = [...branches];
-  receiptsSnap = [...receipts];
-  auditLogSnap = [...auditLog];
-  usersSnap = [...users];
-  offersSnap = [...offers];
-  stockMovementsSnap = [...stockMovements];
-  returnsSnap = [...productReturns];
-  shiftsSnap = [...shifts];
-  attendanceSnap = [...attendance];
-  securityLogSnap = [...securityLog];
-  expensesSnap = [...expensesList];
+  if (dirtyFlags.has("all") || dirtyFlags.size === 0) {
+    // Full rebuild on init or "all"
+    customersSnap = [...customers];
+    productsSnap = [...products];
+    invoicesSnap = [...invoices];
+    employeesSnap = [...employees];
+    branchesSnap = [...branches];
+    receiptsSnap = [...receipts];
+    auditLogSnap = [...auditLog];
+    usersSnap = [...users];
+    offersSnap = [...offers];
+    stockMovementsSnap = [...stockMovements];
+    returnsSnap = [...productReturns];
+    shiftsSnap = [...shifts];
+    attendanceSnap = [...attendance];
+    securityLogSnap = [...securityLog];
+    expensesSnap = [...expensesList];
+  } else {
+    if (dirtyFlags.has("customers")) customersSnap = [...customers];
+    if (dirtyFlags.has("products")) productsSnap = [...products];
+    if (dirtyFlags.has("invoices")) invoicesSnap = [...invoices];
+    if (dirtyFlags.has("employees")) employeesSnap = [...employees];
+    if (dirtyFlags.has("branches")) branchesSnap = [...branches];
+    if (dirtyFlags.has("receipts")) receiptsSnap = [...receipts];
+    if (dirtyFlags.has("auditLog")) auditLogSnap = [...auditLog];
+    if (dirtyFlags.has("users")) usersSnap = [...users];
+    if (dirtyFlags.has("offers")) offersSnap = [...offers];
+    if (dirtyFlags.has("stockMovements")) stockMovementsSnap = [...stockMovements];
+    if (dirtyFlags.has("returns")) returnsSnap = [...productReturns];
+    if (dirtyFlags.has("shifts")) shiftsSnap = [...shifts];
+    if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
+    if (dirtyFlags.has("securityLog")) securityLogSnap = [...securityLog];
+    if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
+  }
+  dirtyFlags = new Set();
 }
 
 function notify() {
+  // Always mark auditLog dirty since most ops add an audit entry
+  markDirty("auditLog");
   rebuildSnapshots();
   listeners.forEach((fn) => fn());
 }
