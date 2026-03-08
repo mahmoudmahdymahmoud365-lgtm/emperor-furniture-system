@@ -230,7 +230,37 @@ export interface SecurityEvent {
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";
-export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock" | "shift" | "attendance";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock" | "shift" | "attendance" | "expense";
+
+// ==============================
+// Expenses
+// ==============================
+export type ExpenseCategory = "electricity" | "water" | "food" | "drinks" | "rent" | "salaries" | "maintenance" | "transport" | "supplies" | "other";
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  electricity: "كهرباء",
+  water: "مياه",
+  food: "طعام",
+  drinks: "مشروبات",
+  rent: "إيجارات",
+  salaries: "مرتبات",
+  maintenance: "صيانة",
+  transport: "نقل ومواصلات",
+  supplies: "مستلزمات",
+  other: "أخرى",
+};
+
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  date: string;
+  branch: string;
+  paidBy: string;
+  recurring: boolean;
+  notes: string;
+}
 
 export interface AuditLogEntry {
   id: string;
