@@ -81,7 +81,7 @@ export default function Dashboard() {
       }
       invoices.forEach((inv) => {
         if (dayMap.has(inv.date)) {
-          dayMap.set(inv.date, (dayMap.get(inv.date) || 0) + calcTotal(inv.items));
+          dayMap.set(inv.date, (dayMap.get(inv.date) || 0) + getInvoiceTotal(inv));
         }
       });
       return Array.from(dayMap.entries()).map(([date, sales]) => ({
