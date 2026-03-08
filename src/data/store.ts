@@ -110,7 +110,7 @@ export function deleteUser(id: string) {
     users.splice(idx, 1);
     saveUsers();
     addAuditLog("delete", "settings" as AuditEntity, id, name, `حذف مستخدم: ${name}`);
-    notify();
+    notify("users");
   }
 }
 
