@@ -143,17 +143,17 @@ export default function Products() {
 
         {/* Stock Alerts */}
         {(outOfStock > 0 || lowStock > 0) && (
-          <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+          <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <span className="font-semibold text-destructive">تنبيهات المخزون</span>
             </div>
-            <div className="space-y-1 text-sm">
+            <div className="space-y-1.5 text-sm">
               {products.filter(p => p.stock <= 0).map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-destructive"><PackageX className="h-3 w-3" /><span><strong>{p.name}</strong> — نفد من المخزون</span></div>
+                <div key={p.id} className="flex items-center gap-2 text-destructive"><PackageX className="h-3.5 w-3.5" /><span><strong>{p.name}</strong> — نفد من المخزون</span></div>
               ))}
               {products.filter(p => p.stock > 0 && p.stock <= p.minStock).map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-warning"><AlertTriangle className="h-3 w-3" /><span><strong>{p.name}</strong> — متبقي {p.stock} {p.unit} (الحد الأدنى: {p.minStock})</span></div>
+                <div key={p.id} className="flex items-center gap-2 text-warning"><AlertTriangle className="h-3.5 w-3.5" /><span><strong>{p.name}</strong> — متبقي {p.stock} {p.unit} (الحد الأدنى: {p.minStock})</span></div>
               ))}
             </div>
           </div>
