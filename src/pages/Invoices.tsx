@@ -438,9 +438,9 @@ export default function Invoices() {
               <div className="space-y-4 mt-4">
                 <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
                   <div className="flex justify-between"><span>العميل:</span><span className="font-medium">{payInvoice.customer}</span></div>
-                  <div className="flex justify-between"><span>الإجمالي:</span><span>{calcTotal(payInvoice.items).toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between"><span>الإجمالي:</span><span>{(calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0)).toLocaleString()} ج.م</span></div>
                   <div className="flex justify-between"><span>المدفوع:</span><span className="text-success">{payInvoice.paidTotal.toLocaleString()} ج.م</span></div>
-                  <div className="flex justify-between font-bold"><span>المتبقي:</span><span className="text-destructive">{(calcTotal(payInvoice.items) - payInvoice.paidTotal).toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between font-bold"><span>المتبقي:</span><span className="text-destructive">{(calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0) - payInvoice.paidTotal).toLocaleString()} ج.م</span></div>
                 </div>
                 <div className="space-y-1.5"><Label>المبلغ *</Label><Input type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} dir="ltr" /></div>
                 <div className="space-y-1.5 relative">
