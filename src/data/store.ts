@@ -571,6 +571,7 @@ function rebuildSnapshots() {
   shiftsSnap = [...shifts];
   attendanceSnap = [...attendance];
   securityLogSnap = [...securityLog];
+  expensesSnap = [...expensesList];
 }
 
 function notify() {
