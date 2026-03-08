@@ -115,6 +115,7 @@ export default function Customers() {
                     <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="p-3 font-medium text-primary">{c.id}</td>
                       <td className="p-3">{c.fullName}</td>
+                      <td className="p-3" dir="ltr">{c.nationalId || "—"}</td>
                       <td className="p-3" dir="ltr">{c.phone}</td>
                       <td className="p-3 hidden md:table-cell">{c.governorate}</td>
                       <td className="p-3 hidden lg:table-cell">{c.jobTitle}</td>
