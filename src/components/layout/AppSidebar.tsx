@@ -12,7 +12,7 @@ const allMenuItems = [
   { title: "لوحة التحكم", icon: LayoutDashboard, path: "/", perm: "dashboard" },
   { title: "العملاء", icon: Users, path: "/customers", perm: "customers" },
   { title: "المنتجات والمخزون", icon: Package, path: "/products", perm: "products" },
-  { title: "المخزون", icon: Warehouse, path: "/inventory", perm: "inventory" },
+  
   { title: "الفواتير", icon: FileText, path: "/invoices", perm: "invoices" },
   { title: "الأقساط", icon: CreditCard, path: "/installments", perm: "installments" },
   { title: "العروض", icon: Tag, path: "/offers", perm: "offers" },

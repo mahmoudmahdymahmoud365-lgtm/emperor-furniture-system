@@ -432,6 +432,42 @@ export default function Dashboard() {
           </Button>
         </div>
 
+        {/* Stock Alerts */}
+        {(outOfStock.length > 0 || lowStock.length > 0) && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                <Package className="h-5 w-5" />
+                تنبيهات المخزون ({outOfStock.length + lowStock.length} منتج)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {outOfStock.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">نفد</span>
+                      <span className="font-semibold">{p.name}</span>
+                      <span className="text-muted-foreground text-xs">({p.category})</span>
+                    </div>
+                    <span className="text-destructive font-bold">0 {p.unit}</span>
+                  </div>
+                ))}
+                {lowStock.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning">منخفض</span>
+                      <span className="font-semibold">{p.name}</span>
+                      <span className="text-muted-foreground text-xs">({p.category})</span>
+                    </div>
+                    <span className="text-warning font-bold">{p.stock} / {p.minStock} {p.unit}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Overdue Alerts */}
         {overdueCustomers.length > 0 && (
           <Card className="border-warning bg-warning/5">
