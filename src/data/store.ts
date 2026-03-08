@@ -661,8 +661,7 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
   if (idx >= 0) {
     invoices[idx] = { ...invoices[idx], ...data };
     saveInvoices();
-    addAuditLog("update", "invoice", id, id, `تعديل فاتورة: ${id}`);
-    notify();
+    notify("invoices");
   }
 }
 
