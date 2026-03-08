@@ -45,6 +45,7 @@ export default function Invoices() {
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [invoiceNotes, setInvoiceNotes] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const [commissionPercent, setCommissionPercent] = useState(0);
   const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);

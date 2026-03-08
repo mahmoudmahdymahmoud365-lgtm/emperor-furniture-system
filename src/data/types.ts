@@ -44,6 +44,7 @@ export interface Invoice {
   commissionPercent: number;
   appliedOfferName?: string;
   appliedDiscount?: number;
+  notes?: string;
 }
 
 export interface CompanySettings {
