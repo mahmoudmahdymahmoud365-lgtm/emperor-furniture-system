@@ -125,7 +125,7 @@ export default function Dashboard() {
     const monthMap = new Map<string, number>();
     invoices.forEach((inv) => {
       const m = inv.date.substring(0, 7);
-      monthMap.set(m, (monthMap.get(m) || 0) + calcTotal(inv.items));
+      monthMap.set(m, (monthMap.get(m) || 0) + getInvoiceTotal(inv));
     });
     return Array.from(monthMap.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
