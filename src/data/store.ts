@@ -745,8 +745,7 @@ export function deleteBranch(id: string) {
     const name = branches[idx].name;
     branches.splice(idx, 1);
     saveBranches();
-    addAuditLog("delete", "branch", id, name, `حذف فرع: ${name}`);
-    notify();
+    notify("branches");
   }
 }
 
