@@ -408,7 +408,7 @@ export function deleteAttendance(id: string) {
     attendance.splice(idx, 1);
     saveAttendance();
     addAuditLog("delete", "attendance", id, name, `حذف سجل حضور: ${name}`);
-    notify();
+    notify("attendance");
   }
 }
 
