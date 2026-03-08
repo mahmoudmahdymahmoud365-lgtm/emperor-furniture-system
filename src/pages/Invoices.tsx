@@ -239,7 +239,15 @@ export default function Invoices() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="page-header mb-0">فواتير المبيعات</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
+              فواتير المبيعات
+            </h1>
+            <p className="text-sm text-muted-foreground">{invoices.length} فاتورة</p>
+          </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />فاتورة جديدة</Button></DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
