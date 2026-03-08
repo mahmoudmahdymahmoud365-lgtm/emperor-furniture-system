@@ -96,7 +96,7 @@ export default function Reports() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <CardTitle className="text-base">تقرير المبيعات</CardTitle>
                   <ExportButtons
-                    data={filteredInvoices.map((inv) => ({ id: inv.id, customer: inv.customer, date: inv.date, total: calcTotal(inv.items), paidTotal: inv.paidTotal }))}
+                    data={filteredInvoices.map((inv) => ({ id: inv.id, customer: inv.customer, date: inv.date, total: getInvoiceTotal(inv), paidTotal: inv.paidTotal }))}
                     headers={[{ key: "id", label: "الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" }, { key: "total", label: "الإجمالي" }, { key: "paidTotal", label: "المدفوع" }]}
                     fileName="تقرير_المبيعات" title="تقرير المبيعات"
                   />
