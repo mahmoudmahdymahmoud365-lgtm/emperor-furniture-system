@@ -185,10 +185,10 @@ export default function Invoices() {
       stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate });
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, notes: invoiceNotes });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0 });
+      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
