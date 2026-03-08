@@ -278,6 +278,7 @@ export default function Products() {
         </Dialog>
 
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا المنتج؟" />
+        <ProductQRCode product={qrProduct} open={qrOpen} onOpenChange={setQrOpen} companyName={settings.name} />
       </div>
     </AppLayout>
   );
