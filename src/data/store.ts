@@ -679,8 +679,7 @@ export function deleteInvoice(id: string) {
     invoices.splice(idx, 1);
     saveInvoices();
     saveProducts();
-    addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id} (تم استرجاع المخزون)`);
-    notify();
+    notify("invoices", "products", "stockMovements");
   }
 }
 
