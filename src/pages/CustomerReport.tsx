@@ -84,6 +84,14 @@ export default function CustomerReport() {
     return events.sort((a, b) => b.date.localeCompare(a.date));
   }, [custInvoices, custReceipts, custReturns]);
 
+  if (!customer) {
+    return (
+      <AppLayout>
+        <div className="text-center p-8 text-muted-foreground">العميل غير موجود</div>
+      </AppLayout>
+    );
+  }
+
   const handlePrint = () => {
     const content = printRef.current;
     if (!content) return;
