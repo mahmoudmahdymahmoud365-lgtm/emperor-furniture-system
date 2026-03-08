@@ -652,8 +652,7 @@ export function addInvoice(data: Omit<Invoice, "id">): Invoice {
   }
   saveInvoices();
   saveProducts();
-  addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة: ${inv.id} للعميل ${inv.customer}`);
-  notify();
+  notify("invoices", "products", "stockMovements");
   return inv;
 }
 
