@@ -39,17 +39,10 @@ export default function CustomerReport() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const customer = customers.find((c) => c.id === customerId);
-  if (!customer) {
-    return (
-      <AppLayout>
-        <div className="text-center p-8 text-muted-foreground">العميل غير موجود</div>
-      </AppLayout>
-    );
-  }
 
-  const custInvoices = invoices.filter((inv) => inv.customer === customer.fullName);
-  const custReceipts = receipts.filter((r) => r.customer === customer.fullName);
-  const custReturns = returns.filter((r) => r.customer === customer.fullName);
+  const custInvoices = useMemo(() => customer ? invoices.filter((inv) => inv.customer === customer.fullName) : [], [invoices, customer]);
+  const custReceipts = useMemo(() => customer ? receipts.filter((r) => r.customer === customer.fullName) : [], [receipts, customer]);
+  const custReturns = useMemo(() => customer ? returns.filter((r) => r.customer === customer.fullName) : [], [returns, customer]);
   const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = custReceipts.reduce((s, r) => s + r.amount, 0);
   const totalReturns = custReturns.reduce((s, r) => s + r.totalAmount, 0);
