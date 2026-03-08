@@ -559,7 +559,8 @@ function rebuildSnapshots() {
   dirtyFlags = new Set();
 }
 
-function notify() {
+function notify(...entities: string[]) {
+  for (const e of entities) markDirty(e);
   // Always mark auditLog dirty since most ops add an audit entry
   markDirty("auditLog");
   rebuildSnapshots();
