@@ -190,6 +190,7 @@ export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   users: "المستخدمين",
   backup: "النسخ الاحتياطي",
   offers: "العروض والخصومات",
+  inventory: "المخزون",
 };
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
