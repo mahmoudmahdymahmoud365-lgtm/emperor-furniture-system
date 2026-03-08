@@ -264,8 +264,8 @@ export default function Products() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Edit Stock Dialog */}
