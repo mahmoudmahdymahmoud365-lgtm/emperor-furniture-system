@@ -8,8 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2 } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
-import type { UserAccount, UserRole, RolePermissions } from "@/data/types";
-import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS } from "@/data/types";
+import type { UserAccount, UserRole, RolePermissions, ModuleAccess } from "@/data/types";
+import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS, OPERATION_LABELS, canDo } from "@/data/types";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 
 const emptyForm = { name: "", email: "", password: "", role: "sales" as UserRole, active: true };
@@ -245,18 +245,75 @@ export default function UserManagement() {
             <p className="text-xs text-muted-foreground mb-2">
               الدور: <span className="font-medium text-primary">{permUser ? ROLE_LABELS[permUser.role] : ""}</span> — يمكنك تخصيص الصلاحيات أدناه
             </p>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {permKeys.map((key) => (
-                <label key={key} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={customPerms[key]}
-                    onChange={(e) => setCustomPerms({ ...customPerms, [key]: e.target.checked })}
-                    className="h-4 w-4 rounded border-input"
-                  />
-                  <span className="text-sm">{PERMISSION_LABELS[key]}</span>
-                </label>
-              ))}
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {permKeys.map((key) => {
+                const val = customPerms[key];
+                const isGranular = typeof val === "object";
+                const isSimpleBool = typeof val === "boolean" || val === undefined;
+                const simpleModules = ["dashboard", "reports", "settings", "auditLog", "users", "backup"];
+                const isSimpleModule = simpleModules.includes(key);
+
+                return (
+                  <div key={key} className="p-2 rounded-lg hover:bg-muted/50">
+                    {isSimpleModule ? (
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={val === true}
+                          onChange={(e) => setCustomPerms({ ...customPerms, [key]: e.target.checked })}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span className="text-sm font-medium">{PERMISSION_LABELS[key]}</span>
+                      </label>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <input
+                            type="checkbox"
+                            checked={isGranular ? Object.values(val).some(Boolean) : val === true}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setCustomPerms({
+                                ...customPerms,
+                                [key]: checked
+                                  ? { view: true, create: true, edit: true, delete: true }
+                                  : false,
+                              });
+                            }}
+                            className="h-4 w-4 rounded border-input"
+                          />
+                          <span className="text-sm font-medium">{PERMISSION_LABELS[key]}</span>
+                        </div>
+                        {(isGranular || val === true) && (
+                          <div className="flex flex-wrap gap-2 mr-7">
+                            {(["view", "create", "edit", "delete"] as const).map((op) => {
+                              const opVal = isGranular ? val[op] : true;
+                              return (
+                                <label key={op} className="flex items-center gap-1 text-xs cursor-pointer bg-muted/60 px-2 py-1 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={opVal}
+                                    onChange={(e) => {
+                                      const current = isGranular ? val : { view: true, create: true, edit: true, delete: true };
+                                      const updated = { ...current, [op]: e.target.checked };
+                                      setCustomPerms({
+                                        ...customPerms,
+                                        [key]: Object.values(updated).some(Boolean) ? updated : false,
+                                      });
+                                    }}
+                                    className="h-3 w-3 rounded"
+                                  />
+                                  {OPERATION_LABELS[op]}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="flex gap-2 justify-between mt-4">
               <Button variant="outline" size="sm" onClick={() => {

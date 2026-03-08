@@ -249,23 +249,40 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   accountant: "محاسب",
 };
 
+// Operation-level permission type
+export type ModuleAccess = boolean | { view: boolean; create: boolean; edit: boolean; delete: boolean };
+
 export interface RolePermissions {
   dashboard: boolean;
-  customers: boolean;
-  products: boolean;
-  invoices: boolean;
-  installments: boolean;
-  employees: boolean;
-  branches: boolean;
+  customers: ModuleAccess;
+  products: ModuleAccess;
+  invoices: ModuleAccess;
+  installments: ModuleAccess;
+  employees: ModuleAccess;
+  branches: ModuleAccess;
   reports: boolean;
   settings: boolean;
   auditLog: boolean;
   users: boolean;
   backup: boolean;
-  offers: boolean;
-  inventory: boolean;
-  returns: boolean;
+  offers: ModuleAccess;
+  inventory: ModuleAccess;
+  returns: ModuleAccess;
 }
+
+// Helper to check specific operation permission
+export function canDo(perm: ModuleAccess | undefined, op: "view" | "create" | "edit" | "delete"): boolean {
+  if (perm === undefined || perm === false) return false;
+  if (perm === true) return true;
+  return perm[op] === true;
+}
+
+export const OPERATION_LABELS: Record<string, string> = {
+  view: "عرض",
+  create: "إضافة",
+  edit: "تعديل",
+  delete: "حذف",
+};
 
 export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   dashboard: "لوحة التحكم",
@@ -287,18 +304,39 @@ export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
-    dashboard: true, customers: true, products: true, invoices: true,
-    installments: true, employees: true, branches: true, reports: true,
-    settings: true, auditLog: true, users: true, backup: true, offers: true, inventory: true, returns: true,
+    dashboard: true,
+    customers: { view: true, create: true, edit: true, delete: true },
+    products: { view: true, create: true, edit: true, delete: true },
+    invoices: { view: true, create: true, edit: true, delete: true },
+    installments: { view: true, create: true, edit: true, delete: true },
+    employees: { view: true, create: true, edit: true, delete: true },
+    branches: { view: true, create: true, edit: true, delete: true },
+    reports: true, settings: true, auditLog: true, users: true, backup: true,
+    offers: { view: true, create: true, edit: true, delete: true },
+    inventory: { view: true, create: true, edit: true, delete: true },
+    returns: { view: true, create: true, edit: true, delete: true },
   },
   sales: {
-    dashboard: true, customers: true, products: true, invoices: true,
-    installments: true, employees: false, branches: false, reports: false,
-    settings: false, auditLog: false, users: false, backup: false, offers: false, inventory: false, returns: true,
+    dashboard: true,
+    customers: { view: true, create: true, edit: false, delete: false },
+    products: { view: true, create: false, edit: false, delete: false },
+    invoices: { view: true, create: true, edit: false, delete: false },
+    installments: { view: true, create: true, edit: false, delete: false },
+    employees: false, branches: false, reports: false,
+    settings: false, auditLog: false, users: false, backup: false, offers: false, inventory: false,
+    returns: { view: true, create: true, edit: false, delete: false },
   },
   accountant: {
-    dashboard: true, customers: true, products: true, invoices: true,
-    installments: true, employees: true, branches: true, reports: true,
-    settings: false, auditLog: true, users: false, backup: false, offers: true, inventory: true, returns: true,
+    dashboard: true,
+    customers: { view: true, create: true, edit: true, delete: false },
+    products: { view: true, create: true, edit: true, delete: false },
+    invoices: { view: true, create: true, edit: true, delete: false },
+    installments: { view: true, create: true, edit: true, delete: false },
+    employees: { view: true, create: false, edit: false, delete: false },
+    branches: { view: true, create: false, edit: false, delete: false },
+    reports: true, settings: false, auditLog: true, users: false, backup: false,
+    offers: { view: true, create: true, edit: true, delete: false },
+    inventory: { view: true, create: true, edit: true, delete: false },
+    returns: { view: true, create: true, edit: false, delete: false },
   },
 };

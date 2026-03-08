@@ -115,3 +115,32 @@
     @apply text-2xl font-bold text-foreground mb-6;
   }
 }
+
+/* Mobile-first responsive table */
+@media (max-width: 768px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .stat-card {
+    padding: 0.75rem;
+  }
+
+  .page-header {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Better touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Stack form fields */
+  .dialog-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
