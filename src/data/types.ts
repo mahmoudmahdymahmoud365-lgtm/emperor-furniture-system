@@ -65,6 +65,53 @@ export interface Employee {
   active: boolean;
 }
 
+// ==============================
+// Shifts & Attendance
+// ==============================
+export interface Shift {
+  id: string;
+  name: string;
+  startTime: string; // HH:mm
+  endTime: string;   // HH:mm
+  hours: number;
+  branch: string;
+  active: boolean;
+  notes: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  shiftId: string;
+  shiftName: string;
+  date: string;
+  checkIn: string;  // HH:mm
+  checkOut: string;  // HH:mm
+  hoursWorked: number;
+  status: AttendanceStatus;
+  overtimeHours: number;
+  notes: string;
+}
+
+export type AttendanceStatus = "present" | "absent" | "late" | "leave" | "half-day";
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  present: "حاضر",
+  absent: "غائب",
+  late: "متأخر",
+  leave: "إجازة",
+  "half-day": "نصف يوم",
+};
+
+export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
+  present: "bg-success/10 text-success",
+  absent: "bg-destructive/10 text-destructive",
+  late: "bg-warning/10 text-warning",
+  leave: "bg-info/10 text-info",
+  "half-day": "bg-muted text-muted-foreground",
+};
+
 export interface Branch {
   id: string;
   name: string;
@@ -168,7 +215,7 @@ export interface StoredImage {
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";
-export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock" | "shift" | "attendance";
 
 export interface AuditLogEntry {
   id: string;
