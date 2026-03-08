@@ -470,8 +470,16 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
 export function deleteInvoice(id: string) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
+    // Restore stock for each item before deleting
+    const inv = invoices[idx];
+    for (const item of inv.items) {
+      const pIdx = products.findIndex(p => p.name === item.productName);
+      if (pIdx >= 0) {
+        products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + item.qty };
+      }
+    }
     invoices.splice(idx, 1);
-    addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id}`);
+    addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id} (تم استرجاع المخزون)`);
     notify();
   }
 }

@@ -11,7 +11,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
 } from "recharts";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useInvoices, useCustomers, useReceipts, useCompanySettings } from "@/data/hooks";
+import { useInvoices, useCustomers, useReceipts, useCompanySettings, useProducts } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcItemsTotal = (items: InvoiceItem[]) =>
@@ -49,8 +49,12 @@ export default function Dashboard() {
   const { customers } = useCustomers();
   const { receipts } = useReceipts();
   const { settings } = useCompanySettings();
+  const { products } = useProducts();
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("monthly");
   const dashboardRef = useRef<HTMLDivElement>(null);
+
+  const outOfStock = products.filter(p => p.stock <= 0);
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
 
   const totalSales = invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
@@ -427,6 +431,42 @@ export default function Dashboard() {
             تصدير PDF
           </Button>
         </div>
+
+        {/* Stock Alerts */}
+        {(outOfStock.length > 0 || lowStock.length > 0) && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                <Package className="h-5 w-5" />
+                تنبيهات المخزون ({outOfStock.length + lowStock.length} منتج)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {outOfStock.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">نفد</span>
+                      <span className="font-semibold">{p.name}</span>
+                      <span className="text-muted-foreground text-xs">({p.category})</span>
+                    </div>
+                    <span className="text-destructive font-bold">0 {p.unit}</span>
+                  </div>
+                ))}
+                {lowStock.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning">منخفض</span>
+                      <span className="font-semibold">{p.name}</span>
+                      <span className="text-muted-foreground text-xs">({p.category})</span>
+                    </div>
+                    <span className="text-warning font-bold">{p.stock} / {p.minStock} {p.unit}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Overdue Alerts */}
         {overdueCustomers.length > 0 && (

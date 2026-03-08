@@ -19,7 +19,6 @@ import AuditLog from "./pages/AuditLog";
 import UserManagement from "./pages/UserManagement";
 import Offers from "./pages/Offers";
 import ManufacturingReport from "./pages/ManufacturingReport";
-import Inventory from "./pages/Inventory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,7 +50,7 @@ const App = () => (
           <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/offers" element={<ProtectedRoute><Offers /></ProtectedRoute>} />
           <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingReport /></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+          <Route path="/inventory" element={<Navigate to="/products" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
