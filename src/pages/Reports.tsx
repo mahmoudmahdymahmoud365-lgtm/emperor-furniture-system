@@ -31,7 +31,7 @@ export default function Reports() {
   const customerBalances = useMemo(() => {
     return customers.map((c) => {
       const custInvoices = invoices.filter((inv) => inv.customer === c.fullName);
-      const totalInvoices = custInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+      const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
       const totalPaid = receipts.filter((r) => r.customer === c.fullName).reduce((s, r) => s + r.amount, 0);
       return { name: c.fullName, phone: c.phone, governorate: c.governorate, totalInvoices, totalPaid, balance: totalInvoices - totalPaid };
     });
