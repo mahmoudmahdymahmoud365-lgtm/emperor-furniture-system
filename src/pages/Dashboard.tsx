@@ -49,8 +49,12 @@ export default function Dashboard() {
   const { customers } = useCustomers();
   const { receipts } = useReceipts();
   const { settings } = useCompanySettings();
+  const { products } = useProducts();
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("monthly");
   const dashboardRef = useRef<HTMLDivElement>(null);
+
+  const outOfStock = products.filter(p => p.stock <= 0);
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
 
   const totalSales = invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
