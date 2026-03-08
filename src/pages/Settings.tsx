@@ -20,7 +20,6 @@ export default function Settings() {
     emails: settings.emails?.length ? settings.emails : [settings.email || ""],
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     const toSave = {
