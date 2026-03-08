@@ -193,7 +193,7 @@ export function addAuditLog(
   action: AuditAction, entity: AuditEntity, entityId: string, entityName: string, details: string,
 ) {
   const entry: AuditLogEntry = {
-    id: `AL${String(auditLog.length + 1).padStart(5, "0")}`,
+    id: `AL${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     timestamp: new Date().toISOString(),
     user: currentUser?.name || "النظام",
     action, entity, entityId, entityName, details,
