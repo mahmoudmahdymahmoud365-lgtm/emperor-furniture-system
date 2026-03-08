@@ -144,7 +144,7 @@ export default function Invoices() {
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
-    setEditingId(null); setSelectedOfferId("");
+    setEditingId(null); setSelectedOfferId(""); setInvoiceNotes("");
   };
 
   const handleEdit = (inv: Invoice) => {
