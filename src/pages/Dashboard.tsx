@@ -14,8 +14,11 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useInvoices, useCustomers, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
-const calcTotal = (items: InvoiceItem[]) =>
+const calcItemsTotal = (items: InvoiceItem[]) =>
   items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) =>
+  calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 const COLORS = [
   "hsl(172, 66%, 26%)", "hsl(38, 92%, 50%)", "hsl(205, 79%, 52%)",
