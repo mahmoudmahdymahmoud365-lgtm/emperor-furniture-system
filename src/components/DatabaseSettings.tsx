@@ -71,7 +71,7 @@ export function DatabaseSettings() {
   const { toast } = useToast();
   const [config, setConfig] = useState<DbConnectionConfig>(loadDbConfig);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [activeTab, setActiveTab] = useState(config.type);
+  const [activeTab, setActiveTab] = useState<string>(config.type);
 
   const update = (patch: Partial<DbConnectionConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
