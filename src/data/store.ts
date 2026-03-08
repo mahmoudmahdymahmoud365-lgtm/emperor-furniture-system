@@ -578,8 +578,7 @@ export function addCustomer(data: Omit<Customer, "id">): Customer {
   customers.push(c);
   lastAddedCustomer = c.fullName;
   saveCustomers();
-  addAuditLog("create", "customer", c.id, c.fullName, `إضافة عميل: ${c.fullName}`);
-  notify();
+  notify("customers");
   return c;
 }
 
