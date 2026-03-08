@@ -621,8 +621,7 @@ export function updateProduct(id: string, data: Partial<Product>) {
     const name = products[idx].name;
     products[idx] = { ...products[idx], ...data };
     saveProducts();
-    addAuditLog("update", "product", id, data.name || name, `تعديل منتج: ${data.name || name}`);
-    notify();
+    notify("products");
   }
 }
 
