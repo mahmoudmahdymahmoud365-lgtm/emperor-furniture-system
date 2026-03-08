@@ -115,30 +115,30 @@ export default function Products() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("all")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10"><Package className="h-5 w-5 text-primary" /></div>
-              <div><p className="text-sm text-muted-foreground">إجمالي المنتجات</p><p className="text-2xl font-bold">{products.length}</p></div>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("out")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10"><PackageX className="h-5 w-5 text-destructive" /></div>
-              <div><p className="text-sm text-muted-foreground">نفد من المخزون</p><p className="text-2xl font-bold text-destructive">{outOfStock}</p></div>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("low")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-              <div><p className="text-sm text-muted-foreground">مخزون منخفض</p><p className="text-2xl font-bold text-warning">{lowStock}</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-success/10"><Package className="h-5 w-5 text-success" /></div>
-              <div><p className="text-sm text-muted-foreground">قيمة المخزون</p><p className="text-xl font-bold">{totalValue.toLocaleString()} ج.م</p></div>
-            </CardContent>
-          </Card>
+          <div className={`stat-card cursor-pointer ${filter === "all" ? "ring-2 ring-primary" : ""}`} onClick={() => setFilter("all")}>
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center"><Package className="h-5 w-5 text-primary" /></div>
+              <div><p className="text-xs text-muted-foreground">إجمالي المنتجات</p><p className="text-2xl font-bold">{products.length}</p></div>
+            </div>
+          </div>
+          <div className={`stat-card cursor-pointer ${filter === "out" ? "ring-2 ring-destructive" : ""}`} onClick={() => setFilter("out")}>
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-destructive/10 flex items-center justify-center"><PackageX className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-xs text-muted-foreground">نفد من المخزون</p><p className="text-2xl font-bold text-destructive">{outOfStock}</p></div>
+            </div>
+          </div>
+          <div className={`stat-card cursor-pointer ${filter === "low" ? "ring-2 ring-warning" : ""}`} onClick={() => setFilter("low")}>
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-warning/10 flex items-center justify-center"><AlertTriangle className="h-5 w-5 text-warning" /></div>
+              <div><p className="text-xs text-muted-foreground">مخزون منخفض</p><p className="text-2xl font-bold text-warning">{lowStock}</p></div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-success/10 flex items-center justify-center"><Package className="h-5 w-5 text-success" /></div>
+              <div><p className="text-xs text-muted-foreground">قيمة المخزون</p><p className="text-xl font-bold">{totalValue.toLocaleString()} ج.م</p></div>
+            </div>
+          </div>
         </div>
 
         {/* Stock Alerts */}
