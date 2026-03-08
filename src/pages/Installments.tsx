@@ -45,7 +45,7 @@ export default function Installments() {
     }
     const inv = invoices.find(i => i.id === form.invoiceId);
     if (inv && !editingId) {
-      const remaining = calcTotal(inv.items) - inv.paidTotal;
+      const remaining = getInvoiceTotal(inv) - inv.paidTotal;
       if (form.amount > remaining) {
         toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
       }
