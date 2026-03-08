@@ -45,6 +45,7 @@ export default function Invoices() {
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [invoiceNotes, setInvoiceNotes] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const [commissionPercent, setCommissionPercent] = useState(0);
   const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
@@ -143,13 +144,13 @@ export default function Invoices() {
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
-    setEditingId(null); setSelectedOfferId("");
+    setEditingId(null); setSelectedOfferId(""); setInvoiceNotes("");
   };
 
   const handleEdit = (inv: Invoice) => {
     setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
-    setDeliveryDate(inv.deliveryDate || "");
+    setDeliveryDate(inv.deliveryDate || ""); setInvoiceNotes(inv.notes || "");
     setItems([...inv.items]); setOpen(true);
   };
 
@@ -184,10 +185,10 @@ export default function Invoices() {
       stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate });
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, notes: invoiceNotes });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0 });
+      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
@@ -294,11 +295,15 @@ export default function Invoices() {
                 <div className="space-y-1.5"><Label>نسبة العمولة %</Label><Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} dir="ltr" /></div>
               </div>
 
-              {/* Delivery Date */}
+              {/* Delivery Date & Notes */}
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="space-y-1.5">
                   <Label>تاريخ التسليم المتوقع</Label>
                   <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} dir="ltr" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ملاحظات</Label>
+                  <Input placeholder="ملاحظات على الفاتورة..." value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} />
                 </div>
               </div>
 
@@ -546,6 +551,62 @@ export default function Invoices() {
         </Dialog>
 
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم حذف جميع بياناتها." />
+
+        {/* Return Dialog */}
+        <Dialog open={returnOpen} onOpenChange={(v) => { setReturnOpen(v); if (!v) setReturnInvoice(null); }}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>مرتجع — {returnInvoice?.id}</DialogTitle></DialogHeader>
+            {returnInvoice && (
+              <div className="space-y-4 mt-4">
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                  <div className="flex justify-between"><span>العميل:</span><span className="font-medium">{returnInvoice.customer}</span></div>
+                  <div className="flex justify-between"><span>تاريخ الفاتورة:</span><span>{returnInvoice.date}</span></div>
+                </div>
+                <div className="space-y-3">
+                  <Label className="font-semibold">المنتجات — حدد الكمية المرتجعة</Label>
+                  {returnItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">السعر: {item.unitPrice.toLocaleString()} ج.م — الحد الأقصى: {item.maxQty}</p>
+                      </div>
+                      <div className="w-20">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={item.maxQty}
+                          value={item.qty}
+                          onChange={(e) => {
+                            const val = Math.min(Number(e.target.value), item.maxQty);
+                            setReturnItems(returnItems.map((ri, idx) => idx === i ? { ...ri, qty: Math.max(0, val) } : ri));
+                          }}
+                          dir="ltr"
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>سبب المرتجع</Label>
+                  <Input value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="مثال: عيب تصنيع، خطأ في الطلب..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ملاحظات</Label>
+                  <Input value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} placeholder="ملاحظات إضافية..." />
+                </div>
+                {returnItems.some(i => i.qty > 0) && (
+                  <div className="p-3 bg-warning/10 rounded-lg text-sm font-medium text-warning">
+                    إجمالي المرتجع: {returnItems.filter(i => i.qty > 0).reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString()} ج.م
+                  </div>
+                )}
+                <Button onClick={handleReturn} className="w-full" disabled={!returnItems.some(i => i.qty > 0)}>
+                  <RotateCcw className="h-4 w-4 ml-2" />تأكيد المرتجع
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <div className="hidden">
           {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} settings={settings} template={printTemplate} />}
