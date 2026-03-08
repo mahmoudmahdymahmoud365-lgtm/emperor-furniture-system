@@ -258,10 +258,10 @@ export default function Products() {
                       </td>
                       <td className="p-3.5 font-medium">{m.type === "in" || m.type === "return" ? "+" : "-"}{m.qty}</td>
                       <td className="p-3.5 text-muted-foreground text-xs">{m.reason}</td>
-                      </tr>
-                    ))}
-                    {filteredMovements.length === 0 && (<tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد حركات مخزون</td></tr>)}
-                  </tbody>
+                    </tr>
+                  ))}
+                  {filteredMovements.length === 0 && (<tr><td colSpan={5} className="p-12 text-center text-muted-foreground">لا توجد حركات مخزون</td></tr>)}
+                </tbody>
                 </table>
               </div>
             </div>
