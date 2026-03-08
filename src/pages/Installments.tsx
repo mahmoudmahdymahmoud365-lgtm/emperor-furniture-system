@@ -13,7 +13,8 @@ import { useReceipts, useInvoices, useCompanySettings } from "@/data/hooks";
 import type { Receipt, InvoiceItem } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
-const calcTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const calcItemsTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) => calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
