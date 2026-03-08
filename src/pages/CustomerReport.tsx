@@ -217,7 +217,7 @@ export default function CustomerReport() {
             const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
             return (
               <div key={inv.id} style={{ marginBottom: "20px" }}>
-                <p style={{ fontWeight: 700, marginBottom: 4 }}>{inv.id} — التاريخ: {inv.date} — الفرع: {inv.branch} — الإجمالي: {invTotal.toLocaleString()} ج.م — المدفوع: {invPaid.toLocaleString()} ج.م — المتبقي: {(invTotal - invPaid).toLocaleString()} ج.م</p>
+                <p style={{ fontWeight: 700, marginBottom: 4 }}>{inv.id} — التاريخ: {inv.date} — الفرع: {inv.branch} — الإجمالي: {getInvoiceTotal(inv).toLocaleString()} ج.م — المدفوع: {invPaid.toLocaleString()} ج.م — المتبقي: {(getInvoiceTotal(inv) - invPaid).toLocaleString()} ج.م</p>
                 <table>
                   <thead><tr><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الخصم</th><th>الإجمالي</th></tr></thead>
                   <tbody>
