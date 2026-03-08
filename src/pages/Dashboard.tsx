@@ -166,7 +166,7 @@ export default function Dashboard() {
   const branchData = useMemo(() => {
     const branchMap = new Map<string, number>();
     invoices.forEach((inv) => {
-      branchMap.set(inv.branch, (branchMap.get(inv.branch) || 0) + calcTotal(inv.items));
+      branchMap.set(inv.branch, (branchMap.get(inv.branch) || 0) + getInvoiceTotal(inv));
     });
     return Array.from(branchMap.entries()).map(([name, value]) => ({ name, value }));
   }, [invoices]);
