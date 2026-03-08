@@ -798,8 +798,7 @@ export function deleteReceipt(id: string) {
     }
     receipts.splice(idx, 1);
     saveReceipts();
-    addAuditLog("delete", "receipt", id, id, `حذف قسط: ${id}`);
-    notify();
+    notify("receipts", "invoices");
   }
 }
 
