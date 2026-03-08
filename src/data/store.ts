@@ -442,7 +442,7 @@ export function getProductDiscount(productName: string): number {
 }
 
 export function addOffer(data: Omit<Offer, "id">): Offer {
-  const o = { id: `OF${String(offers.length + 1).padStart(3, "0")}`, ...data };
+  const o = { id: nextId("OF", offers), ...data };
   offers.push(o);
   saveOffers();
   addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
