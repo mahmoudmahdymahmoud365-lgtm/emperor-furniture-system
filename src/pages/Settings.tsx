@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, Save, ImagePlus, Phone, Mail, Plus, X, Buildi
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings, useUsers } from "@/data/hooks";
 import { BackupManager } from "@/components/BackupManager";
+import { DatabaseSettings } from "@/components/DatabaseSettings";
 
 export default function Settings() {
   const { settings, updateSettings } = useCompanySettings();
