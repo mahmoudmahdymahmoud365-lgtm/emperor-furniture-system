@@ -787,7 +787,7 @@ export function addManualStockMovement(productId: string, productName: string, t
 // ==============================
 export function exportBackup(): string {
   const data = {
-    version: 3,
+    version: 4,
     timestamp: new Date().toISOString(),
     customers: [...customers],
     products: [...products],
@@ -798,6 +798,8 @@ export function exportBackup(): string {
     offers: [...offers],
     stockMovements: [...stockMovements],
     productReturns: [...productReturns],
+    shifts: [...shifts],
+    attendance: [...attendance],
     settings: { ...companySettings },
     users: [...users],
     auditLog: [...auditLog],
@@ -814,6 +816,7 @@ export function importBackup(jsonStr: string): boolean {
     employees.length = 0; branches.length = 0; receipts.length = 0;
     auditLog.length = 0; offers.length = 0;
     stockMovements.length = 0; productReturns.length = 0;
+    shifts.length = 0; attendance.length = 0;
 
     (data.customers || []).forEach((c: Customer) => customers.push(c));
     (data.products || []).forEach((p: Product) => products.push(p));
@@ -825,6 +828,8 @@ export function importBackup(jsonStr: string): boolean {
     (data.offers || []).forEach((o: Offer) => offers.push(o));
     (data.stockMovements || []).forEach((sm: StockMovement) => stockMovements.push(sm));
     (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
+    (data.shifts || []).forEach((s: Shift) => shifts.push(s));
+    (data.attendance || []).forEach((a: AttendanceRecord) => attendance.push(a));
 
     if (data.settings) {
       companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
@@ -839,6 +844,8 @@ export function importBackup(jsonStr: string): boolean {
     saveOffers();
     saveStockMovements();
     saveReturns();
+    saveShifts();
+    saveAttendance();
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
     notify();
     return true;
