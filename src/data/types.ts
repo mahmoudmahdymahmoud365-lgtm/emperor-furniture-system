@@ -249,23 +249,40 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   accountant: "محاسب",
 };
 
+// Operation-level permission type
+export type ModuleAccess = boolean | { view: boolean; create: boolean; edit: boolean; delete: boolean };
+
 export interface RolePermissions {
   dashboard: boolean;
-  customers: boolean;
-  products: boolean;
-  invoices: boolean;
-  installments: boolean;
-  employees: boolean;
-  branches: boolean;
+  customers: ModuleAccess;
+  products: ModuleAccess;
+  invoices: ModuleAccess;
+  installments: ModuleAccess;
+  employees: ModuleAccess;
+  branches: ModuleAccess;
   reports: boolean;
   settings: boolean;
   auditLog: boolean;
   users: boolean;
   backup: boolean;
-  offers: boolean;
-  inventory: boolean;
-  returns: boolean;
+  offers: ModuleAccess;
+  inventory: ModuleAccess;
+  returns: ModuleAccess;
 }
+
+// Helper to check specific operation permission
+export function canDo(perm: ModuleAccess | undefined, op: "view" | "create" | "edit" | "delete"): boolean {
+  if (perm === undefined || perm === false) return false;
+  if (perm === true) return true;
+  return perm[op] === true;
+}
+
+export const OPERATION_LABELS: Record<string, string> = {
+  view: "عرض",
+  create: "إضافة",
+  edit: "تعديل",
+  delete: "حذف",
+};
 
 export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   dashboard: "لوحة التحكم",
