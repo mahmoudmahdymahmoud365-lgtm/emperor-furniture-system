@@ -735,8 +735,7 @@ export function updateBranch(id: string, data: Partial<Branch>) {
     const name = branches[idx].name;
     branches[idx] = { ...branches[idx], ...data };
     saveBranches();
-    addAuditLog("update", "branch", id, data.name || name, `تعديل فرع: ${data.name || name}`);
-    notify();
+    notify("branches");
   }
 }
 
