@@ -75,6 +75,12 @@ export default function Invoices() {
   const [productFocusIdx, setProductFocusIdx] = useState<number | null>(null);
   const [payMethodFocus, setPayMethodFocus] = useState(false);
 
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnInvoice, setReturnInvoice] = useState<Invoice | null>(null);
+  const [returnItems, setReturnItems] = useState<{ productName: string; qty: number; unitPrice: number; maxQty: number }[]>([]);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
+
   const customerSuggestions = useMemo(() => {
     const list = customers.map(c => c.fullName);
     if (lastAddedCustomer && list.includes(lastAddedCustomer)) {
