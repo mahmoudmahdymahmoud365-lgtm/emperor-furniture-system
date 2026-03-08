@@ -14,8 +14,11 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useInvoices, useCustomers, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
-const calcTotal = (items: InvoiceItem[]) =>
+const calcItemsTotal = (items: InvoiceItem[]) =>
   items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) =>
+  calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 const COLORS = [
   "hsl(172, 66%, 26%)", "hsl(38, 92%, 50%)", "hsl(205, 79%, 52%)",
@@ -49,7 +52,7 @@ export default function Dashboard() {
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("monthly");
   const dashboardRef = useRef<HTMLDivElement>(null);
 
-  const totalSales = invoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+  const totalSales = invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
   const totalPending = totalSales - totalPaid;
   const collectionRate = totalSales > 0 ? Math.round((totalPaid / totalSales) * 100) : 0;
@@ -58,7 +61,7 @@ export default function Dashboard() {
   const today = formatDate(now);
   const todaySales = invoices
     .filter((inv) => inv.date === today)
-    .reduce((s, inv) => s + calcTotal(inv.items), 0);
+    .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const todayInvoices = invoices.filter((inv) => inv.date === today).length;
 
   const weekAgo = new Date(now);
@@ -66,7 +69,7 @@ export default function Dashboard() {
   const weekAgoStr = formatDate(weekAgo);
   const weeklySales = invoices
     .filter((inv) => inv.date >= weekAgoStr)
-    .reduce((s, inv) => s + calcTotal(inv.items), 0);
+    .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
 
   const salesChartData = useMemo(() => {
     if (salesPeriod === "daily") {
@@ -78,7 +81,7 @@ export default function Dashboard() {
       }
       invoices.forEach((inv) => {
         if (dayMap.has(inv.date)) {
-          dayMap.set(inv.date, (dayMap.get(inv.date) || 0) + calcTotal(inv.items));
+          dayMap.set(inv.date, (dayMap.get(inv.date) || 0) + getInvoiceTotal(inv));
         }
       });
       return Array.from(dayMap.entries()).map(([date, sales]) => ({
@@ -102,7 +105,7 @@ export default function Dashboard() {
         const invDate = new Date(inv.date);
         weeks.forEach((w) => {
           if (invDate >= w.start && invDate <= w.end) {
-            w.sales += calcTotal(inv.items);
+            w.sales += getInvoiceTotal(inv);
           }
         });
       });
@@ -112,7 +115,7 @@ export default function Dashboard() {
       const yearMap = new Map<string, number>();
       invoices.forEach((inv) => {
         const y = inv.date.substring(0, 4);
-        yearMap.set(y, (yearMap.get(y) || 0) + calcTotal(inv.items));
+        yearMap.set(y, (yearMap.get(y) || 0) + getInvoiceTotal(inv));
       });
       return Array.from(yearMap.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
@@ -122,7 +125,7 @@ export default function Dashboard() {
     const monthMap = new Map<string, number>();
     invoices.forEach((inv) => {
       const m = inv.date.substring(0, 7);
-      monthMap.set(m, (monthMap.get(m) || 0) + calcTotal(inv.items));
+      monthMap.set(m, (monthMap.get(m) || 0) + getInvoiceTotal(inv));
     });
     return Array.from(monthMap.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
@@ -133,7 +136,7 @@ export default function Dashboard() {
     const monthMap = new Map<string, { paid: number; pending: number }>();
     invoices.forEach((inv) => {
       const m = inv.date.substring(0, 7);
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       const existing = monthMap.get(m) || { paid: 0, pending: 0 };
       existing.paid += inv.paidTotal;
       existing.pending += total - inv.paidTotal;
@@ -163,7 +166,7 @@ export default function Dashboard() {
   const branchData = useMemo(() => {
     const branchMap = new Map<string, number>();
     invoices.forEach((inv) => {
-      branchMap.set(inv.branch, (branchMap.get(inv.branch) || 0) + calcTotal(inv.items));
+      branchMap.set(inv.branch, (branchMap.get(inv.branch) || 0) + getInvoiceTotal(inv));
     });
     return Array.from(branchMap.entries()).map(([name, value]) => ({ name, value }));
   }, [invoices]);
@@ -171,7 +174,7 @@ export default function Dashboard() {
   const overdueCustomers = useMemo(() => {
     const customerBalances = new Map<string, { balance: number; lastPayment: string | null; invoiceIds: string[]; phone: string }>();
     invoices.forEach((inv) => {
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       const remaining = total - inv.paidTotal;
       if (remaining > 0) {
         const existing = customerBalances.get(inv.customer);
@@ -254,7 +257,7 @@ export default function Dashboard() {
     ).join("");
 
     const recentInvRows = invoices.slice(-10).reverse().map((inv) => {
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       return `<tr>
         <td style="padding:8px;border:1px solid #ddd;">${inv.id}</td>
         <td style="padding:8px;border:1px solid #ddd;">${inv.customer}</td>
@@ -678,7 +681,7 @@ export default function Dashboard() {
                     .slice(-6)
                     .reverse()
                     .map((inv) => {
-                      const total = calcTotal(inv.items);
+                      const total = getInvoiceTotal(inv);
                       const remaining = total - inv.paidTotal;
                       return (
                         <tr key={inv.id} className="border-b last:border-0">
