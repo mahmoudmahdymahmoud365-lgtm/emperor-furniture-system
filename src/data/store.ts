@@ -387,7 +387,7 @@ export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRec
   attendance.push(a);
   saveAttendance();
   addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
-  notify();
+  notify("attendance");
   return a;
 }
 
