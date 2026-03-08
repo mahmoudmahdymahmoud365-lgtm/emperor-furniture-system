@@ -816,8 +816,7 @@ export function addManualStockMovement(productId: string, productName: string, t
     }
     saveProducts();
   }
-  addAuditLog("update", "product", productId, productName, `تعديل مخزون: ${type === "in" || type === "return" ? "+" : "-"}${qty} (${reason})`);
-  notify();
+  notify("products", "stockMovements");
 }
 
 // ==============================
