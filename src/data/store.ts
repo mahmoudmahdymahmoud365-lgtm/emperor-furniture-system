@@ -725,8 +725,7 @@ export function addBranch(data: Omit<Branch, "id">): Branch {
   const b = { id: nextId("B", branches), ...data };
   branches.push(b);
   saveBranches();
-  addAuditLog("create", "branch", b.id, b.name, `إضافة فرع: ${b.name}`);
-  notify();
+  notify("branches");
   return b;
 }
 
