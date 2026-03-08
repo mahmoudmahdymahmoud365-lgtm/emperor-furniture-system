@@ -492,24 +492,6 @@ export function deleteOffer(id: string) {
 // Track last added customer name
 let lastAddedCustomer = "";
 
-// ---- Generic helpers ----
-function nextId(prefix: string, list: { id: string }[]): string {
-  // Extract max numeric ID to avoid collisions after deletions
-  let maxNum = 0;
-  const isInvoice = prefix.includes("INV");
-  for (const item of list) {
-    const match = item.id.match(/(\d+)$/);
-    if (match) {
-      const n = parseInt(match[1], 10);
-      if (n > maxNum) maxNum = n;
-    }
-  }
-  const next = maxNum + 1;
-  return isInvoice
-    ? `INV-${String(next).padStart(3, "0")}`
-    : `${prefix}${String(next).padStart(3, "0")}`;
-}
-
 // ---- Change listeners ----
 type Listener = () => void;
 const listeners = new Set<Listener>();
