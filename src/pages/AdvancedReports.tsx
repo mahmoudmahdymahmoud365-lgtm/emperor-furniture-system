@@ -88,7 +88,7 @@ export default function AdvancedReports() {
     });
 
     // Add fixed expenses to each month
-    months.forEach((v, k) => {
+    months.forEach((v) => {
       v.expenses += monthlyExpenses;
     });
 
