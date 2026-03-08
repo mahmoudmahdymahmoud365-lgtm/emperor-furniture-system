@@ -105,7 +105,7 @@ export default function Dashboard() {
         const invDate = new Date(inv.date);
         weeks.forEach((w) => {
           if (invDate >= w.start && invDate <= w.end) {
-            w.sales += calcTotal(inv.items);
+            w.sales += getInvoiceTotal(inv);
           }
         });
       });
