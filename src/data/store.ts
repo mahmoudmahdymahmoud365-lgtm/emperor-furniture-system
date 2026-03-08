@@ -362,7 +362,7 @@ export function updateShift(id: string, data: Partial<Shift>) {
     shifts[idx] = { ...shifts[idx], ...data };
     saveShifts();
     addAuditLog("update", "shift", id, shifts[idx].name, `تعديل شفت: ${shifts[idx].name}`);
-    notify();
+    notify("shifts");
   }
 }
 
