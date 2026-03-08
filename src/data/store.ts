@@ -611,8 +611,7 @@ export function addProduct(data: Omit<Product, "id">): Product {
   const p = { id: nextId("P", products), ...data };
   products.push(p);
   saveProducts();
-  addAuditLog("create", "product", p.id, p.name, `إضافة منتج: ${p.name}`);
-  notify();
+  notify("products");
   return p;
 }
 
