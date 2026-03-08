@@ -397,7 +397,7 @@ export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
     attendance[idx] = { ...attendance[idx], ...data };
     saveAttendance();
     addAuditLog("update", "attendance", id, attendance[idx].employeeName, `تعديل حضور: ${attendance[idx].employeeName}`);
-    notify();
+    notify("attendance");
   }
 }
 
