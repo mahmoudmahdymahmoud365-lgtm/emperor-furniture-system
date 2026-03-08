@@ -8,7 +8,8 @@ import { useCustomers, useInvoices, useReceipts, useCompanySettings } from "@/da
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
-const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + calcLineTotal(i), 0);
+const calcItemsTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + calcLineTotal(i), 0);
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) => calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 export default function CustomerReport() {
   const { customerId } = useParams<{ customerId: string }>();
