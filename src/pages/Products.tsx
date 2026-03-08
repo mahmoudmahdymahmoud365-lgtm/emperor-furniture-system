@@ -262,8 +262,7 @@ export default function Products() {
                   ))}
                   {filteredMovements.length === 0 && (<tr><td colSpan={5} className="p-12 text-center text-muted-foreground">لا توجد حركات مخزون</td></tr>)}
                 </tbody>
-                </table>
-              </div>
+              </table>
             </div>
           </div>
         )}
