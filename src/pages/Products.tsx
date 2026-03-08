@@ -77,7 +77,7 @@ export default function Products() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="بحث بالاسم أو الفئة..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
           </div>
-          <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" }]} fileName="المنتجات" title="قائمة المنتجات" />
+          <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" },{ key: "stock", label: "المخزون" }]} fileName="المنتجات" title="قائمة المنتجات" />
         </div>
 
         <Card>
