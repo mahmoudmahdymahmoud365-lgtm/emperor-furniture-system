@@ -81,23 +81,31 @@ export default function Products() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="page-header mb-0">إدارة المنتجات والمخزون</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Package className="h-5 w-5 text-primary" />
+              </div>
+              إدارة المنتجات والمخزون
+            </h1>
+            <p className="text-sm text-muted-foreground">{products.length} منتج — قيمة المخزون: {totalValue.toLocaleString()} ج.م</p>
+          </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowMovements(!showMovements)}>
-              <History className="h-4 w-4 ml-2" />{showMovements ? "إخفاء الحركات" : "سجل الحركات"}
+            <Button variant="outline" onClick={() => setShowMovements(!showMovements)} className="gap-2">
+              <History className="h-4 w-4" />{showMovements ? "إخفاء الحركات" : "سجل الحركات"}
             </Button>
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setFormData(emptyProduct); setEditingId(null); } }}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />إضافة منتج</Button></DialogTrigger>
+              <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />إضافة منتج</Button></DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader><DialogTitle>{editingId ? "تعديل المنتج" : "إضافة منتج جديد"}</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="col-span-2 space-y-1.5"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
-                  <div className="space-y-1.5"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
-                  <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
-                  <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
-                  <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
-                  <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
-                  <div className="col-span-2 space-y-1.5"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <div className="sm:col-span-2 form-group"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+                  <div className="form-group"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
+                  <div className="form-group"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
+                  <div className="form-group"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="form-group"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="form-group"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="sm:col-span-2 form-group"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
                 </div>
                 <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
               </DialogContent>
