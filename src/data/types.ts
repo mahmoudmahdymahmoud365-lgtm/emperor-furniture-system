@@ -50,7 +50,9 @@ export interface CompanySettings {
   name: string;
   address: string;
   phone: string;
+  phones: string[];
   email: string;
+  emails: string[];
   logoUrl: string;
 }
 
