@@ -838,8 +838,7 @@ export function updateExpense(id: string, data: Partial<Expense>) {
     const desc = expensesList[idx].description;
     expensesList[idx] = { ...expensesList[idx], ...data };
     saveExpenses();
-    addAuditLog("update", "expense", id, data.description || desc, `تعديل مصروف: ${data.description || desc}`);
-    notify();
+    notify("expenses");
   }
 }
 
