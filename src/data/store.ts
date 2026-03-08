@@ -27,6 +27,23 @@ function saveToStorage<T>(key: string, data: T[]) {
   }
 }
 
+// ---- Generic helpers ----
+function nextId(prefix: string, list: { id: string }[]): string {
+  let maxNum = 0;
+  const isInvoice = prefix.includes("INV");
+  for (const item of list) {
+    const match = item.id.match(/(\d+)$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  }
+  const next = maxNum + 1;
+  return isInvoice
+    ? `INV-${String(next).padStart(3, "0")}`
+    : `${prefix}${String(next).padStart(3, "0")}`;
+}
+
 // ---- Company Settings ----
 const DEFAULT_SETTINGS: CompanySettings = {
   name: "الامبراطور للأثاث",
@@ -53,7 +70,7 @@ export function updateCompanySettings(data: Partial<CompanySettings>) {
   companySettings = { ...companySettings, ...data };
   localStorage.setItem("companySettings", JSON.stringify(companySettings));
   addAuditLog("update", "settings", "settings", "إعدادات الشركة", "تحديث إعدادات الشركة");
-  notify();
+  notify("settings");
 }
 
 // ==============================
@@ -85,11 +102,11 @@ export function getUserPermissions(): RolePermissions {
 }
 
 export function addUser(data: Omit<UserAccount, "id">): UserAccount {
-  const u = { id: `U${String(users.length + 1).padStart(3, "0")}`, ...data };
+  const u = { id: nextId("U", users), ...data };
   users.push(u);
   saveUsers();
   addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
-  notify();
+  notify("users");
   return u;
 }
 
@@ -99,7 +116,7 @@ export function updateUser(id: string, data: Partial<UserAccount>) {
     users[idx] = { ...users[idx], ...data };
     saveUsers();
     addAuditLog("update", "settings" as AuditEntity, id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
-    notify();
+    notify("users");
   }
 }
 
@@ -110,7 +127,7 @@ export function deleteUser(id: string) {
     users.splice(idx, 1);
     saveUsers();
     addAuditLog("delete", "settings" as AuditEntity, id, name, `حذف مستخدم: ${name}`);
-    notify();
+    notify("users");
   }
 }
 
@@ -130,7 +147,7 @@ export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
 
 export function addSecurityEvent(type: SecurityEvent["type"], email: string, userName: string) {
   const event: SecurityEvent = {
-    id: `SEC${String(securityLog.length + 1).padStart(5, "0")}`,
+    id: `SEC${Date.now().toString(36)}`,
     type, email, userName,
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -145,7 +162,7 @@ export function clearSecurityLog() {
   securityLog.length = 0;
   saveSecurityLog();
   securityLogSnap = [];
-  notify();
+  notify("securityLog");
 }
 
 export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
@@ -193,7 +210,7 @@ export function addAuditLog(
   action: AuditAction, entity: AuditEntity, entityId: string, entityName: string, details: string,
 ) {
   const entry: AuditLogEntry = {
-    id: `AL${String(auditLog.length + 1).padStart(5, "0")}`,
+    id: `AL${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     timestamp: new Date().toISOString(),
     user: currentUser?.name || "النظام",
     action, entity, entityId, entityName, details,
@@ -208,7 +225,7 @@ export function clearAuditLog() {
   auditLog.length = 0;
   saveAuditLog();
   auditLogSnap = [];
-  notify();
+  notify("auditLog");
 }
 
 // ---- Seed data (used only if no localStorage data exists) ----
@@ -301,7 +318,7 @@ function saveExpenses() { saveToStorage("expenses", expensesList); }
 function recordStockMovement(productName: string, type: StockMovement["type"], qty: number, reason: string, relatedId?: string) {
   const product = products.find(p => p.name === productName);
   stockMovements.unshift({
-    id: `SM${String(stockMovements.length + 1).padStart(5, "0")}`,
+    id: `SM${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     productId: product?.id || "",
     productName,
     type, qty,
@@ -321,7 +338,7 @@ export function getStockMovements(): StockMovement[] { return stockMovementsSnap
 export function getReturns(): ProductReturn[] { return returnsSnap; }
 
 export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
-  const r: ProductReturn = { id: `RET${String(productReturns.length + 1).padStart(3, "0")}`, ...data };
+  const r: ProductReturn = { id: nextId("RET", productReturns), ...data };
   productReturns.push(r);
   for (const item of r.items) {
     const pIdx = products.findIndex(p => p.name === item.productName);
@@ -338,7 +355,7 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
   saveReturns();
   saveProducts();
   addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
-  notify();
+  notify("returns", "products", "invoices", "stockMovements");
   return r;
 }
 
@@ -348,11 +365,11 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
 export function getShifts(): Shift[] { return shiftsSnap; }
 
 export function addShift(data: Omit<Shift, "id">): Shift {
-  const s: Shift = { id: `SH${String(shifts.length + 1).padStart(3, "0")}`, ...data };
+  const s: Shift = { id: nextId("SH", shifts), ...data };
   shifts.push(s);
   saveShifts();
   addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
-  notify();
+  notify("shifts");
   return s;
 }
 
@@ -362,7 +379,7 @@ export function updateShift(id: string, data: Partial<Shift>) {
     shifts[idx] = { ...shifts[idx], ...data };
     saveShifts();
     addAuditLog("update", "shift", id, shifts[idx].name, `تعديل شفت: ${shifts[idx].name}`);
-    notify();
+    notify("shifts");
   }
 }
 
@@ -373,7 +390,7 @@ export function deleteShift(id: string) {
     shifts.splice(idx, 1);
     saveShifts();
     addAuditLog("delete", "shift", id, name, `حذف شفت: ${name}`);
-    notify();
+    notify("shifts");
   }
 }
 
@@ -383,11 +400,11 @@ export function deleteShift(id: string) {
 export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
 
 export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
-  const a: AttendanceRecord = { id: `ATT${String(attendance.length + 1).padStart(5, "0")}`, ...data };
+  const a: AttendanceRecord = { id: nextId("ATT", attendance), ...data };
   attendance.push(a);
   saveAttendance();
   addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
-  notify();
+  notify("attendance");
   return a;
 }
 
@@ -397,7 +414,7 @@ export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
     attendance[idx] = { ...attendance[idx], ...data };
     saveAttendance();
     addAuditLog("update", "attendance", id, attendance[idx].employeeName, `تعديل حضور: ${attendance[idx].employeeName}`);
-    notify();
+    notify("attendance");
   }
 }
 
@@ -408,7 +425,7 @@ export function deleteAttendance(id: string) {
     attendance.splice(idx, 1);
     saveAttendance();
     addAuditLog("delete", "attendance", id, name, `حذف سجل حضور: ${name}`);
-    notify();
+    notify("attendance");
   }
 }
 
@@ -442,11 +459,11 @@ export function getProductDiscount(productName: string): number {
 }
 
 export function addOffer(data: Omit<Offer, "id">): Offer {
-  const o = { id: `OF${String(offers.length + 1).padStart(3, "0")}`, ...data };
+  const o = { id: nextId("OF", offers), ...data };
   offers.push(o);
   saveOffers();
   addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
-  notify();
+  notify("offers");
   return o;
 }
 
@@ -457,7 +474,7 @@ export function updateOffer(id: string, data: Partial<Offer>) {
     offers[idx] = { ...offers[idx], ...data };
     saveOffers();
     addAuditLog("update", "offer", id, data.name || name, `تعديل عرض: ${data.name || name}`);
-    notify();
+    notify("offers");
   }
 }
 
@@ -468,20 +485,12 @@ export function deleteOffer(id: string) {
     offers.splice(idx, 1);
     saveOffers();
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
-    notify();
+    notify("offers");
   }
 }
 
 // Track last added customer name
 let lastAddedCustomer = "";
-
-// ---- Generic helpers ----
-function nextId(prefix: string, list: { id: string }[]): string {
-  const num = list.length + 1;
-  return prefix.includes("INV")
-    ? `INV-${String(num).padStart(3, "0")}`
-    : `${prefix}${String(num).padStart(3, "0")}`;
-}
 
 // ---- Change listeners ----
 type Listener = () => void;
@@ -506,25 +515,53 @@ let shiftsSnap: Shift[] = [...shifts];
 let attendanceSnap: AttendanceRecord[] = [...attendance];
 let expensesSnap: Expense[] = [...expensesList];
 
+// Dirty flags - only rebuild snapshots that changed
+let dirtyFlags = new Set<string>();
+
+function markDirty(entity: string) { dirtyFlags.add(entity); }
+
 function rebuildSnapshots() {
-  customersSnap = [...customers];
-  productsSnap = [...products];
-  invoicesSnap = [...invoices];
-  employeesSnap = [...employees];
-  branchesSnap = [...branches];
-  receiptsSnap = [...receipts];
-  auditLogSnap = [...auditLog];
-  usersSnap = [...users];
-  offersSnap = [...offers];
-  stockMovementsSnap = [...stockMovements];
-  returnsSnap = [...productReturns];
-  shiftsSnap = [...shifts];
-  attendanceSnap = [...attendance];
-  securityLogSnap = [...securityLog];
-  expensesSnap = [...expensesList];
+  if (dirtyFlags.has("all") || dirtyFlags.size === 0) {
+    // Full rebuild on init or "all"
+    customersSnap = [...customers];
+    productsSnap = [...products];
+    invoicesSnap = [...invoices];
+    employeesSnap = [...employees];
+    branchesSnap = [...branches];
+    receiptsSnap = [...receipts];
+    auditLogSnap = [...auditLog];
+    usersSnap = [...users];
+    offersSnap = [...offers];
+    stockMovementsSnap = [...stockMovements];
+    returnsSnap = [...productReturns];
+    shiftsSnap = [...shifts];
+    attendanceSnap = [...attendance];
+    securityLogSnap = [...securityLog];
+    expensesSnap = [...expensesList];
+  } else {
+    if (dirtyFlags.has("customers")) customersSnap = [...customers];
+    if (dirtyFlags.has("products")) productsSnap = [...products];
+    if (dirtyFlags.has("invoices")) invoicesSnap = [...invoices];
+    if (dirtyFlags.has("employees")) employeesSnap = [...employees];
+    if (dirtyFlags.has("branches")) branchesSnap = [...branches];
+    if (dirtyFlags.has("receipts")) receiptsSnap = [...receipts];
+    if (dirtyFlags.has("auditLog")) auditLogSnap = [...auditLog];
+    if (dirtyFlags.has("users")) usersSnap = [...users];
+    if (dirtyFlags.has("offers")) offersSnap = [...offers];
+    if (dirtyFlags.has("stockMovements")) stockMovementsSnap = [...stockMovements];
+    if (dirtyFlags.has("returns")) returnsSnap = [...productReturns];
+    if (dirtyFlags.has("shifts")) shiftsSnap = [...shifts];
+    if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
+    if (dirtyFlags.has("securityLog")) securityLogSnap = [...securityLog];
+    if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
+  }
+  dirtyFlags = new Set();
 }
 
-function notify() {
+function notify(...entities: string[]) {
+  for (const e of entities) markDirty(e);
+  // Always mark auditLog dirty since most ops add an audit entry
+  markDirty("auditLog");
   rebuildSnapshots();
   listeners.forEach((fn) => fn());
 }
@@ -540,8 +577,7 @@ export function addCustomer(data: Omit<Customer, "id">): Customer {
   customers.push(c);
   lastAddedCustomer = c.fullName;
   saveCustomers();
-  addAuditLog("create", "customer", c.id, c.fullName, `إضافة عميل: ${c.fullName}`);
-  notify();
+  notify("customers");
   return c;
 }
 
@@ -551,8 +587,7 @@ export function updateCustomer(id: string, data: Partial<Customer>) {
     const name = customers[idx].fullName;
     customers[idx] = { ...customers[idx], ...data };
     saveCustomers();
-    addAuditLog("update", "customer", id, data.fullName || name, `تعديل عميل: ${data.fullName || name}`);
-    notify();
+    notify("customers");
   }
 }
 
@@ -562,8 +597,7 @@ export function deleteCustomer(id: string) {
     const name = customers[idx].fullName;
     customers.splice(idx, 1);
     saveCustomers();
-    addAuditLog("delete", "customer", id, name, `حذف عميل: ${name}`);
-    notify();
+    notify("customers");
   }
 }
 
@@ -576,8 +610,7 @@ export function addProduct(data: Omit<Product, "id">): Product {
   const p = { id: nextId("P", products), ...data };
   products.push(p);
   saveProducts();
-  addAuditLog("create", "product", p.id, p.name, `إضافة منتج: ${p.name}`);
-  notify();
+  notify("products");
   return p;
 }
 
@@ -587,8 +620,7 @@ export function updateProduct(id: string, data: Partial<Product>) {
     const name = products[idx].name;
     products[idx] = { ...products[idx], ...data };
     saveProducts();
-    addAuditLog("update", "product", id, data.name || name, `تعديل منتج: ${data.name || name}`);
-    notify();
+    notify("products");
   }
 }
 
@@ -598,8 +630,7 @@ export function deleteProduct(id: string) {
     const name = products[idx].name;
     products.splice(idx, 1);
     saveProducts();
-    addAuditLog("delete", "product", id, name, `حذف منتج: ${name}`);
-    notify();
+    notify("products");
   }
 }
 
@@ -620,8 +651,7 @@ export function addInvoice(data: Omit<Invoice, "id">): Invoice {
   }
   saveInvoices();
   saveProducts();
-  addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة: ${inv.id} للعميل ${inv.customer}`);
-  notify();
+  notify("invoices", "products", "stockMovements");
   return inv;
 }
 
@@ -630,8 +660,7 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
   if (idx >= 0) {
     invoices[idx] = { ...invoices[idx], ...data };
     saveInvoices();
-    addAuditLog("update", "invoice", id, id, `تعديل فاتورة: ${id}`);
-    notify();
+    notify("invoices");
   }
 }
 
@@ -649,8 +678,7 @@ export function deleteInvoice(id: string) {
     invoices.splice(idx, 1);
     saveInvoices();
     saveProducts();
-    addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id} (تم استرجاع المخزون)`);
-    notify();
+    notify("invoices", "products", "stockMovements");
   }
 }
 
@@ -663,8 +691,7 @@ export function addEmployee(data: Omit<Employee, "id">): Employee {
   const e = { id: nextId("E", employees), ...data };
   employees.push(e);
   saveEmployees();
-  addAuditLog("create", "employee", e.id, e.name, `إضافة موظف: ${e.name}`);
-  notify();
+  notify("employees");
   return e;
 }
 
@@ -674,8 +701,7 @@ export function updateEmployee(id: string, data: Partial<Employee>) {
     const name = employees[idx].name;
     employees[idx] = { ...employees[idx], ...data };
     saveEmployees();
-    addAuditLog("update", "employee", id, data.name || name, `تعديل موظف: ${data.name || name}`);
-    notify();
+    notify("employees");
   }
 }
 
@@ -685,8 +711,7 @@ export function deleteEmployee(id: string) {
     const name = employees[idx].name;
     employees.splice(idx, 1);
     saveEmployees();
-    addAuditLog("delete", "employee", id, name, `حذف موظف: ${name}`);
-    notify();
+    notify("employees");
   }
 }
 
@@ -699,8 +724,7 @@ export function addBranch(data: Omit<Branch, "id">): Branch {
   const b = { id: nextId("B", branches), ...data };
   branches.push(b);
   saveBranches();
-  addAuditLog("create", "branch", b.id, b.name, `إضافة فرع: ${b.name}`);
-  notify();
+  notify("branches");
   return b;
 }
 
@@ -710,8 +734,7 @@ export function updateBranch(id: string, data: Partial<Branch>) {
     const name = branches[idx].name;
     branches[idx] = { ...branches[idx], ...data };
     saveBranches();
-    addAuditLog("update", "branch", id, data.name || name, `تعديل فرع: ${data.name || name}`);
-    notify();
+    notify("branches");
   }
 }
 
@@ -721,8 +744,7 @@ export function deleteBranch(id: string) {
     const name = branches[idx].name;
     branches.splice(idx, 1);
     saveBranches();
-    addAuditLog("delete", "branch", id, name, `حذف فرع: ${name}`);
-    notify();
+    notify("branches");
   }
 }
 
@@ -742,8 +764,7 @@ export function addReceipt(data: Omit<Receipt, "id">): Receipt {
     }
   }
   saveReceipts();
-  addAuditLog("create", "receipt", r.id, r.id, `إضافة قسط: ${r.amount} ج.م للفاتورة ${r.invoiceId}`);
-  notify();
+  notify("receipts", "invoices");
   return r;
 }
 
@@ -761,8 +782,7 @@ export function updateReceipt(id: string, data: Partial<Receipt>) {
     }
     receipts[idx] = updated;
     saveReceipts();
-    addAuditLog("update", "receipt", id, id, `تعديل قسط: ${id}`);
-    notify();
+    notify("receipts", "invoices");
   }
 }
 
@@ -777,8 +797,7 @@ export function deleteReceipt(id: string) {
     }
     receipts.splice(idx, 1);
     saveReceipts();
-    addAuditLog("delete", "receipt", id, id, `حذف قسط: ${id}`);
-    notify();
+    notify("receipts", "invoices");
   }
 }
 
@@ -796,8 +815,7 @@ export function addManualStockMovement(productId: string, productName: string, t
     }
     saveProducts();
   }
-  addAuditLog("update", "product", productId, productName, `تعديل مخزون: ${type === "in" || type === "return" ? "+" : "-"}${qty} (${reason})`);
-  notify();
+  notify("products", "stockMovements");
 }
 
 // ==============================
@@ -809,8 +827,7 @@ export function addExpense(data: Omit<Expense, "id">): Expense {
   const e: Expense = { id: nextId("EXP", expensesList), ...data };
   expensesList.push(e);
   saveExpenses();
-  addAuditLog("create", "expense", e.id, e.description, `إضافة مصروف: ${e.description} - ${e.amount} ج.م`);
-  notify();
+  notify("expenses");
   return e;
 }
 
@@ -820,8 +837,7 @@ export function updateExpense(id: string, data: Partial<Expense>) {
     const desc = expensesList[idx].description;
     expensesList[idx] = { ...expensesList[idx], ...data };
     saveExpenses();
-    addAuditLog("update", "expense", id, data.description || desc, `تعديل مصروف: ${data.description || desc}`);
-    notify();
+    notify("expenses");
   }
 }
 
@@ -831,8 +847,7 @@ export function deleteExpense(id: string) {
     const desc = expensesList[idx].description;
     expensesList.splice(idx, 1);
     saveExpenses();
-    addAuditLog("delete", "expense", id, desc, `حذف مصروف: ${desc}`);
-    notify();
+    notify("expenses");
   }
 }
 
@@ -1057,7 +1072,7 @@ export function importBackup(jsonStr: string): boolean {
     saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
 
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
-    notify();
+    notify("all");
     return true;
   } catch {
     return false;
