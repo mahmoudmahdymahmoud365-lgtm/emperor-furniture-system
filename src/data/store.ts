@@ -457,7 +457,7 @@ export function updateOffer(id: string, data: Partial<Offer>) {
     offers[idx] = { ...offers[idx], ...data };
     saveOffers();
     addAuditLog("update", "offer", id, data.name || name, `تعديل عرض: ${data.name || name}`);
-    notify();
+    notify("offers");
   }
 }
 
