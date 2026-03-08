@@ -115,7 +115,7 @@ export default function Dashboard() {
       const yearMap = new Map<string, number>();
       invoices.forEach((inv) => {
         const y = inv.date.substring(0, 4);
-        yearMap.set(y, (yearMap.get(y) || 0) + calcTotal(inv.items));
+        yearMap.set(y, (yearMap.get(y) || 0) + getInvoiceTotal(inv));
       });
       return Array.from(yearMap.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
