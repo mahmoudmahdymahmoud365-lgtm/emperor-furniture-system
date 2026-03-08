@@ -352,7 +352,7 @@ export function addShift(data: Omit<Shift, "id">): Shift {
   shifts.push(s);
   saveShifts();
   addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
-  notify();
+  notify("shifts");
   return s;
 }
 
