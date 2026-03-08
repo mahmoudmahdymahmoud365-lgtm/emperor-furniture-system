@@ -5,7 +5,7 @@
 import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
-  Offer, StockMovement, ProductReturn, Shift, AttendanceRecord,
+  Offer, StockMovement, ProductReturn, Shift, AttendanceRecord, SecurityEvent,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
