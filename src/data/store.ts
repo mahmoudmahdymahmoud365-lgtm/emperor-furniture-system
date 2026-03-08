@@ -526,6 +526,8 @@ function rebuildSnapshots() {
   offersSnap = [...offers];
   stockMovementsSnap = [...stockMovements];
   returnsSnap = [...productReturns];
+  shiftsSnap = [...shifts];
+  attendanceSnap = [...attendance];
 }
 
 function notify() {
