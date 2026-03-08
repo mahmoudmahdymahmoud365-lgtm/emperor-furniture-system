@@ -388,6 +388,11 @@ export default function Invoices() {
             <option value="">كل الحالات</option>
             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <select className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={printTemplate} onChange={(e) => setPrintTemplate(e.target.value as any)}>
+            <option value="modern">قالب طباعة: حديث</option>
+            <option value="classic">قالب طباعة: كلاسيك</option>
+            <option value="minimal">قالب طباعة: مبسّط</option>
+          </select>
           <ExportButtons
             data={filteredInvoices.map((inv) => {
               const total = calcTotal(inv.items);
