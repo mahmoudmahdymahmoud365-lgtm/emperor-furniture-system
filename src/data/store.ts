@@ -208,7 +208,7 @@ export function clearAuditLog() {
   auditLog.length = 0;
   saveAuditLog();
   auditLogSnap = [];
-  notify();
+  notify("auditLog");
 }
 
 // ---- Seed data (used only if no localStorage data exists) ----
