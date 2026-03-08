@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search, Tag } from "lucide-react";
+import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search, Tag, RotateCcw } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
