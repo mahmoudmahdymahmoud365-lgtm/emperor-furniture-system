@@ -19,7 +19,7 @@ export default function Settings() {
     phones: settings.phones?.length ? settings.phones : [settings.phone || ""],
     emails: settings.emails?.length ? settings.emails : [settings.email || ""],
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     const toSave = {
@@ -47,11 +47,10 @@ export default function Settings() {
     if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
-  // Phone helpers
   const addPhone = () => setForm({ ...form, phones: [...form.phones, ""] });
   const removePhone = (i: number) => {
     if (form.phones.length <= 1) return;
-    setForm({ ...form, phones: form.phones.filter((_, idx) => idx !== i) });
+    setForm({ ...form, phones: form.phones.filter((_: string, idx: number) => idx !== i) });
   };
   const updatePhone = (i: number, val: string) => {
     const phones = [...form.phones];
@@ -59,46 +58,15 @@ export default function Settings() {
     setForm({ ...form, phones });
   };
 
-  // Email helpers
   const addEmail = () => setForm({ ...form, emails: [...form.emails, ""] });
   const removeEmail = (i: number) => {
     if (form.emails.length <= 1) return;
-    setForm({ ...form, emails: form.emails.filter((_, idx) => idx !== i) });
+    setForm({ ...form, emails: form.emails.filter((_: string, idx: number) => idx !== i) });
   };
   const updateEmail = (i: number, val: string) => {
     const emails = [...form.emails];
     emails[i] = val;
     setForm({ ...form, emails });
-  };
-
-  const handleExportBackup = () => {
-    const json = exportBackup();
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "✅ تم التصدير", description: "تم تصدير النسخة الاحتياطية بنجاح" });
-  };
-
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      if (importBackup(result)) {
-        setForm({ ...settings, phones: settings.phones || [settings.phone], emails: settings.emails || [settings.email] });
-        toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية بنجاح. يرجى إعادة تحميل الصفحة." });
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -204,18 +172,12 @@ export default function Settings() {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {form.phones.map((phone, i) => (
+                  {form.phones.map((phone: string, i: number) => (
                     <div key={i} className="flex items-center gap-2">
                       <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                         {i + 1}
                       </div>
-                      <Input
-                        value={phone}
-                        onChange={(e) => updatePhone(i, e.target.value)}
-                        dir="ltr"
-                        placeholder="01xxxxxxxxx"
-                        className="flex-1"
-                      />
+                      <Input value={phone} onChange={(e) => updatePhone(i, e.target.value)} dir="ltr" placeholder="01xxxxxxxxx" className="flex-1" />
                       {form.phones.length > 1 && (
                         <Button variant="ghost" size="icon" onClick={() => removePhone(i)} className="h-8 w-8 text-destructive hover:text-destructive shrink-0">
                           <X className="h-4 w-4" />
@@ -241,18 +203,12 @@ export default function Settings() {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {form.emails.map((email, i) => (
+                  {form.emails.map((email: string, i: number) => (
                     <div key={i} className="flex items-center gap-2">
                       <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center text-xs font-bold text-accent shrink-0">
                         {i + 1}
                       </div>
-                      <Input
-                        value={email}
-                        onChange={(e) => updateEmail(i, e.target.value)}
-                        dir="ltr"
-                        placeholder="info@company.com"
-                        className="flex-1"
-                      />
+                      <Input value={email} onChange={(e) => updateEmail(i, e.target.value)} dir="ltr" placeholder="info@company.com" className="flex-1" />
                       {form.emails.length > 1 && (
                         <Button variant="ghost" size="icon" onClick={() => removeEmail(i)} className="h-8 w-8 text-destructive hover:text-destructive shrink-0">
                           <X className="h-4 w-4" />
@@ -268,28 +224,16 @@ export default function Settings() {
 
         {/* Backup Section */}
         {permissions.backup && (
-          <Card className="section-card">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Database className="h-4 w-4 text-primary" />
-                النسخ الاحتياطي واستعادة البيانات
-              </CardTitle>
-              <CardDescription>تصدير جميع بيانات النظام كنسخة احتياطية أو استعادتها من ملف سابق</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={handleExportBackup} className="gap-2">
-                  <Download className="h-4 w-4" />
-                  تصدير نسخة احتياطية
-                </Button>
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  استعادة من ملف
-                </Button>
-                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportBackup} />
-              </div>
-            </CardContent>
-          </Card>
+          <>
+            <Separator />
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                <Database className="h-5 w-5 text-primary" />
+                النسخ الاحتياطي والتخزين السحابي
+              </h2>
+              <BackupManager />
+            </div>
+          </>
         )}
       </div>
     </AppLayout>
