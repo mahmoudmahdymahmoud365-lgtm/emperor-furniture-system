@@ -20,6 +20,8 @@ export interface Product {
   category: string;
   defaultPrice: number;
   unit: string;
+  stock: number;
+  minStock: number;
   notes: string;
 }
 
@@ -172,6 +174,7 @@ export interface RolePermissions {
   users: boolean;
   backup: boolean;
   offers: boolean;
+  inventory: boolean;
 }
 
 export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
@@ -188,22 +191,23 @@ export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   users: "المستخدمين",
   backup: "النسخ الاحتياطي",
   offers: "العروض والخصومات",
+  inventory: "المخزون",
 };
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: true, auditLog: true, users: true, backup: true, offers: true,
+    settings: true, auditLog: true, users: true, backup: true, offers: true, inventory: true,
   },
   sales: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: false, branches: false, reports: false,
-    settings: false, auditLog: false, users: false, backup: false, offers: false,
+    settings: false, auditLog: false, users: false, backup: false, offers: false, inventory: false,
   },
   accountant: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: false, auditLog: true, users: false, backup: false, offers: true,
+    settings: false, auditLog: true, users: false, backup: false, offers: true, inventory: true,
   },
 };

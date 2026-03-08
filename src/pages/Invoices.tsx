@@ -158,6 +158,23 @@ export default function Invoices() {
     if (!customer || items.some((i) => !i.productName)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" }); return;
     }
+    // Check stock warnings
+    const stockWarnings: string[] = [];
+    for (const item of items) {
+      const prod = products.find(p => p.name === item.productName);
+      if (prod) {
+        if (prod.stock <= 0) {
+          stockWarnings.push(`⚠️ "${prod.name}" نفد من المخزون (الكمية = 0)`);
+        } else if (item.qty > prod.stock) {
+          stockWarnings.push(`⚠️ "${prod.name}" الكمية المطلوبة (${item.qty}) أكبر من المتاح (${prod.stock})`);
+        } else if (prod.stock - item.qty <= prod.minStock) {
+          stockWarnings.push(`تنبيه: "${prod.name}" سيصل للحد الأدنى بعد هذه الفاتورة`);
+        }
+      }
+    }
+    if (stockWarnings.length > 0) {
+      stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
+    }
     if (editingId) {
       updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
@@ -182,7 +199,7 @@ export default function Invoices() {
 
   const handleAddNewProduct = () => {
     if (!newProductName) return;
-    addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, notes: newProductNotes });
+    addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, stock: 0, minStock: 0, notes: newProductNotes });
     selectProduct(newProductItemIdx, newProductName);
     setNewProductOpen(false); setNewProductName(""); setNewProductCategory(""); setNewProductPrice(0); setNewProductUnit("قطعة"); setNewProductNotes("");
     toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد وحفظه" });

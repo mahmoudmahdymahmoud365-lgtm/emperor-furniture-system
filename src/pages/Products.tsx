@@ -11,7 +11,7 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/data/hooks";
 
-const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", notes: "" };
+const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
@@ -62,7 +62,9 @@ export default function Products() {
                 <div className="col-span-2 space-y-1.5"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
-                <div className="col-span-2 space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
                 <div className="col-span-2 space-y-1.5"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
               </div>
               <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
@@ -75,7 +77,7 @@ export default function Products() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="بحث بالاسم أو الفئة..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
           </div>
-          <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" }]} fileName="المنتجات" title="قائمة المنتجات" />
+          <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" },{ key: "stock", label: "المخزون" }]} fileName="المنتجات" title="قائمة المنتجات" />
         </div>
 
         <Card>
@@ -89,6 +91,7 @@ export default function Products() {
                     <th className="text-right p-3 font-medium text-muted-foreground">الفئة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">السعر</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">الوحدة</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">المخزون</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
                   </tr>
                 </thead>
@@ -100,6 +103,17 @@ export default function Products() {
                       <td className="p-3">{p.category}</td>
                       <td className="p-3" dir="ltr">{p.defaultPrice.toLocaleString()} ج.م</td>
                       <td className="p-3 hidden md:table-cell">{p.unit}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.stock <= 0 ? "bg-destructive/10 text-destructive" :
+                          p.stock <= p.minStock ? "bg-warning/10 text-warning" :
+                          "bg-success/10 text-success"
+                        }`}>
+                          {p.stock} {p.unit}
+                          {p.stock <= 0 && " — نفد"}
+                          {p.stock > 0 && p.stock <= p.minStock && " — منخفض"}
+                        </span>
+                      </td>
                       <td className="p-3">
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
