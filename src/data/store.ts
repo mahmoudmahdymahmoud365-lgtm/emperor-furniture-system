@@ -765,8 +765,7 @@ export function addReceipt(data: Omit<Receipt, "id">): Receipt {
     }
   }
   saveReceipts();
-  addAuditLog("create", "receipt", r.id, r.id, `إضافة قسط: ${r.amount} ج.م للفاتورة ${r.invoiceId}`);
-  notify();
+  notify("receipts", "invoices");
   return r;
 }
 
