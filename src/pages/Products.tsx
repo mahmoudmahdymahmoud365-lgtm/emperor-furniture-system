@@ -226,41 +226,38 @@ export default function Products() {
 
         {/* Stock Movement Log */}
         {showMovements && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" />سجل حركات المخزون</CardTitle>
-                <div className="relative max-w-xs">
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="بحث في الحركات..." value={movementFilter} onChange={(e) => setMovementFilter(e.target.value)} className="pr-10 h-8 text-sm" />
-                </div>
+          <div className="section-card">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-base font-semibold flex items-center gap-2"><History className="h-4 w-4 text-primary" />سجل حركات المخزون</h3>
+              <div className="relative max-w-xs">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="بحث في الحركات..." value={movementFilter} onChange={(e) => setMovementFilter(e.target.value)} className="pr-10 h-8 text-sm" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">المنتج</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">النوع</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">الكمية</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">السبب</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMovements.map((m) => (
-                      <tr key={m.id} className="border-b last:border-0">
-                        <td className="p-3 text-xs text-muted-foreground">{new Date(m.date).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" })}</td>
-                        <td className="p-3 font-medium">{m.productName}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.type === "in" || m.type === "return" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
-                            {m.type === "in" || m.type === "return" ? <ArrowUpCircle className="h-3 w-3" /> : <ArrowDownCircle className="h-3 w-3" />}
-                            {MOVEMENT_TYPE_LABELS[m.type]}
-                          </span>
-                        </td>
-                        <td className="p-3 font-medium">{m.type === "in" || m.type === "return" ? "+" : "-"}{m.qty}</td>
-                        <td className="p-3 text-muted-foreground text-xs">{m.reason}</td>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">التاريخ</th>
+                    <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المنتج</th>
+                    <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">النوع</th>
+                    <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الكمية</th>
+                    <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">السبب</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredMovements.map((m) => (
+                    <tr key={m.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-3.5 text-xs text-muted-foreground">{new Date(m.date).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" })}</td>
+                      <td className="p-3.5 font-medium">{m.productName}</td>
+                      <td className="p-3.5">
+                        <span className={`badge-status ${m.type === "in" || m.type === "return" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                          {m.type === "in" || m.type === "return" ? <ArrowUpCircle className="h-3 w-3" /> : <ArrowDownCircle className="h-3 w-3" />}
+                          {MOVEMENT_TYPE_LABELS[m.type]}
+                        </span>
+                      </td>
+                      <td className="p-3.5 font-medium">{m.type === "in" || m.type === "return" ? "+" : "-"}{m.qty}</td>
+                      <td className="p-3.5 text-muted-foreground text-xs">{m.reason}</td>
                       </tr>
                     ))}
                     {filteredMovements.length === 0 && (<tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد حركات مخزون</td></tr>)}
