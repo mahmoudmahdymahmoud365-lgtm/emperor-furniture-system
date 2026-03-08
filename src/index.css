@@ -104,15 +104,35 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm;
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm rounded-xl;
   }
   
   .stat-card {
-    @apply bg-card rounded-lg border border-border p-5 shadow-sm transition-shadow hover:shadow-md;
+    @apply bg-card rounded-xl border border-border p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5;
   }
 
   .page-header {
-    @apply text-2xl font-bold text-foreground mb-6;
+    @apply text-2xl font-bold text-foreground mb-6 flex items-center gap-3;
+  }
+
+  .section-card {
+    @apply bg-card rounded-xl border border-border shadow-sm overflow-hidden transition-shadow hover:shadow-md;
+  }
+
+  .form-group {
+    @apply space-y-2;
+  }
+
+  .form-group label {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  .table-container {
+    @apply bg-card rounded-xl border border-border shadow-sm overflow-hidden;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 }
 

@@ -14,7 +14,9 @@ const DEFAULT_SETTINGS: CompanySettings = {
   name: "الامبراطور للأثاث",
   address: "",
   phone: "",
+  phones: [],
   email: "",
+  emails: [],
   logoUrl: "/logo.png",
 };
 

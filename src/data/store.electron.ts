@@ -52,7 +52,9 @@ let settingsCache: CompanySettings = {
   name: "الامبراطور للأثاث",
   address: "",
   phone: "",
+  phones: [],
   email: "",
+  emails: [],
   logoUrl: "/logo.png",
 };
 
@@ -68,7 +70,9 @@ async function refreshSettings() {
     name: s.name || "الامبراطور للأثاث",
     address: s.address || "",
     phone: s.phone || "",
+    phones: s.phones || [],
     email: s.email || "",
+    emails: s.emails || [],
     logoUrl: s.logoUrl || "/logo.png",
   };
 }
