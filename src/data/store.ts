@@ -588,8 +588,7 @@ export function updateCustomer(id: string, data: Partial<Customer>) {
     const name = customers[idx].fullName;
     customers[idx] = { ...customers[idx], ...data };
     saveCustomers();
-    addAuditLog("update", "customer", id, data.fullName || name, `تعديل عميل: ${data.fullName || name}`);
-    notify();
+    notify("customers");
   }
 }
 
