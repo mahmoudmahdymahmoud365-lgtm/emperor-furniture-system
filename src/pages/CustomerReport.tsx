@@ -30,7 +30,7 @@ export default function CustomerReport() {
 
   const custInvoices = invoices.filter((inv) => inv.customer === customer.fullName);
   const custReceipts = receipts.filter((r) => r.customer === customer.fullName);
-  const totalInvoices = custInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+  const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = custReceipts.reduce((s, r) => s + r.amount, 0);
   const remaining = totalInvoices - totalPaid;
 
