@@ -428,7 +428,7 @@ export function deleteAttendance(id: string) {
     notify();
   }
 }
-
+export function getOffers(): Offer[] { return offersSnap; }
 
 
 export function getActiveOffers(): Offer[] {
