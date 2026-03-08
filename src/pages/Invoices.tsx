@@ -198,6 +198,28 @@ export default function Invoices() {
     setPayOpen(false); setPayInvoice(null); setPayAmount(0); setPayMethod("نقدي"); setPayNotes("");
   };
 
+  const handleOpenReturn = (inv: Invoice) => {
+    setReturnInvoice(inv);
+    setReturnItems(inv.items.map(item => ({ productName: item.productName, qty: 0, unitPrice: item.unitPrice, maxQty: item.qty })));
+    setReturnReason(""); setReturnNotes("");
+    setReturnOpen(true);
+  };
+
+  const handleReturn = () => {
+    if (!returnInvoice) return;
+    const itemsToReturn = returnItems.filter(i => i.qty > 0);
+    if (itemsToReturn.length === 0) { toast({ title: "خطأ", description: "يرجى تحديد كمية للمرتجع", variant: "destructive" }); return; }
+    const totalAmount = itemsToReturn.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    addReturn({
+      invoiceId: returnInvoice.id, customer: returnInvoice.customer,
+      date: new Date().toISOString().split("T")[0],
+      items: itemsToReturn.map(i => ({ productName: i.productName, qty: i.qty, unitPrice: i.unitPrice })),
+      totalAmount, reason: returnReason, notes: returnNotes,
+    });
+    toast({ title: "تم المرتجع", description: `تم تسجيل مرتجع بقيمة ${totalAmount.toLocaleString()} ج.م` });
+    setReturnOpen(false); setReturnInvoice(null);
+  };
+
   const handleAddNewProduct = () => {
     if (!newProductName) return;
     addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, stock: 0, minStock: 0, notes: newProductNotes });
