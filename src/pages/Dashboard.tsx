@@ -52,7 +52,7 @@ export default function Dashboard() {
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("monthly");
   const dashboardRef = useRef<HTMLDivElement>(null);
 
-  const totalSales = invoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+  const totalSales = invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = invoices.reduce((s, inv) => s + inv.paidTotal, 0);
   const totalPending = totalSales - totalPaid;
   const collectionRate = totalSales > 0 ? Math.round((totalPaid / totalSales) * 100) : 0;
