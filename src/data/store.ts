@@ -828,8 +828,7 @@ export function addExpense(data: Omit<Expense, "id">): Expense {
   const e: Expense = { id: nextId("EXP", expensesList), ...data };
   expensesList.push(e);
   saveExpenses();
-  addAuditLog("create", "expense", e.id, e.description, `إضافة مصروف: ${e.description} - ${e.amount} ج.م`);
-  notify();
+  notify("expenses");
   return e;
 }
 
