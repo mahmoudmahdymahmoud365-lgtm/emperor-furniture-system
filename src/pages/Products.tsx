@@ -3,26 +3,30 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Edit, Trash2, Package, PackageX, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, PackageX, AlertTriangle, History, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useProducts } from "@/data/hooks";
+import { useProducts, useStockMovements } from "@/data/hooks";
+import { MOVEMENT_TYPE_LABELS } from "@/data/types";
 
 const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { movements, addManualMovement } = useStockMovements();
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState(emptyProduct);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [stockEditOpen, setStockEditOpen] = useState(false);
-  const [stockEdit, setStockEdit] = useState<{ id: string; stock: number; minStock: number } | null>(null);
+  const [stockEdit, setStockEdit] = useState<{ id: string; name: string; stock: number; minStock: number } | null>(null);
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [showMovements, setShowMovements] = useState(false);
+  const [movementFilter, setMovementFilter] = useState("");
   const { toast } = useToast();
 
   const filtered = useMemo(() => {
@@ -32,41 +36,40 @@ export default function Products() {
     return list;
   }, [products, search, filter]);
 
+  const filteredMovements = useMemo(() => {
+    if (!movementFilter) return movements.slice(0, 50);
+    return movements.filter(m => m.productName.includes(movementFilter) || m.reason.includes(movementFilter)).slice(0, 50);
+  }, [movements, movementFilter]);
+
   const outOfStock = products.filter(p => p.stock <= 0).length;
   const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
   const totalValue = products.reduce((s, p) => s + p.stock * p.defaultPrice, 0);
 
   const handleSave = () => {
-    if (!formData.name) {
-      toast({ title: "خطأ", description: "يرجى إدخال اسم المنتج", variant: "destructive" });
-      return;
-    }
-    if (editingId) {
-      updateProduct(editingId, formData);
-      toast({ title: "تم التحديث" });
-    } else {
-      addProduct(formData);
-      toast({ title: "تمت الإضافة" });
-    }
-    setFormData(emptyProduct);
-    setEditingId(null);
-    setOpen(false);
+    if (!formData.name) { toast({ title: "خطأ", description: "يرجى إدخال اسم المنتج", variant: "destructive" }); return; }
+    if (editingId) { updateProduct(editingId, formData); toast({ title: "تم التحديث" }); }
+    else { addProduct(formData); toast({ title: "تمت الإضافة" }); }
+    setFormData(emptyProduct); setEditingId(null); setOpen(false);
   };
 
   const confirmDelete = () => {
-    if (deleteId) {
-      deleteProduct(deleteId);
-      toast({ title: "تم الحذف" });
-      setDeleteId(null);
-    }
+    if (deleteId) { deleteProduct(deleteId); toast({ title: "تم الحذف" }); setDeleteId(null); }
   };
 
   const handleUpdateStock = () => {
     if (!stockEdit) return;
-    updateProduct(stockEdit.id, { stock: stockEdit.stock, minStock: stockEdit.minStock });
+    const product = products.find(p => p.id === stockEdit.id);
+    if (product) {
+      const diff = stockEdit.stock - product.stock;
+      if (diff !== 0) {
+        addManualMovement(stockEdit.id, stockEdit.name, diff > 0 ? "in" : "out", Math.abs(diff), "تعديل يدوي");
+      }
+      if (stockEdit.minStock !== product.minStock) {
+        updateProduct(stockEdit.id, { minStock: stockEdit.minStock });
+      }
+    }
     toast({ title: "تم التحديث", description: "تم تحديث المخزون بنجاح" });
-    setStockEditOpen(false);
-    setStockEdit(null);
+    setStockEditOpen(false); setStockEdit(null);
   };
 
   return (
@@ -74,22 +77,27 @@ export default function Products() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="page-header mb-0">إدارة المنتجات والمخزون</h1>
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setFormData(emptyProduct); setEditingId(null); } }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />إضافة منتج</Button></DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>{editingId ? "تعديل المنتج" : "إضافة منتج جديد"}</DialogTitle></DialogHeader>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="col-span-2 space-y-1.5"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
-                <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
-                <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
-                <div className="col-span-2 space-y-1.5"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
-              </div>
-              <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowMovements(!showMovements)}>
+              <History className="h-4 w-4 ml-2" />{showMovements ? "إخفاء الحركات" : "سجل الحركات"}
+            </Button>
+            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setFormData(emptyProduct); setEditingId(null); } }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />إضافة منتج</Button></DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader><DialogTitle>{editingId ? "تعديل المنتج" : "إضافة منتج جديد"}</DialogTitle></DialogHeader>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="col-span-2 space-y-1.5"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
+                  <div className="col-span-2 space-y-1.5"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
+                </div>
+                <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -97,37 +105,25 @@ export default function Products() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("all")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10"><Package className="h-5 w-5 text-primary" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">إجمالي المنتجات</p>
-                <p className="text-2xl font-bold">{products.length}</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">إجمالي المنتجات</p><p className="text-2xl font-bold">{products.length}</p></div>
             </CardContent>
           </Card>
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("out")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-destructive/10"><PackageX className="h-5 w-5 text-destructive" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">نفد من المخزون</p>
-                <p className="text-2xl font-bold text-destructive">{outOfStock}</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">نفد من المخزون</p><p className="text-2xl font-bold text-destructive">{outOfStock}</p></div>
             </CardContent>
           </Card>
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter("low")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">مخزون منخفض</p>
-                <p className="text-2xl font-bold text-warning">{lowStock}</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">مخزون منخفض</p><p className="text-2xl font-bold text-warning">{lowStock}</p></div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-success/10"><Package className="h-5 w-5 text-success" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">قيمة المخزون</p>
-                <p className="text-xl font-bold">{totalValue.toLocaleString()} ج.م</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">قيمة المخزون</p><p className="text-xl font-bold">{totalValue.toLocaleString()} ج.م</p></div>
             </CardContent>
           </Card>
         </div>
@@ -141,16 +137,10 @@ export default function Products() {
             </div>
             <div className="space-y-1 text-sm">
               {products.filter(p => p.stock <= 0).map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-destructive">
-                  <PackageX className="h-3 w-3" />
-                  <span><strong>{p.name}</strong> — نفد من المخزون</span>
-                </div>
+                <div key={p.id} className="flex items-center gap-2 text-destructive"><PackageX className="h-3 w-3" /><span><strong>{p.name}</strong> — نفد من المخزون</span></div>
               ))}
               {products.filter(p => p.stock > 0 && p.stock <= p.minStock).map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-warning">
-                  <AlertTriangle className="h-3 w-3" />
-                  <span><strong>{p.name}</strong> — متبقي {p.stock} {p.unit} فقط (الحد الأدنى: {p.minStock})</span>
-                </div>
+                <div key={p.id} className="flex items-center gap-2 text-warning"><AlertTriangle className="h-3 w-3" /><span><strong>{p.name}</strong> — متبقي {p.stock} {p.unit} (الحد الأدنى: {p.minStock})</span></div>
               ))}
             </div>
           </div>
@@ -170,6 +160,7 @@ export default function Products() {
           <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "المنتج" },{ key: "category", label: "الفئة" },{ key: "defaultPrice", label: "السعر" },{ key: "unit", label: "الوحدة" },{ key: "stock", label: "المخزون" },{ key: "minStock", label: "الحد الأدنى" }]} fileName="المنتجات" title="قائمة المنتجات" />
         </div>
 
+        {/* Products Table */}
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -198,18 +189,12 @@ export default function Products() {
                         <td className="p-3">{p.category}</td>
                         <td className="p-3" dir="ltr">{p.defaultPrice.toLocaleString()} ج.م</td>
                         <td className="p-3 hidden md:table-cell">{p.unit}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
-                            {p.stock} {p.unit} — {status}
-                          </span>
-                        </td>
+                        <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>{p.stock} {p.unit} — {status}</span></td>
                         <td className="p-3 text-muted-foreground">{p.minStock}</td>
                         <td className="p-3">{(p.stock * p.defaultPrice).toLocaleString()} ج.م</td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }}>
-                              <Package className="h-4 w-4" />
-                            </Button>
+                            <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }}><Package className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </div>
@@ -217,14 +202,59 @@ export default function Products() {
                       </tr>
                     );
                   })}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
-                  )}
+                  {filtered.length === 0 && (<tr><td colSpan={9} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>)}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
+
+        {/* Stock Movement Log */}
+        {showMovements && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" />سجل حركات المخزون</CardTitle>
+                <div className="relative max-w-xs">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="بحث في الحركات..." value={movementFilter} onChange={(e) => setMovementFilter(e.target.value)} className="pr-10 h-8 text-sm" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">المنتج</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">النوع</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">الكمية</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">السبب</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMovements.map((m) => (
+                      <tr key={m.id} className="border-b last:border-0">
+                        <td className="p-3 text-xs text-muted-foreground">{new Date(m.date).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" })}</td>
+                        <td className="p-3 font-medium">{m.productName}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.type === "in" || m.type === "return" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                            {m.type === "in" || m.type === "return" ? <ArrowUpCircle className="h-3 w-3" /> : <ArrowDownCircle className="h-3 w-3" />}
+                            {MOVEMENT_TYPE_LABELS[m.type]}
+                          </span>
+                        </td>
+                        <td className="p-3 font-medium">{m.type === "in" || m.type === "return" ? "+" : "-"}{m.qty}</td>
+                        <td className="p-3 text-muted-foreground text-xs">{m.reason}</td>
+                      </tr>
+                    ))}
+                    {filteredMovements.length === 0 && (<tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد حركات مخزون</td></tr>)}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Edit Stock Dialog */}
         <Dialog open={stockEditOpen} onOpenChange={(v) => { setStockEditOpen(v); if (!v) setStockEdit(null); }}>
@@ -232,14 +262,9 @@ export default function Products() {
             <DialogHeader><DialogTitle>تعديل المخزون</DialogTitle></DialogHeader>
             {stockEdit && (
               <div className="space-y-4 mt-4">
-                <div className="space-y-1.5">
-                  <Label>الكمية المتاحة</Label>
-                  <Input type="number" value={stockEdit.stock} onChange={(e) => setStockEdit({ ...stockEdit, stock: Number(e.target.value) })} dir="ltr" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>حد أدنى للتنبيه</Label>
-                  <Input type="number" value={stockEdit.minStock} onChange={(e) => setStockEdit({ ...stockEdit, minStock: Number(e.target.value) })} dir="ltr" />
-                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-sm font-medium">{stockEdit.name}</div>
+                <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={stockEdit.stock} onChange={(e) => setStockEdit({ ...stockEdit, stock: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={stockEdit.minStock} onChange={(e) => setStockEdit({ ...stockEdit, minStock: Number(e.target.value) })} dir="ltr" /></div>
                 <Button onClick={handleUpdateStock} className="w-full">حفظ</Button>
               </div>
             )}

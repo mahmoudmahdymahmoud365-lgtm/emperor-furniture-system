@@ -1,6 +1,5 @@
 // ==============================
 // Unified Type Definitions
-// When migrating to SQLite/Electron, only the store implementation changes.
 // ==============================
 
 export interface Customer {
@@ -93,9 +92,9 @@ export interface Offer {
   id: string;
   name: string;
   type: OfferType;
-  value: number; // percentage or fixed amount
-  productId: string; // "" = all products
-  productName: string; // "" = all
+  value: number;
+  productId: string;
+  productName: string;
   startDate: string;
   endDate: string;
   active: boolean;
@@ -109,13 +108,56 @@ export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
 };
 
 // ==============================
+// Stock Movements
+// ==============================
+export type StockMovementType = "in" | "out" | "return" | "adjustment";
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  type: StockMovementType;
+  qty: number;
+  date: string;
+  reason: string;
+  relatedId?: string;
+}
+
+export const MOVEMENT_TYPE_LABELS: Record<StockMovementType, string> = {
+  in: "وارد",
+  out: "صادر",
+  return: "مرتجع",
+  adjustment: "تعديل يدوي",
+};
+
+// ==============================
+// Returns
+// ==============================
+export interface ReturnItem {
+  productName: string;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface ProductReturn {
+  id: string;
+  invoiceId: string;
+  customer: string;
+  date: string;
+  items: ReturnItem[];
+  totalAmount: number;
+  reason: string;
+  notes: string;
+}
+
+// ==============================
 // Stored Images (IndexedDB)
 // ==============================
 export interface StoredImage {
   id: string;
   name: string;
-  type: string; // "بطاقة عميل" | "تصميم" | "أخرى"
-  relatedTo: string; // customer name, invoice id, etc.
+  type: string;
+  relatedTo: string;
   fileName: string;
   mimeType: string;
   size: number;
@@ -126,7 +168,7 @@ export interface StoredImage {
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";
-export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock";
 
 export interface AuditLogEntry {
   id: string;
@@ -175,6 +217,7 @@ export interface RolePermissions {
   backup: boolean;
   offers: boolean;
   inventory: boolean;
+  returns: boolean;
 }
 
 export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
@@ -192,22 +235,23 @@ export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   backup: "النسخ الاحتياطي",
   offers: "العروض والخصومات",
   inventory: "المخزون",
+  returns: "المرتجعات",
 };
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: true, auditLog: true, users: true, backup: true, offers: true, inventory: true,
+    settings: true, auditLog: true, users: true, backup: true, offers: true, inventory: true, returns: true,
   },
   sales: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: false, branches: false, reports: false,
-    settings: false, auditLog: false, users: false, backup: false, offers: false, inventory: false,
+    settings: false, auditLog: false, users: false, backup: false, offers: false, inventory: false, returns: true,
   },
   accountant: {
     dashboard: true, customers: true, products: true, invoices: true,
     installments: true, employees: true, branches: true, reports: true,
-    settings: false, auditLog: true, users: false, backup: false, offers: true, inventory: true,
+    settings: false, auditLog: true, users: false, backup: false, offers: true, inventory: true, returns: true,
   },
 };

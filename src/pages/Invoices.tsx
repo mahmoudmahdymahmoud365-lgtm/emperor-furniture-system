@@ -5,12 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search, Tag } from "lucide-react";
+import { Plus, Trash2, Printer, Edit, DollarSign, PackagePlus, Search, Tag, RotateCcw } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
-import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings, useOffers } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings, useOffers, useReturns } from "@/data/hooks";
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
@@ -35,6 +35,7 @@ export default function Invoices() {
   const { addReceipt } = useReceipts();
   const { settings } = useCompanySettings();
   const { activeOffers } = useOffers();
+  const { addReturn } = useReturns();
 
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
@@ -195,6 +196,28 @@ export default function Invoices() {
     addReceipt({ invoiceId: payInvoice.id, customer: payInvoice.customer, amount: payAmount, date: new Date().toISOString().split("T")[0], method: payMethod, notes: payNotes });
     toast({ title: "تم الدفع", description: `تم تسجيل دفعة ${payAmount.toLocaleString()} ج.م` });
     setPayOpen(false); setPayInvoice(null); setPayAmount(0); setPayMethod("نقدي"); setPayNotes("");
+  };
+
+  const handleOpenReturn = (inv: Invoice) => {
+    setReturnInvoice(inv);
+    setReturnItems(inv.items.map(item => ({ productName: item.productName, qty: 0, unitPrice: item.unitPrice, maxQty: item.qty })));
+    setReturnReason(""); setReturnNotes("");
+    setReturnOpen(true);
+  };
+
+  const handleReturn = () => {
+    if (!returnInvoice) return;
+    const itemsToReturn = returnItems.filter(i => i.qty > 0);
+    if (itemsToReturn.length === 0) { toast({ title: "خطأ", description: "يرجى تحديد كمية للمرتجع", variant: "destructive" }); return; }
+    const totalAmount = itemsToReturn.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    addReturn({
+      invoiceId: returnInvoice.id, customer: returnInvoice.customer,
+      date: new Date().toISOString().split("T")[0],
+      items: itemsToReturn.map(i => ({ productName: i.productName, qty: i.qty, unitPrice: i.unitPrice })),
+      totalAmount, reason: returnReason, notes: returnNotes,
+    });
+    toast({ title: "تم المرتجع", description: `تم تسجيل مرتجع بقيمة ${totalAmount.toLocaleString()} ج.م` });
+    setReturnOpen(false); setReturnInvoice(null);
   };
 
   const handleAddNewProduct = () => {
@@ -434,6 +457,7 @@ export default function Invoices() {
                             )}
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل"><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenReturn(inv)} title="مرتجع"><RotateCcw className="h-4 w-4 text-warning" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </td>

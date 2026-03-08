@@ -5,28 +5,21 @@ function useStoreData<T>(getter: () => T): T {
   return useSyncExternalStore(store.subscribe, getter, getter);
 }
 
-// ---- Company Settings ----
 export function useCompanySettings() {
   const settings = useStoreData(store.getCompanySettings);
-  return {
-    settings,
-    updateSettings: useCallback(store.updateCompanySettings, []),
-  };
+  return { settings, updateSettings: useCallback(store.updateCompanySettings, []) };
 }
 
-// ---- Customers ----
 export function useCustomers() {
   const customers = useStoreData(store.getCustomers);
   return {
-    customers,
-    lastAddedCustomer: store.getLastAddedCustomer(),
+    customers, lastAddedCustomer: store.getLastAddedCustomer(),
     addCustomer: useCallback(store.addCustomer, []),
     updateCustomer: useCallback(store.updateCustomer, []),
     deleteCustomer: useCallback(store.deleteCustomer, []),
   };
 }
 
-// ---- Products ----
 export function useProducts() {
   const products = useStoreData(store.getProducts);
   return {
@@ -37,7 +30,6 @@ export function useProducts() {
   };
 }
 
-// ---- Invoices ----
 export function useInvoices() {
   const invoices = useStoreData(store.getInvoices);
   return {
@@ -48,7 +40,6 @@ export function useInvoices() {
   };
 }
 
-// ---- Employees ----
 export function useEmployees() {
   const employees = useStoreData(store.getEmployees);
   return {
@@ -59,7 +50,6 @@ export function useEmployees() {
   };
 }
 
-// ---- Branches ----
 export function useBranches() {
   const branches = useStoreData(store.getBranches);
   return {
@@ -70,7 +60,6 @@ export function useBranches() {
   };
 }
 
-// ---- Receipts (Installments) ----
 export function useReceipts() {
   const receipts = useStoreData(store.getReceipts);
   return {
@@ -81,37 +70,37 @@ export function useReceipts() {
   };
 }
 
-// ---- Audit Log ----
 export function useAuditLog() {
   const log = useStoreData(store.getAuditLog);
-  return {
-    log,
-    clearAuditLog: useCallback(store.clearAuditLog, []),
-  };
+  return { log, clearAuditLog: useCallback(store.clearAuditLog, []) };
 }
 
-// ---- Users ----
 export function useUsers() {
   const users = useStoreData(store.getUsers);
   return {
-    users,
-    currentUser: store.getCurrentUser(),
-    permissions: store.getUserPermissions(),
+    users, currentUser: store.getCurrentUser(), permissions: store.getUserPermissions(),
     addUser: useCallback(store.addUser, []),
     updateUser: useCallback(store.updateUser, []),
     deleteUser: useCallback(store.deleteUser, []),
   };
 }
 
-// ---- Offers ----
 export function useOffers() {
   const offers = useStoreData(store.getOffers);
   return {
-    offers,
-    activeOffers: store.getActiveOffers(),
-    getProductDiscount: store.getProductDiscount,
+    offers, activeOffers: store.getActiveOffers(), getProductDiscount: store.getProductDiscount,
     addOffer: useCallback(store.addOffer, []),
     updateOffer: useCallback(store.updateOffer, []),
     deleteOffer: useCallback(store.deleteOffer, []),
   };
+}
+
+export function useStockMovements() {
+  const movements = useStoreData(store.getStockMovements);
+  return { movements, addManualMovement: useCallback(store.addManualStockMovement, []) };
+}
+
+export function useReturns() {
+  const returns = useStoreData(store.getReturns);
+  return { returns, addReturn: useCallback(store.addReturn, []) };
 }
