@@ -383,7 +383,7 @@ export function deleteShift(id: string) {
 export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
 
 export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
-  const a: AttendanceRecord = { id: `ATT${String(attendance.length + 1).padStart(5, "0")}`, ...data };
+  const a: AttendanceRecord = { id: nextId("ATT", attendance), ...data };
   attendance.push(a);
   saveAttendance();
   addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
