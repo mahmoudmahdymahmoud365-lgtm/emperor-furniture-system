@@ -20,6 +20,8 @@ export interface Product {
   category: string;
   defaultPrice: number;
   unit: string;
+  stock: number;
+  minStock: number;
   notes: string;
 }
 
