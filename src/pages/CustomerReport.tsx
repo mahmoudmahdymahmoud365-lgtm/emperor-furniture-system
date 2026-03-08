@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Printer, ArrowRight, FileText, CreditCard, RotateCcw, TrendingUp,
-  Phone, MapPin, Briefcase, User, Calendar, DollarSign,
+  Phone, MapPin, Briefcase, User, DollarSign,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
