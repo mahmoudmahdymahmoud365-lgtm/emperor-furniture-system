@@ -85,7 +85,7 @@ export function getUserPermissions(): RolePermissions {
 }
 
 export function addUser(data: Omit<UserAccount, "id">): UserAccount {
-  const u = { id: `U${String(users.length + 1).padStart(3, "0")}`, ...data };
+  const u = { id: nextId("U", users), ...data };
   users.push(u);
   saveUsers();
   addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
