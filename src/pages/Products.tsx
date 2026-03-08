@@ -91,6 +91,7 @@ export default function Products() {
                     <th className="text-right p-3 font-medium text-muted-foreground">الفئة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">السعر</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">الوحدة</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">المخزون</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
                   </tr>
                 </thead>
@@ -102,6 +103,17 @@ export default function Products() {
                       <td className="p-3">{p.category}</td>
                       <td className="p-3" dir="ltr">{p.defaultPrice.toLocaleString()} ج.م</td>
                       <td className="p-3 hidden md:table-cell">{p.unit}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.stock <= 0 ? "bg-destructive/10 text-destructive" :
+                          p.stock <= p.minStock ? "bg-warning/10 text-warning" :
+                          "bg-success/10 text-success"
+                        }`}>
+                          {p.stock} {p.unit}
+                          {p.stock <= 0 && " — نفد"}
+                          {p.stock > 0 && p.stock <= p.minStock && " — منخفض"}
+                        </span>
+                      </td>
                       <td className="p-3">
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>

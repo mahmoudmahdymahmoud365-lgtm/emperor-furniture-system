@@ -446,6 +446,13 @@ export function getInvoices(): Invoice[] { return invoicesSnap; }
 export function addInvoice(data: Omit<Invoice, "id">): Invoice {
   const inv = { id: nextId("INV-", invoices), ...data };
   invoices.push(inv);
+  // Deduct stock for each item
+  for (const item of inv.items) {
+    const pIdx = products.findIndex(p => p.name === item.productName);
+    if (pIdx >= 0) {
+      products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - item.qty) };
+    }
+  }
   addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة: ${inv.id} للعميل ${inv.customer}`);
   notify();
   return inv;
