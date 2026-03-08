@@ -130,7 +130,7 @@ export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
 
 export function addSecurityEvent(type: SecurityEvent["type"], email: string, userName: string) {
   const event: SecurityEvent = {
-    id: `SEC${String(securityLog.length + 1).padStart(5, "0")}`,
+    id: `SEC${Date.now().toString(36)}`,
     type, email, userName,
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
