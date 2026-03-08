@@ -34,8 +34,10 @@ export function AppSidebar() {
   const permissions = getUserPermissions();
 
   const menuItems = allMenuItems.filter((item) => {
-    const perm = item.perm as keyof typeof permissions;
-    return permissions[perm] !== false;
+    const perm = permissions[item.perm as keyof typeof permissions];
+    if (perm === false || perm === undefined) return false;
+    if (typeof perm === "object") return perm.view === true;
+    return true;
   });
 
   const handleLogout = () => {
