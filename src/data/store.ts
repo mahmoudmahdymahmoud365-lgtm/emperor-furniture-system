@@ -1,5 +1,5 @@
 // ==============================
-// In-Memory Data Store
+// In-Memory Data Store (with localStorage persistence)
 // ==============================
 
 import type {
@@ -10,7 +10,24 @@ import type {
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
-// ---- Company Settings (persisted in localStorage) ----
+// ---- Generic persistence helpers ----
+function loadFromStorage<T>(key: string, fallback: T[]): T[] {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [...fallback];
+}
+
+function saveToStorage<T>(key: string, data: T[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn(`Failed to save ${key}:`, e);
+  }
+}
+
+// ---- Company Settings ----
 const DEFAULT_SETTINGS: CompanySettings = {
   name: "الامبراطور للأثاث",
   address: "",
@@ -48,20 +65,10 @@ const DEFAULT_USERS: UserAccount[] = [
   { id: "U003", name: "المحاسب", email: "accountant@emperor.com", password: "acc123", role: "accountant", active: true },
 ];
 
-function loadUsers(): UserAccount[] {
-  try {
-    const saved = localStorage.getItem("userAccounts");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [...DEFAULT_USERS];
-}
-
-const users: UserAccount[] = loadUsers();
+const users: UserAccount[] = loadFromStorage("userAccounts", DEFAULT_USERS);
 let usersSnap: UserAccount[] = [...users];
 
-function saveUsers() {
-  localStorage.setItem("userAccounts", JSON.stringify(users));
-}
+function saveUsers() { saveToStorage("userAccounts", users); }
 
 let currentUser: UserAccount | null = null;
 
@@ -114,20 +121,10 @@ const CURRENT_USER_KEY = "currentUserId";
 // ==============================
 // SECURITY LOG
 // ==============================
-function loadSecurityLog(): SecurityEvent[] {
-  try {
-    const saved = localStorage.getItem("securityLog");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const securityLog: SecurityEvent[] = loadSecurityLog();
+const securityLog: SecurityEvent[] = loadFromStorage("securityLog", []);
 let securityLogSnap: SecurityEvent[] = [...securityLog];
 
-function saveSecurityLog() {
-  localStorage.setItem("securityLog", JSON.stringify(securityLog));
-}
+function saveSecurityLog() { saveToStorage("securityLog", securityLog); }
 
 export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
 
@@ -185,20 +182,10 @@ export function logout() {
 // ==============================
 // AUDIT LOG
 // ==============================
-function loadAuditLog(): AuditLogEntry[] {
-  try {
-    const saved = localStorage.getItem("auditLog");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const auditLog: AuditLogEntry[] = loadAuditLog();
+const auditLog: AuditLogEntry[] = loadFromStorage("auditLog", []);
 let auditLogSnap: AuditLogEntry[] = [...auditLog];
 
-function saveAuditLog() {
-  localStorage.setItem("auditLog", JSON.stringify(auditLog));
-}
+function saveAuditLog() { saveToStorage("auditLog", auditLog); }
 
 export function getAuditLog(): AuditLogEntry[] { return auditLogSnap; }
 
@@ -224,14 +211,14 @@ export function clearAuditLog() {
   notify();
 }
 
-// ---- Initial seed data ----
-const customers: Customer[] = [
+// ---- Seed data (used only if no localStorage data exists) ----
+const SEED_CUSTOMERS: Customer[] = [
   { id: "C001", fullName: "أحمد محمد علي", nationalId: "29901011234567", phone: "01012345678", address: "شارع التحرير", governorate: "القاهرة", jobTitle: "مهندس", notes: "" },
   { id: "C002", fullName: "سارة أحمد حسن", nationalId: "30001021234567", phone: "01098765432", address: "شارع الهرم", governorate: "الجيزة", jobTitle: "طبيبة", notes: "عميل مميز" },
   { id: "C003", fullName: "محمود حسن إبراهيم", nationalId: "28501031234567", phone: "01112345678", address: "شارع النصر", governorate: "الإسكندرية", jobTitle: "تاجر", notes: "" },
 ];
 
-const products: Product[] = [
+const SEED_PRODUCTS: Product[] = [
   { id: "P001", name: "غرفة نوم كاملة", category: "غرف نوم", defaultPrice: 25000, unit: "قطعة", stock: 10, minStock: 2, notes: "" },
   { id: "P002", name: "طقم أنتريه مودرن", category: "أنتريهات", defaultPrice: 18000, unit: "قطعة", stock: 8, minStock: 2, notes: "" },
   { id: "P003", name: "مطبخ ألوميتال", category: "مطابخ", defaultPrice: 15000, unit: "متر", stock: 50, minStock: 10, notes: "" },
@@ -239,7 +226,7 @@ const products: Product[] = [
   { id: "P005", name: "دولاب ملابس", category: "غرف نوم", defaultPrice: 8000, unit: "قطعة", stock: 15, minStock: 3, notes: "" },
 ];
 
-const invoices: Invoice[] = [
+const SEED_INVOICES: Invoice[] = [
   {
     id: "INV-001", customer: "أحمد محمد علي", branch: "القاهرة", employee: "محمد سعيد",
     date: "2025-06-15", deliveryDate: "",
@@ -257,59 +244,60 @@ const invoices: Invoice[] = [
   },
 ];
 
-const employees: Employee[] = [
+const SEED_EMPLOYEES: Employee[] = [
   { id: "E001", name: "محمد سعيد", nationalId: "29001011234567", phone: "01011111111", branch: "القاهرة", monthlySalary: 5000, role: "مبيعات", active: true },
   { id: "E002", name: "علي حسن", nationalId: "29101021234567", phone: "01022222222", branch: "الجيزة", monthlySalary: 4500, role: "مبيعات", active: true },
   { id: "E003", name: "نورا أحمد", nationalId: "29201031234567", phone: "01033333333", branch: "القاهرة", monthlySalary: 6000, role: "محاسب", active: true },
 ];
 
-const branches: Branch[] = [
+const SEED_BRANCHES: Branch[] = [
   { id: "B001", name: "فرع القاهرة", address: "شارع التحرير - القاهرة", rent: 15000, active: true },
   { id: "B002", name: "فرع الجيزة", address: "شارع الهرم - الجيزة", rent: 12000, active: true },
   { id: "B003", name: "فرع الإسكندرية", address: "كورنيش الإسكندرية", rent: 10000, active: false },
 ];
 
-const receipts: Receipt[] = [
+const SEED_RECEIPTS: Receipt[] = [
   { id: "R001", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 10000, date: "2025-06-15", method: "نقدي", notes: "" },
   { id: "R002", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 5000, date: "2025-06-20", method: "تحويل بنكي", notes: "دفعة ثانية" },
 ];
 
-// ==============================
-// OFFERS
-// ==============================
-function loadOffers(): Offer[] {
-  try {
-    const saved = localStorage.getItem("offers");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
+const SEED_SHIFTS: Shift[] = [
+  { id: "SH001", name: "صباحي", startTime: "08:00", endTime: "16:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
+  { id: "SH002", name: "مسائي", startTime: "16:00", endTime: "00:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
+  { id: "SH003", name: "مرن", startTime: "10:00", endTime: "18:00", hours: 8, branch: "الجيزة", active: true, notes: "" },
+];
 
-const offers: Offer[] = loadOffers();
-let offersSnap: Offer[] = [...offers];
+// ---- Load all data with persistence ----
+const customers: Customer[] = loadFromStorage("emp_customers", SEED_CUSTOMERS);
+const products: Product[] = loadFromStorage("emp_products", SEED_PRODUCTS);
+const invoices: Invoice[] = loadFromStorage("emp_invoices", SEED_INVOICES);
+const employees: Employee[] = loadFromStorage("emp_employees", SEED_EMPLOYEES);
+const branches: Branch[] = loadFromStorage("emp_branches", SEED_BRANCHES);
+const receipts: Receipt[] = loadFromStorage("emp_receipts", SEED_RECEIPTS);
+const offers: Offer[] = loadFromStorage("offers", []);
+const stockMovements: StockMovement[] = loadFromStorage("stockMovements", []);
+const productReturns: ProductReturn[] = loadFromStorage("productReturns", []);
+const shifts: Shift[] = loadFromStorage("shifts", SEED_SHIFTS);
+const attendance: AttendanceRecord[] = loadFromStorage("attendance", []);
+const expensesList: Expense[] = loadFromStorage("expenses", []);
 
-function saveOffers() {
-  localStorage.setItem("offers", JSON.stringify(offers));
-}
+// ---- Save functions for core entities ----
+function saveCustomers() { saveToStorage("emp_customers", customers); }
+function saveProducts() { saveToStorage("emp_products", products); }
+function saveInvoices() { saveToStorage("emp_invoices", invoices); }
+function saveEmployees() { saveToStorage("emp_employees", employees); }
+function saveBranches() { saveToStorage("emp_branches", branches); }
+function saveReceipts() { saveToStorage("emp_receipts", receipts); }
+function saveOffers() { saveToStorage("offers", offers); }
+function saveStockMovements() { saveToStorage("stockMovements", stockMovements); }
+function saveReturns() { saveToStorage("productReturns", productReturns); }
+function saveShifts() { saveToStorage("shifts", shifts); }
+function saveAttendance() { saveToStorage("attendance", attendance); }
+function saveExpenses() { saveToStorage("expenses", expensesList); }
 
 // ==============================
 // STOCK MOVEMENTS
 // ==============================
-function loadStockMovements(): StockMovement[] {
-  try {
-    const saved = localStorage.getItem("stockMovements");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const stockMovements: StockMovement[] = loadStockMovements();
-let stockMovementsSnap: StockMovement[] = [...stockMovements];
-
-function saveStockMovements() {
-  localStorage.setItem("stockMovements", JSON.stringify(stockMovements));
-}
-
 function recordStockMovement(productName: string, type: StockMovement["type"], qty: number, reason: string, relatedId?: string) {
   const product = products.find(p => p.name === productName);
   stockMovements.unshift({
@@ -330,21 +318,6 @@ export function getStockMovements(): StockMovement[] { return stockMovementsSnap
 // ==============================
 // RETURNS
 // ==============================
-function loadReturns(): ProductReturn[] {
-  try {
-    const saved = localStorage.getItem("productReturns");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const productReturns: ProductReturn[] = loadReturns();
-let returnsSnap: ProductReturn[] = [...productReturns];
-
-function saveReturns() {
-  localStorage.setItem("productReturns", JSON.stringify(productReturns));
-}
-
 export function getReturns(): ProductReturn[] { return returnsSnap; }
 
 export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
@@ -360,8 +333,10 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
   const invIdx = invoices.findIndex(i => i.id === r.invoiceId);
   if (invIdx >= 0) {
     invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - r.totalAmount) };
+    saveInvoices();
   }
   saveReturns();
+  saveProducts();
   addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
   notify();
   return r;
@@ -370,25 +345,6 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
 // ==============================
 // SHIFTS
 // ==============================
-function loadShifts(): Shift[] {
-  try {
-    const saved = localStorage.getItem("shifts");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [
-    { id: "SH001", name: "صباحي", startTime: "08:00", endTime: "16:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
-    { id: "SH002", name: "مسائي", startTime: "16:00", endTime: "00:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
-    { id: "SH003", name: "مرن", startTime: "10:00", endTime: "18:00", hours: 8, branch: "الجيزة", active: true, notes: "" },
-  ];
-}
-
-const shifts: Shift[] = loadShifts();
-let shiftsSnap: Shift[] = [...shifts];
-
-function saveShifts() {
-  localStorage.setItem("shifts", JSON.stringify(shifts));
-}
-
 export function getShifts(): Shift[] { return shiftsSnap; }
 
 export function addShift(data: Omit<Shift, "id">): Shift {
@@ -424,21 +380,6 @@ export function deleteShift(id: string) {
 // ==============================
 // ATTENDANCE
 // ==============================
-function loadAttendance(): AttendanceRecord[] {
-  try {
-    const saved = localStorage.getItem("attendance");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const attendance: AttendanceRecord[] = loadAttendance();
-let attendanceSnap: AttendanceRecord[] = [...attendance];
-
-function saveAttendance() {
-  localStorage.setItem("attendance", JSON.stringify(attendance));
-}
-
 export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
 
 export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
@@ -470,8 +411,11 @@ export function deleteAttendance(id: string) {
     notify();
   }
 }
-export function getOffers(): Offer[] { return offersSnap; }
 
+// ==============================
+// OFFERS
+// ==============================
+export function getOffers(): Offer[] { return offersSnap; }
 
 export function getActiveOffers(): Offer[] {
   const today = new Date().toISOString().split("T")[0];
@@ -555,6 +499,12 @@ let invoicesSnap: Invoice[] = [...invoices];
 let employeesSnap: Employee[] = [...employees];
 let branchesSnap: Branch[] = [...branches];
 let receiptsSnap: Receipt[] = [...receipts];
+let offersSnap: Offer[] = [...offers];
+let stockMovementsSnap: StockMovement[] = [...stockMovements];
+let returnsSnap: ProductReturn[] = [...productReturns];
+let shiftsSnap: Shift[] = [...shifts];
+let attendanceSnap: AttendanceRecord[] = [...attendance];
+let expensesSnap: Expense[] = [...expensesList];
 
 function rebuildSnapshots() {
   customersSnap = [...customers];
@@ -589,6 +539,7 @@ export function addCustomer(data: Omit<Customer, "id">): Customer {
   const c = { id: nextId("C", customers), ...data };
   customers.push(c);
   lastAddedCustomer = c.fullName;
+  saveCustomers();
   addAuditLog("create", "customer", c.id, c.fullName, `إضافة عميل: ${c.fullName}`);
   notify();
   return c;
@@ -599,6 +550,7 @@ export function updateCustomer(id: string, data: Partial<Customer>) {
   if (idx >= 0) {
     const name = customers[idx].fullName;
     customers[idx] = { ...customers[idx], ...data };
+    saveCustomers();
     addAuditLog("update", "customer", id, data.fullName || name, `تعديل عميل: ${data.fullName || name}`);
     notify();
   }
@@ -609,6 +561,7 @@ export function deleteCustomer(id: string) {
   if (idx >= 0) {
     const name = customers[idx].fullName;
     customers.splice(idx, 1);
+    saveCustomers();
     addAuditLog("delete", "customer", id, name, `حذف عميل: ${name}`);
     notify();
   }
@@ -622,6 +575,7 @@ export function getProducts(): Product[] { return productsSnap; }
 export function addProduct(data: Omit<Product, "id">): Product {
   const p = { id: nextId("P", products), ...data };
   products.push(p);
+  saveProducts();
   addAuditLog("create", "product", p.id, p.name, `إضافة منتج: ${p.name}`);
   notify();
   return p;
@@ -632,6 +586,7 @@ export function updateProduct(id: string, data: Partial<Product>) {
   if (idx >= 0) {
     const name = products[idx].name;
     products[idx] = { ...products[idx], ...data };
+    saveProducts();
     addAuditLog("update", "product", id, data.name || name, `تعديل منتج: ${data.name || name}`);
     notify();
   }
@@ -642,6 +597,7 @@ export function deleteProduct(id: string) {
   if (idx >= 0) {
     const name = products[idx].name;
     products.splice(idx, 1);
+    saveProducts();
     addAuditLog("delete", "product", id, name, `حذف منتج: ${name}`);
     notify();
   }
@@ -662,6 +618,8 @@ export function addInvoice(data: Omit<Invoice, "id">): Invoice {
       recordStockMovement(item.productName, "out", item.qty, `فاتورة ${inv.id}`, inv.id);
     }
   }
+  saveInvoices();
+  saveProducts();
   addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة: ${inv.id} للعميل ${inv.customer}`);
   notify();
   return inv;
@@ -671,6 +629,7 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
     invoices[idx] = { ...invoices[idx], ...data };
+    saveInvoices();
     addAuditLog("update", "invoice", id, id, `تعديل فاتورة: ${id}`);
     notify();
   }
@@ -688,6 +647,8 @@ export function deleteInvoice(id: string) {
       }
     }
     invoices.splice(idx, 1);
+    saveInvoices();
+    saveProducts();
     addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id} (تم استرجاع المخزون)`);
     notify();
   }
@@ -701,6 +662,7 @@ export function getEmployees(): Employee[] { return employeesSnap; }
 export function addEmployee(data: Omit<Employee, "id">): Employee {
   const e = { id: nextId("E", employees), ...data };
   employees.push(e);
+  saveEmployees();
   addAuditLog("create", "employee", e.id, e.name, `إضافة موظف: ${e.name}`);
   notify();
   return e;
@@ -711,6 +673,7 @@ export function updateEmployee(id: string, data: Partial<Employee>) {
   if (idx >= 0) {
     const name = employees[idx].name;
     employees[idx] = { ...employees[idx], ...data };
+    saveEmployees();
     addAuditLog("update", "employee", id, data.name || name, `تعديل موظف: ${data.name || name}`);
     notify();
   }
@@ -721,6 +684,7 @@ export function deleteEmployee(id: string) {
   if (idx >= 0) {
     const name = employees[idx].name;
     employees.splice(idx, 1);
+    saveEmployees();
     addAuditLog("delete", "employee", id, name, `حذف موظف: ${name}`);
     notify();
   }
@@ -734,6 +698,7 @@ export function getBranches(): Branch[] { return branchesSnap; }
 export function addBranch(data: Omit<Branch, "id">): Branch {
   const b = { id: nextId("B", branches), ...data };
   branches.push(b);
+  saveBranches();
   addAuditLog("create", "branch", b.id, b.name, `إضافة فرع: ${b.name}`);
   notify();
   return b;
@@ -744,6 +709,7 @@ export function updateBranch(id: string, data: Partial<Branch>) {
   if (idx >= 0) {
     const name = branches[idx].name;
     branches[idx] = { ...branches[idx], ...data };
+    saveBranches();
     addAuditLog("update", "branch", id, data.name || name, `تعديل فرع: ${data.name || name}`);
     notify();
   }
@@ -754,6 +720,7 @@ export function deleteBranch(id: string) {
   if (idx >= 0) {
     const name = branches[idx].name;
     branches.splice(idx, 1);
+    saveBranches();
     addAuditLog("delete", "branch", id, name, `حذف فرع: ${name}`);
     notify();
   }
@@ -771,8 +738,10 @@ export function addReceipt(data: Omit<Receipt, "id">): Receipt {
     const invIdx = invoices.findIndex((i) => i.id === data.invoiceId);
     if (invIdx >= 0) {
       invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal + data.amount };
+      saveInvoices();
     }
   }
+  saveReceipts();
   addAuditLog("create", "receipt", r.id, r.id, `إضافة قسط: ${r.amount} ج.م للفاتورة ${r.invoiceId}`);
   notify();
   return r;
@@ -787,9 +756,11 @@ export function updateReceipt(id: string, data: Partial<Receipt>) {
       const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
       if (invIdx >= 0) {
         invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal - old.amount + updated.amount };
+        saveInvoices();
       }
     }
     receipts[idx] = updated;
+    saveReceipts();
     addAuditLog("update", "receipt", id, id, `تعديل قسط: ${id}`);
     notify();
   }
@@ -802,8 +773,10 @@ export function deleteReceipt(id: string) {
     const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
     if (invIdx >= 0) {
       invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - old.amount) };
+      saveInvoices();
     }
     receipts.splice(idx, 1);
+    saveReceipts();
     addAuditLog("delete", "receipt", id, id, `حذف قسط: ${id}`);
     notify();
   }
@@ -821,6 +794,7 @@ export function addManualStockMovement(productId: string, productName: string, t
     } else {
       products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - qty) };
     }
+    saveProducts();
   }
   addAuditLog("update", "product", productId, productName, `تعديل مخزون: ${type === "in" || type === "return" ? "+" : "-"}${qty} (${reason})`);
   notify();
@@ -829,21 +803,6 @@ export function addManualStockMovement(productId: string, productName: string, t
 // ==============================
 // EXPENSES
 // ==============================
-function loadExpenses(): Expense[] {
-  try {
-    const saved = localStorage.getItem("expenses");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-const expensesList: Expense[] = loadExpenses();
-let expensesSnap: Expense[] = [...expensesList];
-
-function saveExpenses() {
-  localStorage.setItem("expenses", JSON.stringify(expensesList));
-}
-
 export function getExpenses(): Expense[] { return expensesSnap; }
 
 export function addExpense(data: Omit<Expense, "id">): Expense {
@@ -882,7 +841,7 @@ export function deleteExpense(id: string) {
 // ==============================
 export function exportBackup(): string {
   const data = {
-    version: 5,
+    version: 6,
     timestamp: new Date().toISOString(),
     customers: [...customers],
     products: [...products],
@@ -937,13 +896,13 @@ export function importBackup(jsonStr: string): boolean {
       data.users.forEach((u: UserAccount) => users.push(u));
       saveUsers();
     }
-    saveAuditLog();
-    saveOffers();
-    saveStockMovements();
-    saveReturns();
-    saveShifts();
-    saveAttendance();
-    saveExpenses();
+
+    // Save all core entities
+    saveCustomers(); saveProducts(); saveInvoices();
+    saveEmployees(); saveBranches(); saveReceipts();
+    saveAuditLog(); saveOffers(); saveStockMovements();
+    saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
+
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
     notify();
     return true;
