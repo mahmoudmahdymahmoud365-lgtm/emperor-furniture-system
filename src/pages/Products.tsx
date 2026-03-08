@@ -62,7 +62,9 @@ export default function Products() {
                 <div className="col-span-2 space-y-1.5"><Label>اسم المنتج *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>وحدة القياس</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} /></div>
-                <div className="col-span-2 space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>السعر الافتراضي</Label><Input type="number" value={formData.defaultPrice} onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="space-y-1.5"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
                 <div className="col-span-2 space-y-1.5"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
               </div>
               <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
