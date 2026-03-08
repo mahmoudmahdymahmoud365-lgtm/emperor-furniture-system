@@ -23,6 +23,8 @@ const ENTITY_LABELS: Record<AuditEntity, string> = {
   receipt: "قسط",
   settings: "إعدادات",
   offer: "عرض",
+  return: "مرتجع",
+  stock: "مخزون",
 };
 
 export default function AuditLog() {
