@@ -61,7 +61,7 @@ export default function Dashboard() {
   const today = formatDate(now);
   const todaySales = invoices
     .filter((inv) => inv.date === today)
-    .reduce((s, inv) => s + calcTotal(inv.items), 0);
+    .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const todayInvoices = invoices.filter((inv) => inv.date === today).length;
 
   const weekAgo = new Date(now);
