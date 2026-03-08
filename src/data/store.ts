@@ -712,8 +712,7 @@ export function deleteEmployee(id: string) {
     const name = employees[idx].name;
     employees.splice(idx, 1);
     saveEmployees();
-    addAuditLog("delete", "employee", id, name, `حذف موظف: ${name}`);
-    notify();
+    notify("employees");
   }
 }
 
