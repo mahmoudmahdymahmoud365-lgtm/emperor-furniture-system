@@ -11,7 +11,7 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/data/hooks";
 
-const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", notes: "" };
+const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
