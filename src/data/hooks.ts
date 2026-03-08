@@ -118,9 +118,14 @@ export function useShifts() {
 export function useAttendance() {
   const attendance = useStoreData(store.getAttendance);
   return {
-    attendance,
+  attendance,
     addAttendance: useCallback(store.addAttendance, []),
     updateAttendance: useCallback(store.updateAttendance, []),
     deleteAttendance: useCallback(store.deleteAttendance, []),
   };
+}
+
+export function useSecurityLog() {
+  const events = useStoreData(store.getSecurityLog);
+  return { events, clearSecurityLog: useCallback(store.clearSecurityLog, []) };
 }

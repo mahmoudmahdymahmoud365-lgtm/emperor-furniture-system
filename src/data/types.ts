@@ -212,6 +212,19 @@ export interface StoredImage {
 }
 
 // ==============================
+// Security Events
+// ==============================
+export interface SecurityEvent {
+  id: string;
+  type: "login_success" | "login_failed" | "logout" | "password_change" | "session_expired";
+  email: string;
+  userName: string;
+  timestamp: string;
+  ip?: string;
+  userAgent?: string;
+}
+
+// ==============================
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";

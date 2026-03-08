@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, FileText, CreditCard, Building2,
   UserCog, BarChart3, ChevronRight, Menu, X, LogOut, Settings,
-  ScrollText, Shield, Tag, Factory, Warehouse,
+  ScrollText, Shield, Tag, Factory, TrendingUp, ShieldCheck,
 } from "lucide-react";
 import { logout, getUserPermissions } from "@/data/store";
 import { useCompanySettings } from "@/data/hooks";
@@ -19,8 +19,10 @@ const allMenuItems = [
   { title: "الموظفين", icon: UserCog, path: "/employees", perm: "employees" },
   { title: "الفروع", icon: Building2, path: "/branches", perm: "branches" },
   { title: "التقارير", icon: BarChart3, path: "/reports", perm: "reports" },
+  { title: "تقارير متقدمة", icon: TrendingUp, path: "/advanced-reports", perm: "reports" },
   { title: "طلب تصنيع", icon: Factory, path: "/manufacturing", perm: "invoices" },
   { title: "سجل العمليات", icon: ScrollText, path: "/audit-log", perm: "auditLog" },
+  { title: "سجل الأمان", icon: ShieldCheck, path: "/security-log", perm: "auditLog" },
   { title: "المستخدمين", icon: Shield, path: "/users", perm: "users" },
   { title: "الإعدادات", icon: Settings, path: "/settings", perm: "settings" },
 ];

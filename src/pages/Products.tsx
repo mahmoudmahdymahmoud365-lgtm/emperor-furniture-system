@@ -5,18 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Edit, Trash2, Package, PackageX, AlertTriangle, History, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, PackageX, AlertTriangle, History, ArrowUpCircle, ArrowDownCircle, QrCode } from "lucide-react";
+import { ProductQRCode } from "@/components/ProductQRCode";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useProducts, useStockMovements } from "@/data/hooks";
+import { useProducts, useStockMovements, useCompanySettings } from "@/data/hooks";
 import { MOVEMENT_TYPE_LABELS } from "@/data/types";
+import type { Product } from "@/data/types";
 
 const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const { movements, addManualMovement } = useStockMovements();
+  const { settings } = useCompanySettings();
+  const [qrProduct, setQrProduct] = useState<Product | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState(emptyProduct);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -194,6 +199,7 @@ export default function Products() {
                         <td className="p-3">{(p.stock * p.defaultPrice).toLocaleString()} ج.م</td>
                         <td className="p-3">
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }}><QrCode className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }}><Package className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
@@ -272,6 +278,7 @@ export default function Products() {
         </Dialog>
 
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا المنتج؟" />
+        <ProductQRCode product={qrProduct} open={qrOpen} onOpenChange={setQrOpen} companyName={settings.name} />
       </div>
     </AppLayout>
   );

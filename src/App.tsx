@@ -23,6 +23,8 @@ const AuditLog = lazy(() => import("./pages/AuditLog"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const Offers = lazy(() => import("./pages/Offers"));
 const ManufacturingReport = lazy(() => import("./pages/ManufacturingReport"));
+const AdvancedReports = lazy(() => import("./pages/AdvancedReports"));
+const SecurityLog = lazy(() => import("./pages/SecurityLog"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -63,6 +65,8 @@ const App = () => (
             <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/offers" element={<ProtectedRoute><Offers /></ProtectedRoute>} />
             <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingReport /></ProtectedRoute>} />
+            <Route path="/advanced-reports" element={<ProtectedRoute><AdvancedReports /></ProtectedRoute>} />
+            <Route path="/security-log" element={<ProtectedRoute><SecurityLog /></ProtectedRoute>} />
             <Route path="/inventory" element={<Navigate to="/products" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

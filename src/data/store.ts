@@ -5,7 +5,7 @@
 import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
-  Offer, StockMovement, ProductReturn, Shift, AttendanceRecord,
+  Offer, StockMovement, ProductReturn, Shift, AttendanceRecord, SecurityEvent,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
@@ -108,6 +108,46 @@ export function deleteUser(id: string) {
 const AUTH_KEY = "isLoggedIn";
 const CURRENT_USER_KEY = "currentUserId";
 
+// ==============================
+// SECURITY LOG
+// ==============================
+function loadSecurityLog(): SecurityEvent[] {
+  try {
+    const saved = localStorage.getItem("securityLog");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const securityLog: SecurityEvent[] = loadSecurityLog();
+let securityLogSnap: SecurityEvent[] = [...securityLog];
+
+function saveSecurityLog() {
+  localStorage.setItem("securityLog", JSON.stringify(securityLog));
+}
+
+export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
+
+export function addSecurityEvent(type: SecurityEvent["type"], email: string, userName: string) {
+  const event: SecurityEvent = {
+    id: `SEC${String(securityLog.length + 1).padStart(5, "0")}`,
+    type, email, userName,
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+  };
+  securityLog.unshift(event);
+  if (securityLog.length > 500) securityLog.splice(500);
+  saveSecurityLog();
+  securityLogSnap = [...securityLog];
+}
+
+export function clearSecurityLog() {
+  securityLog.length = 0;
+  saveSecurityLog();
+  securityLogSnap = [];
+  notify();
+}
+
 export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
 
 export function login(email: string, password: string): boolean {
@@ -116,18 +156,17 @@ export function login(email: string, password: string): boolean {
     localStorage.setItem(AUTH_KEY, "true");
     localStorage.setItem(CURRENT_USER_KEY, user.id);
     currentUser = user;
+    addSecurityEvent("login_success", email, user.name);
     return true;
   }
-  if (email && password) {
-    localStorage.setItem(AUTH_KEY, "true");
-    currentUser = DEFAULT_USERS[0];
-    localStorage.setItem(CURRENT_USER_KEY, currentUser.id);
-    return true;
-  }
+  addSecurityEvent("login_failed", email, "");
   return false;
 }
 
 export function logout() {
+  if (currentUser) {
+    addSecurityEvent("logout", currentUser.email, currentUser.name);
+  }
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(CURRENT_USER_KEY);
   currentUser = null;
@@ -528,6 +567,7 @@ function rebuildSnapshots() {
   returnsSnap = [...productReturns];
   shiftsSnap = [...shifts];
   attendanceSnap = [...attendance];
+  securityLogSnap = [...securityLog];
 }
 
 function notify() {
