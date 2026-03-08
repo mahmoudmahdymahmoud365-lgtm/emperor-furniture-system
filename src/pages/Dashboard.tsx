@@ -69,7 +69,7 @@ export default function Dashboard() {
   const weekAgoStr = formatDate(weekAgo);
   const weeklySales = invoices
     .filter((inv) => inv.date >= weekAgoStr)
-    .reduce((s, inv) => s + calcTotal(inv.items), 0);
+    .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
 
   const salesChartData = useMemo(() => {
     if (salesPeriod === "daily") {
