@@ -2,13 +2,14 @@ import { useState, useMemo, useRef } from "react";
 import {
   TrendingUp, Users, FileText, DollarSign, AlertTriangle, Printer, Phone,
   CalendarDays, BarChart3, ArrowUpRight, ArrowDownRight, Package, Download,
+  Activity, Wallet, Clock, ShoppingCart,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
+  PieChart, Pie, Cell, AreaChart, Area, Legend,
 } from "recharts";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useInvoices, useCustomers, useReceipts, useCompanySettings, useProducts } from "@/data/hooks";
@@ -22,7 +23,7 @@ const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }
 
 const COLORS = [
   "hsl(172, 66%, 26%)", "hsl(38, 92%, 50%)", "hsl(205, 79%, 52%)",
-  "hsl(142, 71%, 35%)", "hsl(0, 72%, 51%)",
+  "hsl(142, 71%, 35%)", "hsl(340, 65%, 47%)",
 ];
 
 const statusColors: Record<string, string> = {
@@ -43,6 +44,15 @@ function getDayLabel(dateStr: string) {
 }
 
 type SalesPeriod = "daily" | "weekly" | "monthly" | "yearly";
+
+const CustomTooltipStyle = {
+  borderRadius: "12px",
+  border: "none",
+  fontFamily: "Cairo",
+  fontSize: "12px",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+  padding: "10px 14px",
+};
 
 export default function Dashboard() {
   const { invoices } = useInvoices();
@@ -74,6 +84,15 @@ export default function Dashboard() {
   const weeklySales = invoices
     .filter((inv) => inv.date >= weekAgoStr)
     .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
+
+  // Previous week for comparison
+  const twoWeeksAgo = new Date(now);
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  const twoWeeksAgoStr = formatDate(twoWeeksAgo);
+  const prevWeekSales = invoices
+    .filter((inv) => inv.date >= twoWeeksAgoStr && inv.date < weekAgoStr)
+    .reduce((s, inv) => s + getInvoiceTotal(inv), 0);
+  const weeklyChange = prevWeekSales > 0 ? Math.round(((weeklySales - prevWeekSales) / prevWeekSales) * 100) : 0;
 
   const salesChartData = useMemo(() => {
     if (salesPeriod === "daily") {
@@ -125,7 +144,6 @@ export default function Dashboard() {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([year, sales]) => ({ label: year, sales }));
     }
-    // monthly
     const monthMap = new Map<string, number>();
     invoices.forEach((inv) => {
       const m = inv.date.substring(0, 7);
@@ -371,82 +389,104 @@ export default function Dashboard() {
       value: `${todaySales.toLocaleString()} ج.م`,
       sub: `${todayInvoices} فاتورة`,
       icon: CalendarDays,
-      color: "text-info",
-      bg: "bg-info/10",
+      gradient: "from-info/20 to-info/5",
+      iconBg: "bg-info/15",
+      iconColor: "text-info",
+      borderColor: "border-info/20",
     },
     {
       title: "مبيعات الأسبوع",
       value: `${weeklySales.toLocaleString()} ج.م`,
-      sub: "آخر 7 أيام",
+      sub: weeklyChange !== 0 ? `${weeklyChange > 0 ? "+" : ""}${weeklyChange}% عن الأسبوع الماضي` : "آخر 7 أيام",
       icon: BarChart3,
-      color: "text-primary",
-      bg: "bg-primary/10",
+      gradient: "from-primary/20 to-primary/5",
+      iconBg: "bg-primary/15",
+      iconColor: "text-primary",
+      borderColor: "border-primary/20",
+      trend: weeklyChange,
     },
     {
       title: "إجمالي المبيعات",
       value: `${totalSales.toLocaleString()} ج.م`,
       sub: `${invoices.length} فاتورة`,
       icon: DollarSign,
-      color: "text-success",
-      bg: "bg-success/10",
+      gradient: "from-success/20 to-success/5",
+      iconBg: "bg-success/15",
+      iconColor: "text-success",
+      borderColor: "border-success/20",
     },
     {
       title: "المحصل",
       value: `${totalPaid.toLocaleString()} ج.م`,
       sub: `${collectionRate}% نسبة التحصيل`,
-      icon: TrendingUp,
-      color: "text-accent",
-      bg: "bg-accent/10",
+      icon: Wallet,
+      gradient: "from-accent/20 to-accent/5",
+      iconBg: "bg-accent/15",
+      iconColor: "text-accent",
+      borderColor: "border-accent/20",
     },
     {
       title: "الأرصدة المعلقة",
       value: `${totalPending.toLocaleString()} ج.م`,
       sub: `${overdueCustomers.length} عميل متأخر`,
-      icon: AlertTriangle,
-      color: "text-destructive",
-      bg: "bg-destructive/10",
+      icon: Clock,
+      gradient: "from-destructive/20 to-destructive/5",
+      iconBg: "bg-destructive/15",
+      iconColor: "text-destructive",
+      borderColor: "border-destructive/20",
     },
     {
       title: "عدد العملاء",
       value: String(customers.length),
       sub: "عميل مسجل",
       icon: Users,
-      color: "text-primary",
-      bg: "bg-primary/10",
+      gradient: "from-primary/20 to-primary/5",
+      iconBg: "bg-primary/15",
+      iconColor: "text-primary",
+      borderColor: "border-primary/20",
     },
   ];
 
+  const totalProductsValue = topProducts.reduce((s, p) => s + p.value, 0);
+
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in" ref={dashboardRef}>
+      <div className="space-y-6" ref={dashboardRef}>
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="page-header">لوحة التحكم</h1>
-            <p className="text-muted-foreground -mt-4 mb-6">
-              مرحباً بك في {settings.name}
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Activity className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">لوحة التحكم</h1>
+              <p className="text-sm text-muted-foreground">
+                مرحباً بك في {settings.name} — {new Date().toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExportDashboardPDF}>
-            <Download className="h-4 w-4 ml-1" />
+          <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={handleExportDashboardPDF}>
+            <Download className="h-4 w-4" />
             تصدير PDF
           </Button>
         </div>
 
         {/* Stock Alerts */}
         {(outOfStock.length > 0 || lowStock.length > 0) && (
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-destructive">
-                <Package className="h-5 w-5" />
-                تنبيهات المخزون ({outOfStock.length + lowStock.length} منتج)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+          <div className="section-card border-destructive/30 bg-gradient-to-l from-destructive/5 to-transparent">
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-destructive/15 flex items-center justify-center">
+                  <Package className="h-4 w-4 text-destructive" />
+                </div>
+                <h3 className="font-bold text-foreground">تنبيهات المخزون</h3>
+                <span className="badge-status bg-destructive/10 text-destructive">{outOfStock.length + lowStock.length} منتج</span>
+              </div>
+              <div className="grid gap-2">
                 {outOfStock.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-background rounded-xl border border-destructive/20 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">نفد</span>
+                      <span className="badge-status bg-destructive/10 text-destructive">نفد</span>
                       <span className="font-semibold">{p.name}</span>
                       <span className="text-muted-foreground text-xs">({p.category})</span>
                     </div>
@@ -454,9 +494,9 @@ export default function Dashboard() {
                   </div>
                 ))}
                 {lowStock.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-2 bg-background rounded-lg border text-sm">
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-background rounded-xl border border-warning/20 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning">منخفض</span>
+                      <span className="badge-status bg-warning/10 text-warning">منخفض</span>
                       <span className="font-semibold">{p.name}</span>
                       <span className="text-muted-foreground text-xs">({p.category})</span>
                     </div>
@@ -464,32 +504,30 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Overdue Alerts */}
         {overdueCustomers.length > 0 && (
-          <Card className="border-warning bg-warning/5">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2 text-warning">
-                  <AlertTriangle className="h-5 w-5" />
-                  تنبيه: عملاء متأخرون عن الدفع (أكثر من 30 يوم)
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={handlePrintOverdue}>
-                  <Printer className="h-4 w-4 ml-1" />
+          <div className="section-card border-warning/30 bg-gradient-to-l from-warning/5 to-transparent">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-warning/15 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                  </div>
+                  <h3 className="font-bold text-foreground">عملاء متأخرون عن الدفع</h3>
+                  <span className="badge-status bg-warning/10 text-warning">أكثر من 30 يوم</span>
+                </div>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1" onClick={handlePrintOverdue}>
+                  <Printer className="h-3.5 w-3.5" />
                   طباعة
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 {overdueCustomers.map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-2"
-                  >
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-xl border gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{c.name}</span>
@@ -501,222 +539,265 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        الفواتير: {c.invoiceIds.join(", ")} — آخر دفعة:{" "}
-                        {c.lastPayment || "لم يدفع"} —{" "}
-                        {c.daysSince === 999
-                          ? "لم يدفع أبداً"
-                          : `منذ ${c.daysSince} يوم`}
+                        الفواتير: {c.invoiceIds.join(", ")} — آخر دفعة: {c.lastPayment || "لم يدفع"} — {c.daysSince === 999 ? "لم يدفع أبداً" : `منذ ${c.daysSince} يوم`}
                       </div>
                     </div>
-                    <span className="text-destructive font-bold whitespace-nowrap">
-                      {c.balance.toLocaleString()} ج.م
-                    </span>
+                    <span className="text-destructive font-bold whitespace-nowrap">{c.balance.toLocaleString()} ج.م</span>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {stats.map((stat) => (
-            <Card key={stat.title} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-5 pb-4 px-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className={`p-2 rounded-lg ${stat.bg}`}>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                  </div>
+            <div
+              key={stat.title}
+              className={`relative overflow-hidden rounded-2xl border ${stat.borderColor} bg-gradient-to-br ${stat.gradient} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center transition-transform group-hover:scale-110`}>
+                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
                 </div>
-                <p className="text-xl font-bold">{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{stat.title}</p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{stat.sub}</p>
-              </CardContent>
-            </Card>
+                {stat.trend !== undefined && stat.trend !== 0 && (
+                  <div className={`flex items-center gap-0.5 text-xs font-semibold ${stat.trend > 0 ? "text-success" : "text-destructive"}`}>
+                    {stat.trend > 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                    {Math.abs(stat.trend)}%
+                  </div>
+                )}
+              </div>
+              <p className="text-lg font-extrabold text-foreground leading-tight">{stat.value}</p>
+              <p className="text-xs font-semibold text-muted-foreground mt-1">{stat.title}</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-0.5">{stat.sub}</p>
+              {/* Decorative circle */}
+              <div className={`absolute -left-4 -bottom-4 w-20 h-20 rounded-full ${stat.iconBg} opacity-20 blur-xl`} />
+            </div>
           ))}
         </div>
 
-        {/* Sales Chart with Period Tabs */}
+        {/* Sales Chart + Top Products */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base">تحليل المبيعات</CardTitle>
-                <Tabs
-                  value={salesPeriod}
-                  onValueChange={(v) => setSalesPeriod(v as SalesPeriod)}
-                >
-                  <TabsList className="h-8">
-                    <TabsTrigger value="daily" className="text-xs px-3 h-7">يومي</TabsTrigger>
-                    <TabsTrigger value="weekly" className="text-xs px-3 h-7">أسبوعي</TabsTrigger>
-                    <TabsTrigger value="monthly" className="text-xs px-3 h-7">شهري</TabsTrigger>
-                    <TabsTrigger value="yearly" className="text-xs px-3 h-7">سنوي</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+          <div className="lg:col-span-2 section-card">
+            <div className="p-5 pb-3 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">تحليل المبيعات</h3>
+                  <p className="text-xs text-muted-foreground">مقارنة أداء المبيعات حسب الفترة</p>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={salesChartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 10 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 10 }} />
+              <Tabs value={salesPeriod} onValueChange={(v) => setSalesPeriod(v as SalesPeriod)}>
+                <TabsList className="h-9 rounded-xl bg-muted/50">
+                  <TabsTrigger value="daily" className="text-xs px-3 h-7 rounded-lg">يومي</TabsTrigger>
+                  <TabsTrigger value="weekly" className="text-xs px-3 h-7 rounded-lg">أسبوعي</TabsTrigger>
+                  <TabsTrigger value="monthly" className="text-xs px-3 h-7 rounded-lg">شهري</TabsTrigger>
+                  <TabsTrigger value="yearly" className="text-xs px-3 h-7 rounded-lg">سنوي</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="px-5 pb-5">
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={salesChartData}>
+                  <defs>
+                    <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(172, 66%, 26%)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(172, 66%, 26%)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 20%, 88%)" strokeOpacity={0.5} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fontFamily: "Cairo" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fontFamily: "Cairo" }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid hsl(214, 20%, 88%)",
-                      fontFamily: "Cairo",
-                      fontSize: "12px",
-                    }}
+                    contentStyle={CustomTooltipStyle}
                     formatter={(value: number) => [`${value.toLocaleString()} ج.م`, "المبيعات"]}
                   />
-                  <Bar dataKey="sales" fill="hsl(172, 66%, 26%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <Area
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="hsl(172, 66%, 26%)"
+                    strokeWidth={2.5}
+                    fill="url(#salesGradient)"
+                    dot={{ r: 4, fill: "hsl(172, 66%, 26%)", strokeWidth: 2, stroke: "#fff" }}
+                    activeDot={{ r: 6, fill: "hsl(172, 66%, 26%)", strokeWidth: 3, stroke: "#fff" }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Top Products Pie */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                أعلى المنتجات مبيعاً
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
+          {/* Top Products */}
+          <div className="section-card">
+            <div className="p-5 pb-3">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <ShoppingCart className="h-4.5 w-4.5 text-accent" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">أعلى المنتجات</h3>
+                  <p className="text-xs text-muted-foreground">الأكثر مبيعاً</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
                     data={topProducts}
                     cx="50%"
                     cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
+                    innerRadius={50}
+                    outerRadius={78}
+                    paddingAngle={4}
                     dataKey="value"
+                    strokeWidth={0}
                   >
                     {topProducts.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ fontFamily: "Cairo", borderRadius: "8px", fontSize: "12px" }}
+                    contentStyle={CustomTooltipStyle}
                     formatter={(value: number) => [`${value.toLocaleString()} ج.م`]}
                   />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-1.5 mt-2">
-                {topProducts.map((product, i) => (
-                  <div key={product.name} className="flex items-center gap-2 text-xs">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[i] }}
-                    />
-                    <span className="text-muted-foreground truncate">{product.name}</span>
-                    <span className="mr-auto font-medium whitespace-nowrap">
-                      {product.value.toLocaleString()} ج.م
-                    </span>
+            </div>
+            <div className="px-5 pb-5 space-y-2">
+              {topProducts.map((product, i) => (
+                <div key={product.name} className="flex items-center gap-2.5 text-sm group">
+                  <div
+                    className="w-3 h-3 rounded-md shrink-0 shadow-sm"
+                    style={{ backgroundColor: COLORS[i] }}
+                  />
+                  <span className="text-muted-foreground truncate flex-1 text-xs">{product.name}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${totalProductsValue > 0 ? (product.value / totalProductsValue) * 100 : 0}%`,
+                          backgroundColor: COLORS[i],
+                        }}
+                      />
+                    </div>
+                    <span className="font-bold text-xs whitespace-nowrap">{product.value.toLocaleString()}</span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Payments Area Chart + Branch Performance */}
+        {/* Payments + Branch Performance */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">التحصيل مقابل المستحق</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
+          <div className="section-card">
+            <div className="p-5 pb-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-9 h-9 rounded-xl bg-success/10 flex items-center justify-center">
+                  <Wallet className="h-4.5 w-4.5 text-success" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">التحصيل مقابل المستحق</h3>
+                  <p className="text-xs text-muted-foreground">تحليل شهري للتدفقات المالية</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5">
+              <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={paymentsData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
+                  <defs>
+                    <linearGradient id="paidGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(142, 71%, 35%)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(142, 71%, 35%)" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="pendingGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 20%, 88%)" strokeOpacity={0.5} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fontFamily: "Cairo" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fontFamily: "Cairo" }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid hsl(214, 20%, 88%)",
-                      fontFamily: "Cairo",
-                      fontSize: "12px",
-                    }}
+                    contentStyle={CustomTooltipStyle}
                     formatter={(value: number, name: string) => [
                       `${value.toLocaleString()} ج.م`,
                       name === "paid" ? "المحصل" : "المعلق",
                     ]}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="paid"
-                    stackId="1"
-                    stroke="hsl(142, 71%, 35%)"
-                    fill="hsl(142, 71%, 35%)"
-                    fillOpacity={0.3}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="pending"
-                    stackId="1"
-                    stroke="hsl(0, 72%, 51%)"
-                    fill="hsl(0, 72%, 51%)"
-                    fillOpacity={0.2}
+                  <Area type="monotone" dataKey="paid" stroke="hsl(142, 71%, 35%)" strokeWidth={2} fill="url(#paidGrad)" dot={false} />
+                  <Area type="monotone" dataKey="pending" stroke="hsl(0, 72%, 51%)" strokeWidth={2} fill="url(#pendingGrad)" dot={false} />
+                  <Legend
+                    formatter={(value: string) => (value === "paid" ? "المحصل" : "المعلق")}
+                    wrapperStyle={{ fontFamily: "Cairo", fontSize: "12px", paddingTop: "8px" }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">أداء الفروع</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={branchData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" tick={{ fontSize: 10 }} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
+          <div className="section-card">
+            <div className="p-5 pb-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <BarChart3 className="h-4.5 w-4.5 text-accent" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">أداء الفروع</h3>
+                  <p className="text-xs text-muted-foreground">مقارنة إيرادات الفروع</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={branchData} layout="vertical" barSize={20}>
+                  <defs>
+                    <linearGradient id="branchGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="hsl(38, 92%, 60%)" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 20%, 88%)" strokeOpacity={0.5} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fontFamily: "Cairo" }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fontFamily: "Cairo" }} width={80} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid hsl(214, 20%, 88%)",
-                      fontFamily: "Cairo",
-                      fontSize: "12px",
-                    }}
+                    contentStyle={CustomTooltipStyle}
                     formatter={(value: number) => [`${value.toLocaleString()} ج.م`, "المبيعات"]}
                   />
-                  <Bar dataKey="value" fill="hsl(38, 92%, 50%)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" fill="url(#branchGrad)" radius={[0, 8, 8, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Recent Invoices */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              آخر الفواتير
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+        <div className="section-card">
+          <div className="p-5 pb-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-info/10 flex items-center justify-center">
+              <FileText className="h-4.5 w-4.5 text-info" />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground">آخر الفواتير</h3>
+              <p className="text-xs text-muted-foreground">أحدث العمليات المسجلة</p>
+            </div>
+          </div>
+          <div className="px-5 pb-5">
+            <div className="overflow-x-auto rounded-xl border border-border">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="text-right pb-3 font-medium">رقم الفاتورة</th>
-                    <th className="text-right pb-3 font-medium">العميل</th>
-                    <th className="text-right pb-3 font-medium">التاريخ</th>
-                    <th className="text-right pb-3 font-medium">المبلغ</th>
-                    <th className="text-right pb-3 font-medium">المدفوع</th>
-                    <th className="text-right pb-3 font-medium">الحالة</th>
+                  <tr className="bg-muted/50">
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">رقم الفاتورة</th>
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">العميل</th>
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">التاريخ</th>
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">المبلغ</th>
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">المدفوع</th>
+                    <th className="text-right py-3 px-4 font-semibold text-muted-foreground text-xs">الحالة</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border">
                   {invoices
                     .slice(-6)
                     .reverse()
@@ -724,20 +805,18 @@ export default function Dashboard() {
                       const total = getInvoiceTotal(inv);
                       const remaining = total - inv.paidTotal;
                       return (
-                        <tr key={inv.id} className="border-b last:border-0">
-                          <td className="py-3 font-medium">{inv.id}</td>
-                          <td className="py-3">{inv.customer}</td>
-                          <td className="py-3 text-muted-foreground text-xs">{inv.date}</td>
-                          <td className="py-3">{total.toLocaleString()} ج.م</td>
-                          <td className="py-3">
-                            <span className={remaining > 0 ? "text-destructive" : "text-success"}>
+                        <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-4 font-semibold text-primary">{inv.id}</td>
+                          <td className="py-3 px-4">{inv.customer}</td>
+                          <td className="py-3 px-4 text-muted-foreground text-xs">{inv.date}</td>
+                          <td className="py-3 px-4 font-medium">{total.toLocaleString()} ج.م</td>
+                          <td className="py-3 px-4">
+                            <span className={`font-semibold ${remaining > 0 ? "text-destructive" : "text-success"}`}>
                               {inv.paidTotal.toLocaleString()} ج.م
                             </span>
                           </td>
-                          <td className="py-3">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[inv.status] || ""}`}
-                            >
+                          <td className="py-3 px-4">
+                            <span className={`badge-status ${statusColors[inv.status] || ""}`}>
                               {inv.status}
                             </span>
                           </td>
@@ -746,9 +825,15 @@ export default function Dashboard() {
                     })}
                 </tbody>
               </table>
+              {invoices.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">لا توجد فواتير بعد</p>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </AppLayout>
   );
