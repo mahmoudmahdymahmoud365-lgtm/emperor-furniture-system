@@ -19,6 +19,9 @@ const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة"
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const { movements, addManualMovement } = useStockMovements();
+  const { settings } = useCompanySettings();
+  const [qrProduct, setQrProduct] = useState<Product | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState(emptyProduct);
   const [editingId, setEditingId] = useState<string | null>(null);
