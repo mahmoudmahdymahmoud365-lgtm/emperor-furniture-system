@@ -8,8 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2 } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
-import type { UserAccount, UserRole, RolePermissions } from "@/data/types";
-import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS } from "@/data/types";
+import type { UserAccount, UserRole, RolePermissions, ModuleAccess } from "@/data/types";
+import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS, OPERATION_LABELS, canDo } from "@/data/types";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 
 const emptyForm = { name: "", email: "", password: "", role: "sales" as UserRole, active: true };
