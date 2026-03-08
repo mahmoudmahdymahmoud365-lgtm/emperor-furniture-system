@@ -783,8 +783,7 @@ export function updateReceipt(id: string, data: Partial<Receipt>) {
     }
     receipts[idx] = updated;
     saveReceipts();
-    addAuditLog("update", "receipt", id, id, `تعديل قسط: ${id}`);
-    notify();
+    notify("receipts", "invoices");
   }
 }
 
