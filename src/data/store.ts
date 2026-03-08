@@ -145,7 +145,7 @@ export function clearSecurityLog() {
   securityLog.length = 0;
   saveSecurityLog();
   securityLogSnap = [];
-  notify();
+  notify("securityLog");
 }
 
 export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
