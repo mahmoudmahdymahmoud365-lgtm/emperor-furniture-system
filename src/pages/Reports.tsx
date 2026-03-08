@@ -51,8 +51,8 @@ export default function Reports() {
     .filter((e) => e.role === "مبيعات")
     .map((e) => {
       const empInvoices = filteredForComm.filter((inv) => inv.employee === e.name);
-      const totalSales = empInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
-      const commissionAmount = empInvoices.reduce((s, inv) => s + calcTotal(inv.items) * (inv.commissionPercent / 100), 0);
+      const totalSales = empInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
+      const commissionAmount = empInvoices.reduce((s, inv) => s + getInvoiceTotal(inv) * (inv.commissionPercent / 100), 0);
       return { name: e.name, monthlySalary: e.monthlySalary, totalSales, commissionAmount, totalDue: e.monthlySalary + commissionAmount };
     });
 
