@@ -348,7 +348,7 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
 export function getShifts(): Shift[] { return shiftsSnap; }
 
 export function addShift(data: Omit<Shift, "id">): Shift {
-  const s: Shift = { id: `SH${String(shifts.length + 1).padStart(3, "0")}`, ...data };
+  const s: Shift = { id: nextId("SH", shifts), ...data };
   shifts.push(s);
   saveShifts();
   addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
