@@ -826,6 +826,57 @@ export function addManualStockMovement(productId: string, productName: string, t
 }
 
 // ==============================
+// EXPENSES
+// ==============================
+function loadExpenses(): Expense[] {
+  try {
+    const saved = localStorage.getItem("expenses");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const expensesList: Expense[] = loadExpenses();
+let expensesSnap: Expense[] = [...expensesList];
+
+function saveExpenses() {
+  localStorage.setItem("expenses", JSON.stringify(expensesList));
+}
+
+export function getExpenses(): Expense[] { return expensesSnap; }
+
+export function addExpense(data: Omit<Expense, "id">): Expense {
+  const e: Expense = { id: nextId("EXP", expensesList), ...data };
+  expensesList.push(e);
+  saveExpenses();
+  addAuditLog("create", "expense", e.id, e.description, `إضافة مصروف: ${e.description} - ${e.amount} ج.م`);
+  notify();
+  return e;
+}
+
+export function updateExpense(id: string, data: Partial<Expense>) {
+  const idx = expensesList.findIndex(e => e.id === id);
+  if (idx >= 0) {
+    const desc = expensesList[idx].description;
+    expensesList[idx] = { ...expensesList[idx], ...data };
+    saveExpenses();
+    addAuditLog("update", "expense", id, data.description || desc, `تعديل مصروف: ${data.description || desc}`);
+    notify();
+  }
+}
+
+export function deleteExpense(id: string) {
+  const idx = expensesList.findIndex(e => e.id === id);
+  if (idx >= 0) {
+    const desc = expensesList[idx].description;
+    expensesList.splice(idx, 1);
+    saveExpenses();
+    addAuditLog("delete", "expense", id, desc, `حذف مصروف: ${desc}`);
+    notify();
+  }
+}
+
+// ==============================
 // BACKUP (Web mode - export/import JSON)
 // ==============================
 export function exportBackup(): string {

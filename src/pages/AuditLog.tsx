@@ -27,6 +27,7 @@ const ENTITY_LABELS: Record<AuditEntity, string> = {
   stock: "مخزون",
   shift: "شفت",
   attendance: "حضور",
+  expense: "مصروف",
 };
 
 export default function AuditLog() {
