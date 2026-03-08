@@ -325,7 +325,111 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
   return r;
 }
 
-export function getOffers(): Offer[] { return offersSnap; }
+// ==============================
+// SHIFTS
+// ==============================
+function loadShifts(): Shift[] {
+  try {
+    const saved = localStorage.getItem("shifts");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [
+    { id: "SH001", name: "صباحي", startTime: "08:00", endTime: "16:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
+    { id: "SH002", name: "مسائي", startTime: "16:00", endTime: "00:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
+    { id: "SH003", name: "مرن", startTime: "10:00", endTime: "18:00", hours: 8, branch: "الجيزة", active: true, notes: "" },
+  ];
+}
+
+const shifts: Shift[] = loadShifts();
+let shiftsSnap: Shift[] = [...shifts];
+
+function saveShifts() {
+  localStorage.setItem("shifts", JSON.stringify(shifts));
+}
+
+export function getShifts(): Shift[] { return shiftsSnap; }
+
+export function addShift(data: Omit<Shift, "id">): Shift {
+  const s: Shift = { id: `SH${String(shifts.length + 1).padStart(3, "0")}`, ...data };
+  shifts.push(s);
+  saveShifts();
+  addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
+  notify();
+  return s;
+}
+
+export function updateShift(id: string, data: Partial<Shift>) {
+  const idx = shifts.findIndex(s => s.id === id);
+  if (idx >= 0) {
+    shifts[idx] = { ...shifts[idx], ...data };
+    saveShifts();
+    addAuditLog("update", "shift", id, shifts[idx].name, `تعديل شفت: ${shifts[idx].name}`);
+    notify();
+  }
+}
+
+export function deleteShift(id: string) {
+  const idx = shifts.findIndex(s => s.id === id);
+  if (idx >= 0) {
+    const name = shifts[idx].name;
+    shifts.splice(idx, 1);
+    saveShifts();
+    addAuditLog("delete", "shift", id, name, `حذف شفت: ${name}`);
+    notify();
+  }
+}
+
+// ==============================
+// ATTENDANCE
+// ==============================
+function loadAttendance(): AttendanceRecord[] {
+  try {
+    const saved = localStorage.getItem("attendance");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const attendance: AttendanceRecord[] = loadAttendance();
+let attendanceSnap: AttendanceRecord[] = [...attendance];
+
+function saveAttendance() {
+  localStorage.setItem("attendance", JSON.stringify(attendance));
+}
+
+export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
+
+export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
+  const a: AttendanceRecord = { id: `ATT${String(attendance.length + 1).padStart(5, "0")}`, ...data };
+  attendance.push(a);
+  saveAttendance();
+  addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
+  notify();
+  return a;
+}
+
+export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
+  const idx = attendance.findIndex(a => a.id === id);
+  if (idx >= 0) {
+    attendance[idx] = { ...attendance[idx], ...data };
+    saveAttendance();
+    addAuditLog("update", "attendance", id, attendance[idx].employeeName, `تعديل حضور: ${attendance[idx].employeeName}`);
+    notify();
+  }
+}
+
+export function deleteAttendance(id: string) {
+  const idx = attendance.findIndex(a => a.id === id);
+  if (idx >= 0) {
+    const name = attendance[idx].employeeName;
+    attendance.splice(idx, 1);
+    saveAttendance();
+    addAuditLog("delete", "attendance", id, name, `حذف سجل حضور: ${name}`);
+    notify();
+  }
+}
+
+
 
 export function getActiveOffers(): Offer[] {
   const today = new Date().toISOString().split("T")[0];
