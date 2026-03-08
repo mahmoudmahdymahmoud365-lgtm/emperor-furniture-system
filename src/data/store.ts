@@ -1073,7 +1073,7 @@ export function importBackup(jsonStr: string): boolean {
     saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
 
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
-    notify();
+    notify("all");
     return true;
   } catch {
     return false;
