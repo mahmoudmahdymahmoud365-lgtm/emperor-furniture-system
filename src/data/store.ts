@@ -338,7 +338,7 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
   saveReturns();
   saveProducts();
   addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
-  notify();
+  notify("returns", "products", "invoices", "stockMovements");
   return r;
 }
 
