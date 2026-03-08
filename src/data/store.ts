@@ -702,8 +702,7 @@ export function updateEmployee(id: string, data: Partial<Employee>) {
     const name = employees[idx].name;
     employees[idx] = { ...employees[idx], ...data };
     saveEmployees();
-    addAuditLog("update", "employee", id, data.name || name, `تعديل موظف: ${data.name || name}`);
-    notify();
+    notify("employees");
   }
 }
 
