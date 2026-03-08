@@ -257,7 +257,7 @@ export default function Dashboard() {
     ).join("");
 
     const recentInvRows = invoices.slice(-10).reverse().map((inv) => {
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       return `<tr>
         <td style="padding:8px;border:1px solid #ddd;">${inv.id}</td>
         <td style="padding:8px;border:1px solid #ddd;">${inv.customer}</td>
