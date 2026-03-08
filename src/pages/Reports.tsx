@@ -121,7 +121,7 @@ export default function Reports() {
                         <td className="p-3 font-medium text-primary">{inv.id}</td>
                         <td className="p-3">{inv.customer}</td>
                         <td className="p-3">{inv.date}</td>
-                        <td className="p-3">{calcTotal(inv.items).toLocaleString()} ج.م</td>
+                        <td className="p-3">{getInvoiceTotal(inv).toLocaleString()} ج.م</td>
                         <td className="p-3">{inv.paidTotal.toLocaleString()} ج.م</td>
                       </tr>
                     ))}

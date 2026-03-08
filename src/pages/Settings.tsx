@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, Save, Download, Upload, Database, Shield } from "lucide-react";
+import { Settings as SettingsIcon, Save, Download, Upload, Database, ImagePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings, useUsers } from "@/data/hooks";
 import { exportBackup, importBackup } from "@/data/store";
@@ -15,10 +15,27 @@ export default function Settings() {
   const { toast } = useToast();
   const [form, setForm] = useState({ ...settings });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     updateSettings(form);
     toast({ title: "تم الحفظ", description: "تم تحديث إعدادات الشركة بنجاح" });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "خطأ", description: "يرجى اختيار ملف صورة", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setForm({ ...form, logoUrl: dataUrl });
+    };
+    reader.readAsDataURL(file);
+    if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
   const handleExportBackup = () => {
@@ -82,12 +99,38 @@ export default function Settings() {
                 <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>رابط اللوجو (أو مسار الصورة)</Label>
-                <Input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} dir="ltr" placeholder="/logo.png" />
+                <Label>اللوجو</Label>
+                <div className="flex gap-3 items-start">
+                  <Input 
+                    value={form.logoUrl?.startsWith("data:") ? "صورة مرفوعة" : form.logoUrl} 
+                    onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} 
+                    dir="ltr" 
+                    placeholder="/logo.png" 
+                    className="flex-1"
+                    readOnly={form.logoUrl?.startsWith("data:")}
+                  />
+                  <Button variant="outline" onClick={() => logoInputRef.current?.click()} type="button">
+                    <ImagePlus className="h-4 w-4 ml-2" />رفع صورة
+                  </Button>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                </div>
                 {form.logoUrl && (
                   <div className="mt-2 p-4 bg-muted/50 rounded-lg flex items-center gap-4">
                     <img src={form.logoUrl} alt="معاينة اللوجو" className="h-16 w-16 object-contain rounded-md border" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <span className="text-sm text-muted-foreground">معاينة اللوجو</span>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm text-muted-foreground">معاينة اللوجو</span>
+                      {form.logoUrl?.startsWith("data:") && (
+                        <Button variant="ghost" size="sm" className="text-xs h-auto p-1 text-destructive" onClick={() => setForm({ ...form, logoUrl: "/logo.png" })}>
+                          إزالة الصورة المرفوعة
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -110,7 +153,6 @@ export default function Settings() {
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
                 يمكنك تصدير جميع بيانات النظام كنسخة احتياطية (JSON) أو استعادتها من ملف سابق.
-                في وضع Electron، يتم النسخ مباشرة من ملف SQLite.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button variant="outline" onClick={handleExportBackup}>

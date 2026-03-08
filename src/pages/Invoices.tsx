@@ -344,7 +344,9 @@ export default function Invoices() {
           <ExportButtons
             data={filteredInvoices.map((inv) => {
               const total = calcTotal(inv.items);
-              return { id: inv.id, customer: inv.customer, date: inv.date, deliveryDate: inv.deliveryDate || "-", total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
+              const discount = inv.appliedDiscount || 0;
+              const finalT = total - discount;
+              return { id: inv.id, customer: inv.customer, date: inv.date, deliveryDate: inv.deliveryDate || "-", total: finalT, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: finalT - inv.paidTotal, status: inv.status };
             })}
             headers={[
               { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },

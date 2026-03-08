@@ -212,7 +212,7 @@ export default function CustomerReport() {
 
           <h2>الفواتير والمنتجات</h2>
           {custInvoices.map((inv) => {
-            const invTotal = calcTotal(inv.items);
+            const invTotal = getInvoiceTotal(inv);
             const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
             const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
             return (

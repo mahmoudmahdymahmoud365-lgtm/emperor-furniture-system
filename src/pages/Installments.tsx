@@ -111,7 +111,7 @@ export default function Installments() {
                   <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.invoiceId} onChange={(e) => handleInvoiceChange(e.target.value)}>
                     <option value="">اختر الفاتورة</option>
                     {invoices.map((inv) => {
-                      const total = calcTotal(inv.items);
+                      const total = getInvoiceTotal(inv);
                       const remaining = total - inv.paidTotal;
                       return <option key={inv.id} value={inv.id}>{inv.id} — {inv.customer} (متبقي: {remaining.toLocaleString()} ج.م)</option>;
                     })}
