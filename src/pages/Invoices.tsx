@@ -182,7 +182,7 @@ export default function Invoices() {
 
   const handleAddNewProduct = () => {
     if (!newProductName) return;
-    addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, notes: newProductNotes });
+    addProduct({ name: newProductName, category: newProductCategory, defaultPrice: newProductPrice, unit: newProductUnit, stock: 0, minStock: 0, notes: newProductNotes });
     selectProduct(newProductItemIdx, newProductName);
     setNewProductOpen(false); setNewProductName(""); setNewProductCategory(""); setNewProductPrice(0); setNewProductUnit("قطعة"); setNewProductNotes("");
     toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد وحفظه" });
