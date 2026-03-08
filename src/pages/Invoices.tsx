@@ -435,6 +435,7 @@ export default function Invoices() {
                             )}
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل"><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenReturn(inv)} title="مرتجع"><RotateCcw className="h-4 w-4 text-warning" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </td>
