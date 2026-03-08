@@ -848,8 +848,7 @@ export function deleteExpense(id: string) {
     const desc = expensesList[idx].description;
     expensesList.splice(idx, 1);
     saveExpenses();
-    addAuditLog("delete", "expense", id, desc, `حذف مصروف: ${desc}`);
-    notify();
+    notify("expenses");
   }
 }
 
