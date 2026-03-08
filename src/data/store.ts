@@ -1,13 +1,11 @@
 // ==============================
 // In-Memory Data Store
-// Replace this file with SQLite calls when wrapping with Electron.
-// All functions are synchronous now; make them async when switching to SQLite.
 // ==============================
 
 import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
-  Offer,
+  Offer, StockMovement, ProductReturn,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
@@ -135,7 +133,6 @@ export function logout() {
   currentUser = null;
 }
 
-// Restore current user on load
 (function restoreUser() {
   const userId = localStorage.getItem(CURRENT_USER_KEY);
   if (userId) {
@@ -164,21 +161,13 @@ function saveAuditLog() {
 export function getAuditLog(): AuditLogEntry[] { return auditLogSnap; }
 
 export function addAuditLog(
-  action: AuditAction,
-  entity: AuditEntity,
-  entityId: string,
-  entityName: string,
-  details: string,
+  action: AuditAction, entity: AuditEntity, entityId: string, entityName: string, details: string,
 ) {
   const entry: AuditLogEntry = {
     id: `AL${String(auditLog.length + 1).padStart(5, "0")}`,
     timestamp: new Date().toISOString(),
     user: currentUser?.name || "النظام",
-    action,
-    entity,
-    entityId,
-    entityName,
-    details,
+    action, entity, entityId, entityName, details,
   };
   auditLog.unshift(entry);
   if (auditLog.length > 1000) auditLog.splice(1000);
@@ -194,7 +183,6 @@ export function clearAuditLog() {
 }
 
 // ---- Initial seed data ----
-
 const customers: Customer[] = [
   { id: "C001", fullName: "أحمد محمد علي", nationalId: "29901011234567", phone: "01012345678", address: "شارع التحرير", governorate: "القاهرة", jobTitle: "مهندس", notes: "" },
   { id: "C002", fullName: "سارة أحمد حسن", nationalId: "30001021234567", phone: "01098765432", address: "شارع الهرم", governorate: "الجيزة", jobTitle: "طبيبة", notes: "عميل مميز" },
@@ -262,6 +250,81 @@ function saveOffers() {
   localStorage.setItem("offers", JSON.stringify(offers));
 }
 
+// ==============================
+// STOCK MOVEMENTS
+// ==============================
+function loadStockMovements(): StockMovement[] {
+  try {
+    const saved = localStorage.getItem("stockMovements");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const stockMovements: StockMovement[] = loadStockMovements();
+let stockMovementsSnap: StockMovement[] = [...stockMovements];
+
+function saveStockMovements() {
+  localStorage.setItem("stockMovements", JSON.stringify(stockMovements));
+}
+
+function recordStockMovement(productName: string, type: StockMovement["type"], qty: number, reason: string, relatedId?: string) {
+  const product = products.find(p => p.name === productName);
+  stockMovements.unshift({
+    id: `SM${String(stockMovements.length + 1).padStart(5, "0")}`,
+    productId: product?.id || "",
+    productName,
+    type, qty,
+    date: new Date().toISOString(),
+    reason, relatedId,
+  });
+  if (stockMovements.length > 2000) stockMovements.splice(2000);
+  saveStockMovements();
+  stockMovementsSnap = [...stockMovements];
+}
+
+export function getStockMovements(): StockMovement[] { return stockMovementsSnap; }
+
+// ==============================
+// RETURNS
+// ==============================
+function loadReturns(): ProductReturn[] {
+  try {
+    const saved = localStorage.getItem("productReturns");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const productReturns: ProductReturn[] = loadReturns();
+let returnsSnap: ProductReturn[] = [...productReturns];
+
+function saveReturns() {
+  localStorage.setItem("productReturns", JSON.stringify(productReturns));
+}
+
+export function getReturns(): ProductReturn[] { return returnsSnap; }
+
+export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
+  const r: ProductReturn = { id: `RET${String(productReturns.length + 1).padStart(3, "0")}`, ...data };
+  productReturns.push(r);
+  for (const item of r.items) {
+    const pIdx = products.findIndex(p => p.name === item.productName);
+    if (pIdx >= 0) {
+      products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + item.qty };
+      recordStockMovement(item.productName, "return", item.qty, `مرتجع ${r.id}`, r.id);
+    }
+  }
+  const invIdx = invoices.findIndex(i => i.id === r.invoiceId);
+  if (invIdx >= 0) {
+    invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - r.totalAmount) };
+  }
+  saveReturns();
+  addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
+  notify();
+  return r;
+}
+
 export function getOffers(): Offer[] { return offersSnap; }
 
 export function getActiveOffers(): Offer[] {
@@ -281,13 +344,9 @@ export function getProductDiscount(productName: string): number {
   let totalDiscount = 0;
   for (const offer of active) {
     if (offer.productName && offer.productName !== productName) continue;
-    if (offer.type === "percentage") {
-      totalDiscount += offer.value; // will be applied as percentage
-    } else if (offer.type === "fixed") {
-      totalDiscount += offer.value;
-    } else if (offer.type === "timed") {
-      totalDiscount += offer.value; // percentage for timed offers
-    }
+    if (offer.type === "percentage") totalDiscount += offer.value;
+    else if (offer.type === "fixed") totalDiscount += offer.value;
+    else if (offer.type === "timed") totalDiscount += offer.value;
   }
   return totalDiscount;
 }
@@ -327,7 +386,6 @@ export function deleteOffer(id: string) {
 let lastAddedCustomer = "";
 
 // ---- Generic helpers ----
-
 function nextId(prefix: string, list: { id: string }[]): string {
   const num = list.length + 1;
   return prefix.includes("INV")
@@ -335,8 +393,7 @@ function nextId(prefix: string, list: { id: string }[]): string {
     : `${prefix}${String(num).padStart(3, "0")}`;
 }
 
-// ---- Change listeners (for React re-renders) ----
-
+// ---- Change listeners ----
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
@@ -363,6 +420,8 @@ function rebuildSnapshots() {
   auditLogSnap = [...auditLog];
   usersSnap = [...users];
   offersSnap = [...offers];
+  stockMovementsSnap = [...stockMovements];
+  returnsSnap = [...productReturns];
 }
 
 function notify() {
@@ -446,11 +505,11 @@ export function getInvoices(): Invoice[] { return invoicesSnap; }
 export function addInvoice(data: Omit<Invoice, "id">): Invoice {
   const inv = { id: nextId("INV-", invoices), ...data };
   invoices.push(inv);
-  // Deduct stock for each item
   for (const item of inv.items) {
     const pIdx = products.findIndex(p => p.name === item.productName);
     if (pIdx >= 0) {
       products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - item.qty) };
+      recordStockMovement(item.productName, "out", item.qty, `فاتورة ${inv.id}`, inv.id);
     }
   }
   addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة: ${inv.id} للعميل ${inv.customer}`);
@@ -470,12 +529,12 @@ export function updateInvoice(id: string, data: Partial<Invoice>) {
 export function deleteInvoice(id: string) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
-    // Restore stock for each item before deleting
     const inv = invoices[idx];
     for (const item of inv.items) {
       const pIdx = products.findIndex(p => p.name === item.productName);
       if (pIdx >= 0) {
         products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + item.qty };
+        recordStockMovement(item.productName, "in", item.qty, `حذف فاتورة ${id} (استرجاع)`, id);
       }
     }
     invoices.splice(idx, 1);
@@ -601,11 +660,28 @@ export function deleteReceipt(id: string) {
 }
 
 // ==============================
+// STOCK MOVEMENT MANUAL ADD
+// ==============================
+export function addManualStockMovement(productId: string, productName: string, type: StockMovement["type"], qty: number, reason: string) {
+  recordStockMovement(productName, type, qty, reason);
+  const pIdx = products.findIndex(p => p.id === productId);
+  if (pIdx >= 0) {
+    if (type === "in" || type === "return") {
+      products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + qty };
+    } else {
+      products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - qty) };
+    }
+  }
+  addAuditLog("update", "product", productId, productName, `تعديل مخزون: ${type === "in" || type === "return" ? "+" : "-"}${qty} (${reason})`);
+  notify();
+}
+
+// ==============================
 // BACKUP (Web mode - export/import JSON)
 // ==============================
 export function exportBackup(): string {
   const data = {
-    version: 2,
+    version: 3,
     timestamp: new Date().toISOString(),
     customers: [...customers],
     products: [...products],
@@ -614,6 +690,8 @@ export function exportBackup(): string {
     branches: [...branches],
     receipts: [...receipts],
     offers: [...offers],
+    stockMovements: [...stockMovements],
+    productReturns: [...productReturns],
     settings: { ...companySettings },
     users: [...users],
     auditLog: [...auditLog],
@@ -626,14 +704,10 @@ export function importBackup(jsonStr: string): boolean {
     const data = JSON.parse(jsonStr);
     if (!data.version) return false;
 
-    customers.length = 0;
-    products.length = 0;
-    invoices.length = 0;
-    employees.length = 0;
-    branches.length = 0;
-    receipts.length = 0;
-    auditLog.length = 0;
-    offers.length = 0;
+    customers.length = 0; products.length = 0; invoices.length = 0;
+    employees.length = 0; branches.length = 0; receipts.length = 0;
+    auditLog.length = 0; offers.length = 0;
+    stockMovements.length = 0; productReturns.length = 0;
 
     (data.customers || []).forEach((c: Customer) => customers.push(c));
     (data.products || []).forEach((p: Product) => products.push(p));
@@ -643,6 +717,8 @@ export function importBackup(jsonStr: string): boolean {
     (data.receipts || []).forEach((r: Receipt) => receipts.push(r));
     (data.auditLog || []).forEach((a: AuditLogEntry) => auditLog.push(a));
     (data.offers || []).forEach((o: Offer) => offers.push(o));
+    (data.stockMovements || []).forEach((sm: StockMovement) => stockMovements.push(sm));
+    (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
 
     if (data.settings) {
       companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
@@ -655,6 +731,8 @@ export function importBackup(jsonStr: string): boolean {
     }
     saveAuditLog();
     saveOffers();
+    saveStockMovements();
+    saveReturns();
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
     notify();
     return true;
