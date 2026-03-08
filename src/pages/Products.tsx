@@ -174,54 +174,55 @@ export default function Products() {
         </div>
 
         {/* Products Table */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-right p-3 font-medium text-muted-foreground">الكود</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المنتج</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">الفئة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">السعر</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">الوحدة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المخزون</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">الحد الأدنى</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">قيمة المخزون</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((p) => {
-                    const status = p.stock <= 0 ? "نفد" : p.stock <= p.minStock ? "منخفض" : "متاح";
-                    const statusClass = p.stock <= 0 ? "bg-destructive/10 text-destructive" : p.stock <= p.minStock ? "bg-warning/10 text-warning" : "bg-success/10 text-success";
-                    return (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-medium text-primary">{p.id}</td>
-                        <td className="p-3">{p.name}</td>
-                        <td className="p-3">{p.category}</td>
-                        <td className="p-3" dir="ltr">{p.defaultPrice.toLocaleString()} ج.م</td>
-                        <td className="p-3 hidden md:table-cell">{p.unit}</td>
-                        <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>{p.stock} {p.unit} — {status}</span></td>
-                        <td className="p-3 text-muted-foreground">{p.minStock}</td>
-                        <td className="p-3">{(p.stock * p.defaultPrice).toLocaleString()} ج.م</td>
-                        <td className="p-3">
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }}><QrCode className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }}><Package className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filtered.length === 0 && (<tr><td colSpan={9} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>)}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="table-container">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الكود</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المنتج</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الفئة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">السعر</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">الوحدة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المخزون</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الحد الأدنى</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">قيمة المخزون</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((p) => {
+                  const status = p.stock <= 0 ? "نفد" : p.stock <= p.minStock ? "منخفض" : "متاح";
+                  const statusClass = p.stock <= 0 ? "bg-destructive/10 text-destructive" : p.stock <= p.minStock ? "bg-warning/10 text-warning" : "bg-success/10 text-success";
+                  return (
+                    <tr key={p.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="p-3.5 font-mono text-xs font-semibold text-primary">{p.id}</td>
+                      <td className="p-3.5 font-medium">{p.name}</td>
+                      <td className="p-3.5"><span className="badge-status bg-secondary text-secondary-foreground">{p.category || "—"}</span></td>
+                      <td className="p-3.5 font-medium" dir="ltr">{p.defaultPrice.toLocaleString()} ج.م</td>
+                      <td className="p-3.5 hidden md:table-cell text-muted-foreground">{p.unit}</td>
+                      <td className="p-3.5"><span className={`badge-status ${statusClass}`}>{p.stock} {p.unit} — {status}</span></td>
+                      <td className="p-3.5 text-muted-foreground">{p.minStock}</td>
+                      <td className="p-3.5 hidden lg:table-cell font-medium">{(p.stock * p.defaultPrice).toLocaleString()} ج.م</td>
+                      <td className="p-3.5">
+                        <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }} className="h-8 w-8"><QrCode className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }} className="h-8 w-8"><Package className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (<tr><td colSpan={9} className="p-12 text-center text-muted-foreground">
+                  <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p>لا توجد نتائج</p>
+                </td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Stock Movement Log */}
         {showMovements && (

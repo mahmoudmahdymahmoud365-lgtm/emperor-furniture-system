@@ -418,80 +418,84 @@ export default function Invoices() {
           />
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-right p-3 font-medium text-muted-foreground">رقم الفاتورة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">العميل</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">التسليم</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">الإجمالي</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">الخصم/العرض</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">العمولة %</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">مبلغ العمولة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المدفوع</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المتبقي</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">الحالة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredInvoices.map((inv) => {
-                    const subtotal = calcTotal(inv.items);
-                    const discount = inv.appliedDiscount || 0;
-                    const total = subtotal - discount;
-                    const commissionAmount = total * (inv.commissionPercent / 100);
-                    const remaining = total - inv.paidTotal;
-                    return (
-                      <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-medium text-primary">{inv.id}</td>
-                        <td className="p-3">{inv.customer}</td>
-                        <td className="p-3">{inv.date}</td>
-                        <td className="p-3 text-xs">{inv.deliveryDate || "-"}</td>
-                        <td className="p-3">{total.toLocaleString()} ج.م</td>
-                        <td className="p-3 text-xs">
-                          {inv.appliedOfferName ? (
-                            <span className="text-primary font-medium">{inv.appliedOfferName} ({discount.toLocaleString()} ج.م)</span>
-                          ) : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="p-3">{inv.commissionPercent}%</td>
-                        <td className="p-3 font-semibold" style={{ color: "hsl(30, 90%, 50%)" }}>{commissionAmount.toLocaleString()} ج.م</td>
-                        <td className="p-3 text-success">{inv.paidTotal.toLocaleString()} ج.م</td>
-                        <td className="p-3 text-destructive">{remaining.toLocaleString()} ج.م</td>
-                        <td className="p-3">
-                          <select
-                            className={`px-2 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${statusColors[inv.status] || ""}`}
-                            value={inv.status}
-                            onChange={(e) => handleStatusChange(inv.id, e.target.value)}
-                          >
-                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-1">
-                            {remaining > 0 && (
-                              <Button variant="ghost" size="icon" onClick={() => { setPayInvoice(inv); setPayOpen(true); }} title="دفع"><DollarSign className="h-4 w-4 text-success" /></Button>
-                            )}
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل"><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة"><Printer className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenReturn(inv)} title="مرتجع"><RotateCcw className="h-4 w-4 text-warning" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredInvoices.length === 0 && (
-                    <tr><td colSpan={12} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="table-container">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">رقم الفاتورة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">العميل</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">التاريخ</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">التسليم</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الإجمالي</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden xl:table-cell">الخصم/العرض</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">العمولة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المدفوع</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المتبقي</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الحالة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredInvoices.map((inv) => {
+                  const subtotal = calcTotal(inv.items);
+                  const discount = inv.appliedDiscount || 0;
+                  const total = subtotal - discount;
+                  const commissionAmount = total * (inv.commissionPercent / 100);
+                  const remaining = total - inv.paidTotal;
+                  return (
+                    <tr key={inv.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="p-3.5 font-mono text-xs font-semibold text-primary">{inv.id}</td>
+                      <td className="p-3.5 font-medium">{inv.customer}</td>
+                      <td className="p-3.5 text-xs text-muted-foreground">{inv.date}</td>
+                      <td className="p-3.5 text-xs hidden lg:table-cell text-muted-foreground">{inv.deliveryDate || "—"}</td>
+                      <td className="p-3.5 font-medium">{total.toLocaleString()} ج.م</td>
+                      <td className="p-3.5 text-xs hidden xl:table-cell">
+                        {inv.appliedOfferName ? (
+                          <span className="badge-status bg-primary/10 text-primary">{inv.appliedOfferName} ({discount.toLocaleString()})</span>
+                        ) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="p-3.5 hidden lg:table-cell">
+                        <div className="text-xs">
+                          <span className="text-muted-foreground">{inv.commissionPercent}%</span>
+                          <span className="text-accent font-semibold mr-1">({commissionAmount.toLocaleString()})</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-success font-medium">{inv.paidTotal.toLocaleString()} ج.م</td>
+                      <td className="p-3.5 text-destructive font-medium">{remaining.toLocaleString()} ج.م</td>
+                      <td className="p-3.5">
+                        <select
+                          className={`badge-status border-0 cursor-pointer ${statusColors[inv.status] || ""}`}
+                          value={inv.status}
+                          onChange={(e) => handleStatusChange(inv.id, e.target.value)}
+                        >
+                          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                          {remaining > 0 && (
+                            <Button variant="ghost" size="icon" onClick={() => { setPayInvoice(inv); setPayOpen(true); }} title="دفع" className="h-8 w-8"><DollarSign className="h-4 w-4 text-success" /></Button>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)} title="تعديل" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة" className="h-8 w-8"><Printer className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenReturn(inv)} title="مرتجع" className="h-8 w-8"><RotateCcw className="h-4 w-4 text-warning" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)} title="حذف" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredInvoices.length === 0 && (
+                  <tr><td colSpan={11} className="p-12 text-center text-muted-foreground">
+                    <DollarSign className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>لا توجد نتائج</p>
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Payment Dialog */}
         <Dialog open={payOpen} onOpenChange={(v) => { setPayOpen(v); if (!v) { setPayInvoice(null); setPayAmount(0); setPayMethod("نقدي"); setPayNotes(""); } }}>
