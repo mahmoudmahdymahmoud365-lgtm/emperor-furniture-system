@@ -598,8 +598,7 @@ export function deleteCustomer(id: string) {
     const name = customers[idx].fullName;
     customers.splice(idx, 1);
     saveCustomers();
-    addAuditLog("delete", "customer", id, name, `حذف عميل: ${name}`);
-    notify();
+    notify("customers");
   }
 }
 
