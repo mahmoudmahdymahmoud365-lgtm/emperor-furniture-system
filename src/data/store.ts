@@ -631,8 +631,7 @@ export function deleteProduct(id: string) {
     const name = products[idx].name;
     products.splice(idx, 1);
     saveProducts();
-    addAuditLog("delete", "product", id, name, `حذف منتج: ${name}`);
-    notify();
+    notify("products");
   }
 }
 
