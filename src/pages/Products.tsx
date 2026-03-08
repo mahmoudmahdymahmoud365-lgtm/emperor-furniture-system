@@ -199,6 +199,7 @@ export default function Products() {
                         <td className="p-3">{(p.stock * p.defaultPrice).toLocaleString()} ج.م</td>
                         <td className="p-3">
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }}><QrCode className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }}><Package className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
