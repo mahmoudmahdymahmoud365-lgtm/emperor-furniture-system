@@ -19,7 +19,6 @@ import AuditLog from "./pages/AuditLog";
 import UserManagement from "./pages/UserManagement";
 import Offers from "./pages/Offers";
 import ManufacturingReport from "./pages/ManufacturingReport";
-import Inventory from "./pages/Inventory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
