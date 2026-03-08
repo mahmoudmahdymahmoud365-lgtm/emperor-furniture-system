@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Printer, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -26,11 +26,28 @@ export default function Installments() {
   const [methodFocus, setMethodFocus] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterMethod, setFilterMethod] = useState("");
   const { toast } = useToast();
 
   const filteredReceipts = useMemo(() => {
-    return receipts.filter(r => !search || r.id.includes(search) || r.invoiceId.includes(search) || r.customer.includes(search) || r.method.includes(search));
-  }, [receipts, search]);
+    return receipts.filter(r => {
+      const matchSearch = !search || r.id.includes(search) || r.invoiceId.includes(search) || r.customer.includes(search) || r.method.includes(search);
+      const matchMethod = !filterMethod || r.method === filterMethod;
+      return matchSearch && matchMethod;
+    });
+  }, [receipts, search, filterMethod]);
+
+  // Summary stats
+  const totalPaid = useMemo(() => receipts.reduce((s, r) => s + r.amount, 0), [receipts]);
+  const totalInvoicesValue = useMemo(() => invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0), [invoices]);
+  const totalRemaining = totalInvoicesValue - totalPaid;
+  const overdueInvoices = useMemo(() =>
+    invoices.filter(inv => {
+      const total = getInvoiceTotal(inv);
+      return inv.paidTotal < total && inv.status !== "مغلقة";
+    }), [invoices]);
+  const fullyPaidCount = useMemo(() =>
+    invoices.filter(inv => inv.paidTotal >= getInvoiceTotal(inv)).length, [invoices]);
 
   const handleInvoiceChange = (invoiceId: string) => {
     const inv = invoices.find((i) => i.id === invoiceId);
@@ -52,10 +69,10 @@ export default function Installments() {
     }
     if (editingId) {
       updateReceipt(editingId, form);
-      toast({ title: "تم التحديث", description: "تم تحديث القسط بنجاح" });
+      toast({ title: "تم التحديث", description: "تم تحديث الدفعة بنجاح" });
     } else {
       addReceipt({ ...form, date: new Date().toISOString().split("T")[0] });
-      toast({ title: "تم التسجيل", description: "تم تسجيل القسط بنجاح وتم تحديث الفاتورة" });
+      toast({ title: "تم التسجيل", description: "تم تسجيل الدفعة بنجاح وتم تحديث الفاتورة" });
     }
     resetForm(); setOpen(false);
   };
@@ -67,7 +84,7 @@ export default function Installments() {
   };
 
   const confirmDelete = () => {
-    if (deleteId) { deleteReceipt(deleteId); toast({ title: "تم الحذف", description: "تم حذف القسط وتحديث الفاتورة" }); setDeleteId(null); }
+    if (deleteId) { deleteReceipt(deleteId); toast({ title: "تم الحذف", description: "تم حذف الدفعة وتحديث الفاتورة" }); setDeleteId(null); }
   };
 
   const handlePrint = (r: Receipt) => {
@@ -77,9 +94,7 @@ export default function Installments() {
       <div style="max-width:500px;margin:0 auto;border:2px solid #0d5c63;border-radius:12px;overflow:hidden;">
         <div style="background:#0d5c63;color:#fff;padding:16px 24px;text-align:center;">
           ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" style="height:36px;margin:0 auto 8px;display:block;" />` : ""}
-          <h1 style="font-size:20px;margin:0;">${settings.name} — إيصال قسط</h1>
-          <p style="font-size:14px;margin:4px 0 0;">${r.id}</p>
-        </div>
+          <h1 style="font-size:20px;margin:0;">${settings.name} — إيصال دفعة</h1>
           <p style="font-size:14px;margin:4px 0 0;">${r.id}</p>
         </div>
         <div style="padding:24px;">
@@ -99,12 +114,33 @@ export default function Installments() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
+        <h1 className="page-header mb-0">الأقساط / المدفوعات</h1>
+
+        {/* Summary Cards */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10"><DollarSign className="h-5 w-5 text-primary" /></div>
+            <div><p className="text-xl font-bold">{totalPaid.toLocaleString()}</p><p className="text-xs text-muted-foreground">إجمالي المدفوع (ج.م)</p></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-destructive/10"><TrendingUp className="h-5 w-5 text-destructive" /></div>
+            <div><p className="text-xl font-bold">{totalRemaining.toLocaleString()}</p><p className="text-xs text-muted-foreground">إجمالي المتبقي (ج.م)</p></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
+            <div><p className="text-xl font-bold">{overdueInvoices.length}</p><p className="text-xs text-muted-foreground">فواتير غير مكتملة</p></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-success/10"><CheckCircle className="h-5 w-5 text-success" /></div>
+            <div><p className="text-xl font-bold">{fullyPaidCount}</p><p className="text-xs text-muted-foreground">فواتير مكتملة الدفع</p></div>
+          </CardContent></Card>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="page-header mb-0">الأقساط/المدفوعات</h1>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل قسط</Button></DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل دفعة</Button></DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader><DialogTitle>{editingId ? "تعديل القسط" : "تسجيل قسط جديد"}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "تعديل الدفعة" : "تسجيل دفعة جديدة"}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-1.5">
                   <Label>رقم الفاتورة *</Label>
@@ -137,14 +173,43 @@ export default function Installments() {
           </Dialog>
         </div>
 
-        {/* Search */}
+        {/* Search & Filter */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="relative max-w-sm flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="بحث بالكود أو الفاتورة أو العميل..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
           </div>
-          <ExportButtons data={filteredReceipts as any} headers={[{ key: "id", label: "الكود" },{ key: "invoiceId", label: "رقم الفاتورة" },{ key: "customer", label: "العميل" },{ key: "amount", label: "المبلغ" },{ key: "date", label: "التاريخ" },{ key: "method", label: "طريقة الدفع" }]} fileName="الأقساط" title="الأقساط" />
+          <select className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={filterMethod} onChange={(e) => setFilterMethod(e.target.value)}>
+            <option value="">كل طرق الدفع</option>
+            {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <ExportButtons data={filteredReceipts as any} headers={[{ key: "id", label: "الكود" }, { key: "invoiceId", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "amount", label: "المبلغ" }, { key: "date", label: "التاريخ" }, { key: "method", label: "طريقة الدفع" }]} fileName="المدفوعات" title="المدفوعات" />
         </div>
+
+        {/* Overdue invoices alert */}
+        {overdueInvoices.length > 0 && (
+          <Card className="border-warning/50 bg-warning/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <h3 className="font-bold text-sm">فواتير تحتاج متابعة ({overdueInvoices.length})</h3>
+              </div>
+              <div className="space-y-1">
+                {overdueInvoices.slice(0, 5).map(inv => {
+                  const total = getInvoiceTotal(inv);
+                  const remaining = total - inv.paidTotal;
+                  return (
+                    <div key={inv.id} className="flex justify-between text-sm">
+                      <span>{inv.id} — {inv.customer}</span>
+                      <span className="font-medium text-destructive">متبقي: {remaining.toLocaleString()} ج.م</span>
+                    </div>
+                  );
+                })}
+                {overdueInvoices.length > 5 && <p className="text-xs text-muted-foreground">و {overdueInvoices.length - 5} فاتورة أخرى...</p>}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="p-0">
@@ -158,29 +223,44 @@ export default function Installments() {
                     <th className="text-right p-3 font-medium text-muted-foreground">المبلغ</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">طريقة الدفع</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">حالة الفاتورة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredReceipts.map((r) => (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="p-3 font-medium text-primary">{r.id}</td>
-                      <td className="p-3">{r.invoiceId}</td>
-                      <td className="p-3">{r.customer}</td>
-                      <td className="p-3">{r.amount.toLocaleString()} ج.م</td>
-                      <td className="p-3">{r.date}</td>
-                      <td className="p-3">{r.method}</td>
-                      <td className="p-3">
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة"><Printer className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredReceipts.map((r) => {
+                    const inv = invoices.find(i => i.id === r.invoiceId);
+                    const invTotal = inv ? getInvoiceTotal(inv) : 0;
+                    const paid = inv ? inv.paidTotal : 0;
+                    const paidPercent = invTotal > 0 ? Math.round((paid / invTotal) * 100) : 0;
+                    return (
+                      <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="p-3 font-medium text-primary">{r.id}</td>
+                        <td className="p-3">{r.invoiceId}</td>
+                        <td className="p-3">{r.customer}</td>
+                        <td className="p-3 font-medium">{r.amount.toLocaleString()} ج.م</td>
+                        <td className="p-3">{r.date}</td>
+                        <td className="p-3"><span className="px-2 py-0.5 rounded-full text-xs bg-muted">{r.method}</span></td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${paidPercent >= 100 ? "bg-success" : paidPercent >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.min(paidPercent, 100)}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{paidPercent}%</span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة"><Printer className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredReceipts.length === 0 && (
-                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
                   )}
                 </tbody>
               </table>
@@ -188,7 +268,7 @@ export default function Installments() {
           </CardContent>
         </Card>
 
-        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذا القسط؟ سيتم تحديث الفاتورة تلقائياً." />
+        <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الدفعة؟ سيتم تحديث الفاتورة تلقائياً." />
       </div>
     </AppLayout>
   );

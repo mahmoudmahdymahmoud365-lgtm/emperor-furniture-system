@@ -104,3 +104,23 @@ export function useReturns() {
   const returns = useStoreData(store.getReturns);
   return { returns, addReturn: useCallback(store.addReturn, []) };
 }
+
+export function useShifts() {
+  const shifts = useStoreData(store.getShifts);
+  return {
+    shifts,
+    addShift: useCallback(store.addShift, []),
+    updateShift: useCallback(store.updateShift, []),
+    deleteShift: useCallback(store.deleteShift, []),
+  };
+}
+
+export function useAttendance() {
+  const attendance = useStoreData(store.getAttendance);
+  return {
+    attendance,
+    addAttendance: useCallback(store.addAttendance, []),
+    updateAttendance: useCallback(store.updateAttendance, []),
+    deleteAttendance: useCallback(store.deleteAttendance, []),
+  };
+}
