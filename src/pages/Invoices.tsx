@@ -531,7 +531,7 @@ export default function Invoices() {
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم حذف جميع بياناتها." />
 
         <div className="hidden">
-          {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} settings={settings} />}
+          {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} settings={settings} template={printTemplate} />}
         </div>
       </div>
     </AppLayout>
