@@ -446,7 +446,7 @@ export function addOffer(data: Omit<Offer, "id">): Offer {
   offers.push(o);
   saveOffers();
   addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
-  notify();
+  notify("offers");
   return o;
 }
 
