@@ -150,7 +150,7 @@ export default function Invoices() {
   const handleEdit = (inv: Invoice) => {
     setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
-    setDeliveryDate(inv.deliveryDate || "");
+    setDeliveryDate(inv.deliveryDate || ""); setInvoiceNotes(inv.notes || "");
     setItems([...inv.items]); setOpen(true);
   };
 
