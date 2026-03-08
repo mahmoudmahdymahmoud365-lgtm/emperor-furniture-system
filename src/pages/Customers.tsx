@@ -103,6 +103,7 @@ export default function Customers() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-right p-3 font-medium text-muted-foreground">الكود</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الاسم</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">الرقم القومي</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الهاتف</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">المحافظة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden lg:table-cell">الوظيفة</th>
