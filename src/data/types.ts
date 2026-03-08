@@ -215,7 +215,7 @@ export interface StoredImage {
 // Audit Log
 // ==============================
 export type AuditAction = "create" | "update" | "delete";
-export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock";
+export type AuditEntity = "customer" | "product" | "invoice" | "employee" | "branch" | "receipt" | "settings" | "offer" | "return" | "stock" | "shift" | "attendance";
 
 export interface AuditLogEntry {
   id: string;
