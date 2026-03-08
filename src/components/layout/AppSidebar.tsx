@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, FileText, CreditCard, Building2,
   UserCog, BarChart3, ChevronRight, Menu, X, LogOut, Settings,
-  ScrollText, Shield, Tag, Factory,
+  ScrollText, Shield, Tag, Factory, Warehouse,
 } from "lucide-react";
 import { logout, getUserPermissions } from "@/data/store";
 import { useCompanySettings } from "@/data/hooks";
