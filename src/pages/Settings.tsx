@@ -223,6 +223,20 @@ export default function Settings() {
           </Card>
         </div>
 
+        {/* Database Connection Section */}
+        {permissions.backup && (
+          <>
+            <Separator />
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                <Database className="h-5 w-5 text-primary" />
+                ربط قاعدة البيانات
+              </h2>
+              <DatabaseSettings />
+            </div>
+          </>
+        )}
+
         {/* Backup Section */}
         {permissions.backup && (
           <>
