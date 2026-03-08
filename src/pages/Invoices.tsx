@@ -35,6 +35,7 @@ export default function Invoices() {
   const { addReceipt } = useReceipts();
   const { settings } = useCompanySettings();
   const { activeOffers } = useOffers();
+  const { addReturn } = useReturns();
 
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
