@@ -174,6 +174,7 @@ export interface RolePermissions {
   users: boolean;
   backup: boolean;
   offers: boolean;
+  inventory: boolean;
 }
 
 export const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
