@@ -373,7 +373,7 @@ export function deleteShift(id: string) {
     shifts.splice(idx, 1);
     saveShifts();
     addAuditLog("delete", "shift", id, name, `حذف شفت: ${name}`);
-    notify();
+    notify("shifts");
   }
 }
 
