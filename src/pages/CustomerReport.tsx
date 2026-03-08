@@ -110,9 +110,9 @@ export default function CustomerReport() {
             ) : (
               <div className="space-y-6">
                 {custInvoices.map((inv) => {
-                  const invTotal = calcTotal(inv.items);
-                  const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
-                  const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
+                  const invTotal = getInvoiceTotal(inv);
+                   const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
+                   const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
                   return (
                     <div key={inv.id} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted/50 p-3 flex items-center justify-between">
