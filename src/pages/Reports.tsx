@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInvoices, useCustomers, useEmployees, useReceipts, useCompanySettings } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
-const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const calcItemsTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) => calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 export default function Reports() {
   const { invoices } = useInvoices();
@@ -30,7 +31,7 @@ export default function Reports() {
   const customerBalances = useMemo(() => {
     return customers.map((c) => {
       const custInvoices = invoices.filter((inv) => inv.customer === c.fullName);
-      const totalInvoices = custInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+      const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
       const totalPaid = receipts.filter((r) => r.customer === c.fullName).reduce((s, r) => s + r.amount, 0);
       return { name: c.fullName, phone: c.phone, governorate: c.governorate, totalInvoices, totalPaid, balance: totalInvoices - totalPaid };
     });
@@ -50,8 +51,8 @@ export default function Reports() {
     .filter((e) => e.role === "مبيعات")
     .map((e) => {
       const empInvoices = filteredForComm.filter((inv) => inv.employee === e.name);
-      const totalSales = empInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
-      const commissionAmount = empInvoices.reduce((s, inv) => s + calcTotal(inv.items) * (inv.commissionPercent / 100), 0);
+      const totalSales = empInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
+      const commissionAmount = empInvoices.reduce((s, inv) => s + getInvoiceTotal(inv) * (inv.commissionPercent / 100), 0);
       return { name: e.name, monthlySalary: e.monthlySalary, totalSales, commissionAmount, totalDue: e.monthlySalary + commissionAmount };
     });
 
@@ -95,7 +96,7 @@ export default function Reports() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <CardTitle className="text-base">تقرير المبيعات</CardTitle>
                   <ExportButtons
-                    data={filteredInvoices.map((inv) => ({ id: inv.id, customer: inv.customer, date: inv.date, total: calcTotal(inv.items), paidTotal: inv.paidTotal }))}
+                    data={filteredInvoices.map((inv) => ({ id: inv.id, customer: inv.customer, date: inv.date, total: getInvoiceTotal(inv), paidTotal: inv.paidTotal }))}
                     headers={[{ key: "id", label: "الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" }, { key: "total", label: "الإجمالي" }, { key: "paidTotal", label: "المدفوع" }]}
                     fileName="تقرير_المبيعات" title="تقرير المبيعات"
                   />
@@ -120,7 +121,7 @@ export default function Reports() {
                         <td className="p-3 font-medium text-primary">{inv.id}</td>
                         <td className="p-3">{inv.customer}</td>
                         <td className="p-3">{inv.date}</td>
-                        <td className="p-3">{calcTotal(inv.items).toLocaleString()} ج.م</td>
+                        <td className="p-3">{getInvoiceTotal(inv).toLocaleString()} ج.م</td>
                         <td className="p-3">{inv.paidTotal.toLocaleString()} ج.م</td>
                       </tr>
                     ))}

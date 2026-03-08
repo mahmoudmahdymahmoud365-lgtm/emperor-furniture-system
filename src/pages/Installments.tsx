@@ -13,7 +13,8 @@ import { useReceipts, useInvoices, useCompanySettings } from "@/data/hooks";
 import type { Receipt, InvoiceItem } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
-const calcTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const calcItemsTotal = (items: InvoiceItem[]) => items.reduce((s, i) => s + (i.qty * i.unitPrice - i.lineDiscount), 0);
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) => calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
@@ -44,7 +45,7 @@ export default function Installments() {
     }
     const inv = invoices.find(i => i.id === form.invoiceId);
     if (inv && !editingId) {
-      const remaining = calcTotal(inv.items) - inv.paidTotal;
+      const remaining = getInvoiceTotal(inv) - inv.paidTotal;
       if (form.amount > remaining) {
         toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
       }
@@ -110,7 +111,7 @@ export default function Installments() {
                   <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.invoiceId} onChange={(e) => handleInvoiceChange(e.target.value)}>
                     <option value="">اختر الفاتورة</option>
                     {invoices.map((inv) => {
-                      const total = calcTotal(inv.items);
+                      const total = getInvoiceTotal(inv);
                       const remaining = total - inv.paidTotal;
                       return <option key={inv.id} value={inv.id}>{inv.id} — {inv.customer} (متبقي: {remaining.toLocaleString()} ج.م)</option>;
                     })}

@@ -103,6 +103,7 @@ export default function Customers() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-right p-3 font-medium text-muted-foreground">الكود</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الاسم</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">الرقم القومي</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الهاتف</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">المحافظة</th>
                     <th className="text-right p-3 font-medium text-muted-foreground hidden lg:table-cell">الوظيفة</th>
@@ -114,6 +115,7 @@ export default function Customers() {
                     <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="p-3 font-medium text-primary">{c.id}</td>
                       <td className="p-3">{c.fullName}</td>
+                      <td className="p-3" dir="ltr">{c.nationalId || "—"}</td>
                       <td className="p-3" dir="ltr">{c.phone}</td>
                       <td className="p-3 hidden md:table-cell">{c.governorate}</td>
                       <td className="p-3 hidden lg:table-cell">{c.jobTitle}</td>
@@ -127,7 +129,7 @@ export default function Customers() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
                   )}
                 </tbody>
               </table>

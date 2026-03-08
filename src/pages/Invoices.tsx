@@ -170,7 +170,8 @@ export default function Invoices() {
 
   const handlePay = () => {
     if (!payInvoice || !payAmount) return;
-    const remaining = calcTotal(payInvoice.items) - payInvoice.paidTotal;
+    const payTotal = calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0);
+    const remaining = payTotal - payInvoice.paidTotal;
     if (payAmount > remaining) {
       toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
     }
@@ -343,7 +344,9 @@ export default function Invoices() {
           <ExportButtons
             data={filteredInvoices.map((inv) => {
               const total = calcTotal(inv.items);
-              return { id: inv.id, customer: inv.customer, date: inv.date, deliveryDate: inv.deliveryDate || "-", total, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: total - inv.paidTotal, status: inv.status };
+              const discount = inv.appliedDiscount || 0;
+              const finalT = total - discount;
+              return { id: inv.id, customer: inv.customer, date: inv.date, deliveryDate: inv.deliveryDate || "-", total: finalT, commissionPercent: inv.commissionPercent + "%", paidTotal: inv.paidTotal, remaining: finalT - inv.paidTotal, status: inv.status };
             })}
             headers={[
               { key: "id", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "date", label: "التاريخ" },
@@ -437,9 +440,9 @@ export default function Invoices() {
               <div className="space-y-4 mt-4">
                 <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
                   <div className="flex justify-between"><span>العميل:</span><span className="font-medium">{payInvoice.customer}</span></div>
-                  <div className="flex justify-between"><span>الإجمالي:</span><span>{calcTotal(payInvoice.items).toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between"><span>الإجمالي:</span><span>{(calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0)).toLocaleString()} ج.م</span></div>
                   <div className="flex justify-between"><span>المدفوع:</span><span className="text-success">{payInvoice.paidTotal.toLocaleString()} ج.م</span></div>
-                  <div className="flex justify-between font-bold"><span>المتبقي:</span><span className="text-destructive">{(calcTotal(payInvoice.items) - payInvoice.paidTotal).toLocaleString()} ج.م</span></div>
+                  <div className="flex justify-between font-bold"><span>المتبقي:</span><span className="text-destructive">{(calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0) - payInvoice.paidTotal).toLocaleString()} ج.م</span></div>
                 </div>
                 <div className="space-y-1.5"><Label>المبلغ *</Label><Input type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} dir="ltr" /></div>
                 <div className="space-y-1.5 relative">

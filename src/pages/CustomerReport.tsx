@@ -8,7 +8,8 @@ import { useCustomers, useInvoices, useReceipts, useCompanySettings } from "@/da
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
-const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + calcLineTotal(i), 0);
+const calcItemsTotal = (items: InvoiceItem[]) => items.reduce((sum, i) => sum + calcLineTotal(i), 0);
+const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }) => calcItemsTotal(inv.items) - (inv.appliedDiscount || 0);
 
 export default function CustomerReport() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -29,7 +30,7 @@ export default function CustomerReport() {
 
   const custInvoices = invoices.filter((inv) => inv.customer === customer.fullName);
   const custReceipts = receipts.filter((r) => r.customer === customer.fullName);
-  const totalInvoices = custInvoices.reduce((s, inv) => s + calcTotal(inv.items), 0);
+  const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = custReceipts.reduce((s, r) => s + r.amount, 0);
   const remaining = totalInvoices - totalPaid;
 
@@ -109,9 +110,9 @@ export default function CustomerReport() {
             ) : (
               <div className="space-y-6">
                 {custInvoices.map((inv) => {
-                  const invTotal = calcTotal(inv.items);
-                  const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
-                  const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
+                  const invTotal = getInvoiceTotal(inv);
+                   const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
+                   const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
                   return (
                     <div key={inv.id} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted/50 p-3 flex items-center justify-between">
@@ -211,12 +212,12 @@ export default function CustomerReport() {
 
           <h2>الفواتير والمنتجات</h2>
           {custInvoices.map((inv) => {
-            const invTotal = calcTotal(inv.items);
+            const invTotal = getInvoiceTotal(inv);
             const invReceipts = receipts.filter((r) => r.invoiceId === inv.id);
             const invPaid = invReceipts.reduce((s, r) => s + r.amount, 0);
             return (
               <div key={inv.id} style={{ marginBottom: "20px" }}>
-                <p style={{ fontWeight: 700, marginBottom: 4 }}>{inv.id} — التاريخ: {inv.date} — الفرع: {inv.branch} — الإجمالي: {invTotal.toLocaleString()} ج.م — المدفوع: {invPaid.toLocaleString()} ج.م — المتبقي: {(invTotal - invPaid).toLocaleString()} ج.م</p>
+                <p style={{ fontWeight: 700, marginBottom: 4 }}>{inv.id} — التاريخ: {inv.date} — الفرع: {inv.branch} — الإجمالي: {getInvoiceTotal(inv).toLocaleString()} ج.م — المدفوع: {invPaid.toLocaleString()} ج.م — المتبقي: {(getInvoiceTotal(inv) - invPaid).toLocaleString()} ج.م</p>
                 <table>
                   <thead><tr><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الخصم</th><th>الإجمالي</th></tr></thead>
                   <tbody>
