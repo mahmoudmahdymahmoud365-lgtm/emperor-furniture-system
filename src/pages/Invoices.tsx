@@ -552,6 +552,62 @@ export default function Invoices() {
 
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم حذف جميع بياناتها." />
 
+        {/* Return Dialog */}
+        <Dialog open={returnOpen} onOpenChange={(v) => { setReturnOpen(v); if (!v) setReturnInvoice(null); }}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>مرتجع — {returnInvoice?.id}</DialogTitle></DialogHeader>
+            {returnInvoice && (
+              <div className="space-y-4 mt-4">
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                  <div className="flex justify-between"><span>العميل:</span><span className="font-medium">{returnInvoice.customer}</span></div>
+                  <div className="flex justify-between"><span>تاريخ الفاتورة:</span><span>{returnInvoice.date}</span></div>
+                </div>
+                <div className="space-y-3">
+                  <Label className="font-semibold">المنتجات — حدد الكمية المرتجعة</Label>
+                  {returnItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">السعر: {item.unitPrice.toLocaleString()} ج.م — الحد الأقصى: {item.maxQty}</p>
+                      </div>
+                      <div className="w-20">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={item.maxQty}
+                          value={item.qty}
+                          onChange={(e) => {
+                            const val = Math.min(Number(e.target.value), item.maxQty);
+                            setReturnItems(returnItems.map((ri, idx) => idx === i ? { ...ri, qty: Math.max(0, val) } : ri));
+                          }}
+                          dir="ltr"
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>سبب المرتجع</Label>
+                  <Input value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="مثال: عيب تصنيع، خطأ في الطلب..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ملاحظات</Label>
+                  <Input value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} placeholder="ملاحظات إضافية..." />
+                </div>
+                {returnItems.some(i => i.qty > 0) && (
+                  <div className="p-3 bg-warning/10 rounded-lg text-sm font-medium text-warning">
+                    إجمالي المرتجع: {returnItems.filter(i => i.qty > 0).reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString()} ج.م
+                  </div>
+                )}
+                <Button onClick={handleReturn} className="w-full" disabled={!returnItems.some(i => i.qty > 0)}>
+                  <RotateCcw className="h-4 w-4 ml-2" />تأكيد المرتجع
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <div className="hidden">
           {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} settings={settings} template={printTemplate} />}
         </div>
