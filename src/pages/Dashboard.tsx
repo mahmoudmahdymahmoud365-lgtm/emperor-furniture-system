@@ -11,7 +11,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
 } from "recharts";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useInvoices, useCustomers, useReceipts, useCompanySettings } from "@/data/hooks";
+import { useInvoices, useCustomers, useReceipts, useCompanySettings, useProducts } from "@/data/hooks";
 import type { InvoiceItem } from "@/data/types";
 
 const calcItemsTotal = (items: InvoiceItem[]) =>
