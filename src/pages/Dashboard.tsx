@@ -136,7 +136,7 @@ export default function Dashboard() {
     const monthMap = new Map<string, { paid: number; pending: number }>();
     invoices.forEach((inv) => {
       const m = inv.date.substring(0, 7);
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       const existing = monthMap.get(m) || { paid: 0, pending: 0 };
       existing.paid += inv.paidTotal;
       existing.pending += total - inv.paidTotal;
