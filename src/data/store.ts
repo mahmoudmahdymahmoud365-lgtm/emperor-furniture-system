@@ -53,7 +53,7 @@ export function updateCompanySettings(data: Partial<CompanySettings>) {
   companySettings = { ...companySettings, ...data };
   localStorage.setItem("companySettings", JSON.stringify(companySettings));
   addAuditLog("update", "settings", "settings", "إعدادات الشركة", "تحديث إعدادات الشركة");
-  notify();
+  notify("settings");
 }
 
 // ==============================
