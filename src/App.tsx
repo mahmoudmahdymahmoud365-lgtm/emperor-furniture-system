@@ -23,7 +23,7 @@ const AuditLog = lazy(() => import("./pages/AuditLog"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const Offers = lazy(() => import("./pages/Offers"));
 const ManufacturingReport = lazy(() => import("./pages/ManufacturingReport"));
-const AdvancedReports = lazy(() => import("./pages/AdvancedReports"));
+const Expenses = lazy(() => import("./pages/Expenses"));
 const SecurityLog = lazy(() => import("./pages/SecurityLog"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
