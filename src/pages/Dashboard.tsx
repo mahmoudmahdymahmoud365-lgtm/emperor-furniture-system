@@ -681,7 +681,7 @@ export default function Dashboard() {
                     .slice(-6)
                     .reverse()
                     .map((inv) => {
-                      const total = calcTotal(inv.items);
+                      const total = getInvoiceTotal(inv);
                       const remaining = total - inv.paidTotal;
                       return (
                         <tr key={inv.id} className="border-b last:border-0">
