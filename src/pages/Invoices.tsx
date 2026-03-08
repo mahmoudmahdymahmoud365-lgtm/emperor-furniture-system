@@ -10,7 +10,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import InvoicePrint from "@/components/InvoicePrint";
-import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings, useOffers } from "@/data/hooks";
+import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useReceipts, useCompanySettings, useOffers, useReturns } from "@/data/hooks";
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
