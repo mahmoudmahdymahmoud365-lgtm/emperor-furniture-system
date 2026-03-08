@@ -52,7 +52,9 @@ let settingsCache: CompanySettings = {
   name: "الامبراطور للأثاث",
   address: "",
   phone: "",
+  phones: [],
   email: "",
+  emails: [],
   logoUrl: "/logo.png",
 };
 
