@@ -301,7 +301,7 @@ function saveExpenses() { saveToStorage("expenses", expensesList); }
 function recordStockMovement(productName: string, type: StockMovement["type"], qty: number, reason: string, relatedId?: string) {
   const product = products.find(p => p.name === productName);
   stockMovements.unshift({
-    id: `SM${String(stockMovements.length + 1).padStart(5, "0")}`,
+    id: `SM${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     productId: product?.id || "",
     productName,
     type, qty,
