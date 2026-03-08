@@ -3,9 +3,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle, CreditCard } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +36,6 @@ export default function Installments() {
     });
   }, [receipts, search, filterMethod]);
 
-  // Summary stats
   const totalPaid = useMemo(() => receipts.reduce((s, r) => s + r.amount, 0), [receipts]);
   const totalInvoicesValue = useMemo(() => invoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0), [invoices]);
   const totalRemaining = totalInvoicesValue - totalPaid;
@@ -69,10 +67,10 @@ export default function Installments() {
     }
     if (editingId) {
       updateReceipt(editingId, form);
-      toast({ title: "تم التحديث", description: "تم تحديث الدفعة بنجاح" });
+      toast({ title: "✅ تم التحديث", description: "تم تحديث الدفعة بنجاح" });
     } else {
       addReceipt({ ...form, date: new Date().toISOString().split("T")[0] });
-      toast({ title: "تم التسجيل", description: "تم تسجيل الدفعة بنجاح وتم تحديث الفاتورة" });
+      toast({ title: "✅ تم التسجيل", description: "تم تسجيل الدفعة بنجاح وتم تحديث الفاتورة" });
     }
     resetForm(); setOpen(false);
   };
@@ -84,7 +82,7 @@ export default function Installments() {
   };
 
   const confirmDelete = () => {
-    if (deleteId) { deleteReceipt(deleteId); toast({ title: "تم الحذف", description: "تم حذف الدفعة وتحديث الفاتورة" }); setDeleteId(null); }
+    if (deleteId) { deleteReceipt(deleteId); toast({ title: "✅ تم الحذف", description: "تم حذف الدفعة وتحديث الفاتورة" }); setDeleteId(null); }
   };
 
   const handlePrint = (r: Receipt) => {
@@ -114,35 +112,23 @@ export default function Installments() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        <h1 className="page-header mb-0">الأقساط / المدفوعات</h1>
-
-        {/* Summary Cards */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card><CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10"><DollarSign className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-xl font-bold">{totalPaid.toLocaleString()}</p><p className="text-xs text-muted-foreground">إجمالي المدفوع (ج.م)</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-destructive/10"><TrendingUp className="h-5 w-5 text-destructive" /></div>
-            <div><p className="text-xl font-bold">{totalRemaining.toLocaleString()}</p><p className="text-xs text-muted-foreground">إجمالي المتبقي (ج.م)</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-            <div><p className="text-xl font-bold">{overdueInvoices.length}</p><p className="text-xs text-muted-foreground">فواتير غير مكتملة</p></div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-success/10"><CheckCircle className="h-5 w-5 text-success" /></div>
-            <div><p className="text-xl font-bold">{fullyPaidCount}</p><p className="text-xs text-muted-foreground">فواتير مكتملة الدفع</p></div>
-          </CardContent></Card>
-        </div>
-
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              الأقساط / المدفوعات
+            </h1>
+            <p className="text-sm text-muted-foreground">{receipts.length} دفعة مسجلة</p>
+          </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 ml-2" />تسجيل دفعة</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />تسجيل دفعة</Button></DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>{editingId ? "تعديل الدفعة" : "تسجيل دفعة جديدة"}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
-                <div className="space-y-1.5">
+                <div className="form-group">
                   <Label>رقم الفاتورة *</Label>
                   <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.invoiceId} onChange={(e) => handleInvoiceChange(e.target.value)}>
                     <option value="">اختر الفاتورة</option>
@@ -153,9 +139,9 @@ export default function Installments() {
                     })}
                   </select>
                 </div>
-                <div className="space-y-1.5"><Label>العميل</Label><Input value={form.customer} readOnly className="bg-muted" /></div>
-                <div className="space-y-1.5"><Label>المبلغ *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} dir="ltr" /></div>
-                <div className="space-y-1.5 relative">
+                <div className="form-group"><Label>العميل</Label><Input value={form.customer} readOnly className="bg-muted" /></div>
+                <div className="form-group"><Label>المبلغ *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} dir="ltr" /></div>
+                <div className="form-group relative">
                   <Label>طريقة الدفع</Label>
                   <Input value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} onFocus={() => setMethodFocus(true)} onBlur={() => setTimeout(() => setMethodFocus(false), 200)} />
                   {methodFocus && (
@@ -166,11 +152,39 @@ export default function Installments() {
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5"><Label>ملاحظات</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+                <div className="form-group"><Label>ملاحظات</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
               </div>
               <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
             </DialogContent>
           </Dialog>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center"><DollarSign className="h-5 w-5 text-primary" /></div>
+              <div><p className="text-xs text-muted-foreground">إجمالي المدفوع</p><p className="text-xl font-bold">{totalPaid.toLocaleString()} ج.م</p></div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-destructive/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-xs text-muted-foreground">إجمالي المتبقي</p><p className="text-xl font-bold text-destructive">{totalRemaining.toLocaleString()} ج.م</p></div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-warning/10 flex items-center justify-center"><AlertTriangle className="h-5 w-5 text-warning" /></div>
+              <div><p className="text-xs text-muted-foreground">فواتير غير مكتملة</p><p className="text-xl font-bold text-warning">{overdueInvoices.length}</p></div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-success/10 flex items-center justify-center"><CheckCircle className="h-5 w-5 text-success" /></div>
+              <div><p className="text-xs text-muted-foreground">فواتير مكتملة الدفع</p><p className="text-xl font-bold text-success">{fullyPaidCount}</p></div>
+            </div>
+          </div>
         </div>
 
         {/* Search & Filter */}
@@ -186,87 +200,87 @@ export default function Installments() {
           <ExportButtons data={filteredReceipts as any} headers={[{ key: "id", label: "الكود" }, { key: "invoiceId", label: "رقم الفاتورة" }, { key: "customer", label: "العميل" }, { key: "amount", label: "المبلغ" }, { key: "date", label: "التاريخ" }, { key: "method", label: "طريقة الدفع" }]} fileName="المدفوعات" title="المدفوعات" />
         </div>
 
-        {/* Overdue invoices alert */}
+        {/* Overdue alert */}
         {overdueInvoices.length > 0 && (
-          <Card className="border-warning/50 bg-warning/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <h3 className="font-bold text-sm">فواتير تحتاج متابعة ({overdueInvoices.length})</h3>
-              </div>
-              <div className="space-y-1">
-                {overdueInvoices.slice(0, 5).map(inv => {
-                  const total = getInvoiceTotal(inv);
-                  const remaining = total - inv.paidTotal;
-                  return (
-                    <div key={inv.id} className="flex justify-between text-sm">
-                      <span>{inv.id} — {inv.customer}</span>
-                      <span className="font-medium text-destructive">متبقي: {remaining.toLocaleString()} ج.م</span>
-                    </div>
-                  );
-                })}
-                {overdueInvoices.length > 5 && <p className="text-xs text-muted-foreground">و {overdueInvoices.length - 5} فاتورة أخرى...</p>}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="p-4 bg-warning/5 border border-warning/20 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <h3 className="font-bold text-sm">فواتير تحتاج متابعة ({overdueInvoices.length})</h3>
+            </div>
+            <div className="space-y-1.5">
+              {overdueInvoices.slice(0, 5).map(inv => {
+                const total = getInvoiceTotal(inv);
+                const remaining = total - inv.paidTotal;
+                return (
+                  <div key={inv.id} className="flex justify-between text-sm">
+                    <span>{inv.id} — {inv.customer}</span>
+                    <span className="font-medium text-destructive">متبقي: {remaining.toLocaleString()} ج.م</span>
+                  </div>
+                );
+              })}
+              {overdueInvoices.length > 5 && <p className="text-xs text-muted-foreground">و {overdueInvoices.length - 5} فاتورة أخرى...</p>}
+            </div>
+          </div>
         )}
 
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-right p-3 font-medium text-muted-foreground">الكود</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">رقم الفاتورة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">العميل</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">المبلغ</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">طريقة الدفع</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">حالة الفاتورة</th>
-                    <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReceipts.map((r) => {
-                    const inv = invoices.find(i => i.id === r.invoiceId);
-                    const invTotal = inv ? getInvoiceTotal(inv) : 0;
-                    const paid = inv ? inv.paidTotal : 0;
-                    const paidPercent = invTotal > 0 ? Math.round((paid / invTotal) * 100) : 0;
-                    return (
-                      <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-medium text-primary">{r.id}</td>
-                        <td className="p-3">{r.invoiceId}</td>
-                        <td className="p-3">{r.customer}</td>
-                        <td className="p-3 font-medium">{r.amount.toLocaleString()} ج.م</td>
-                        <td className="p-3">{r.date}</td>
-                        <td className="p-3"><span className="px-2 py-0.5 rounded-full text-xs bg-muted">{r.method}</span></td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${paidPercent >= 100 ? "bg-success" : paidPercent >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.min(paidPercent, 100)}%` }} />
-                            </div>
-                            <span className="text-xs text-muted-foreground">{paidPercent}%</span>
+        {/* Table */}
+        <div className="table-container">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">الكود</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">رقم الفاتورة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">العميل</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">المبلغ</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">التاريخ</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">طريقة الدفع</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">حالة الفاتورة</th>
+                  <th className="text-right p-3.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredReceipts.map((r) => {
+                  const inv = invoices.find(i => i.id === r.invoiceId);
+                  const invTotal = inv ? getInvoiceTotal(inv) : 0;
+                  const paid = inv ? inv.paidTotal : 0;
+                  const paidPercent = invTotal > 0 ? Math.round((paid / invTotal) * 100) : 0;
+                  return (
+                    <tr key={r.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="p-3.5 font-mono text-xs font-semibold text-primary">{r.id}</td>
+                      <td className="p-3.5 font-mono text-xs">{r.invoiceId}</td>
+                      <td className="p-3.5 font-medium">{r.customer}</td>
+                      <td className="p-3.5 font-medium">{r.amount.toLocaleString()} ج.م</td>
+                      <td className="p-3.5 text-xs text-muted-foreground">{r.date}</td>
+                      <td className="p-3.5"><span className="badge-status bg-secondary text-secondary-foreground">{r.method}</span></td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${paidPercent >= 100 ? "bg-success" : paidPercent >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.min(paidPercent, 100)}%` }} />
                           </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة"><Printer className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل"><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredReceipts.length === 0 && (
-                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد نتائج</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                          <span className="text-xs font-medium text-muted-foreground">{paidPercent}%</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة" className="h-8 w-8"><Printer className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredReceipts.length === 0 && (
+                  <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">
+                    <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>لا توجد نتائج</p>
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <DeleteConfirmDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)} onConfirm={confirmDelete} description="هل أنت متأكد من حذف هذه الدفعة؟ سيتم تحديث الفاتورة تلقائياً." />
       </div>
