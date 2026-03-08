@@ -24,7 +24,7 @@ export function BackupManager() {
   const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [interval, setIntervalVal] = useState(24);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
-  const [cloudConfig, setCloudConfig] = useState<CloudConfig>({ enabled: false, provider: "none", autoSync: false });
+  const [, setCloudConfig] = useState<CloudConfig>({ enabled: false, provider: "none", autoSync: false });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [manualLabel, setManualLabel] = useState("");
