@@ -321,7 +321,7 @@ export function getStockMovements(): StockMovement[] { return stockMovementsSnap
 export function getReturns(): ProductReturn[] { return returnsSnap; }
 
 export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
-  const r: ProductReturn = { id: `RET${String(productReturns.length + 1).padStart(3, "0")}`, ...data };
+  const r: ProductReturn = { id: nextId("RET", productReturns), ...data };
   productReturns.push(r);
   for (const item of r.items) {
     const pIdx = products.findIndex(p => p.name === item.productName);
