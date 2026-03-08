@@ -692,8 +692,7 @@ export function addEmployee(data: Omit<Employee, "id">): Employee {
   const e = { id: nextId("E", employees), ...data };
   employees.push(e);
   saveEmployees();
-  addAuditLog("create", "employee", e.id, e.name, `إضافة موظف: ${e.name}`);
-  notify();
+  notify("employees");
   return e;
 }
 
