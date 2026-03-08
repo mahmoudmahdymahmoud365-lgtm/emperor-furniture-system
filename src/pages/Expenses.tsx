@@ -295,7 +295,7 @@ export default function Expenses() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? "تعديل مصروف" : "إضافة مصروف جديد"}</DialogTitle>
           </DialogHeader>
