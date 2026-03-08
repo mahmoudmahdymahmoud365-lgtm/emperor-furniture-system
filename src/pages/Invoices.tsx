@@ -170,7 +170,8 @@ export default function Invoices() {
 
   const handlePay = () => {
     if (!payInvoice || !payAmount) return;
-    const remaining = calcTotal(payInvoice.items) - payInvoice.paidTotal;
+    const payTotal = calcTotal(payInvoice.items) - (payInvoice.appliedDiscount || 0);
+    const remaining = payTotal - payInvoice.paidTotal;
     if (payAmount > remaining) {
       toast({ title: "خطأ", description: `المبلغ أكبر من المتبقي (${remaining.toLocaleString()} ج.م)`, variant: "destructive" }); return;
     }
