@@ -10,8 +10,9 @@ import { ProductQRCode } from "@/components/ProductQRCode";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useProducts, useStockMovements } from "@/data/hooks";
+import { useProducts, useStockMovements, useCompanySettings } from "@/data/hooks";
 import { MOVEMENT_TYPE_LABELS } from "@/data/types";
+import type { Product } from "@/data/types";
 
 const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
 
