@@ -80,6 +80,7 @@ export default function Invoices() {
   const [returnItems, setReturnItems] = useState<{ productName: string; qty: number; unitPrice: number; maxQty: number }[]>([]);
   const [returnReason, setReturnReason] = useState("");
   const [returnNotes, setReturnNotes] = useState("");
+  const [printTemplate, setPrintTemplate] = useState<"modern" | "classic" | "minimal">("modern");
 
   const customerSuggestions = useMemo(() => {
     const list = customers.map(c => c.fullName);
