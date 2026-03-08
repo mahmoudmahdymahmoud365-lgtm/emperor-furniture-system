@@ -6,6 +6,7 @@ import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
   Offer, StockMovement, ProductReturn, Shift, AttendanceRecord, SecurityEvent,
+  Expense,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 
@@ -570,6 +571,7 @@ function rebuildSnapshots() {
   shiftsSnap = [...shifts];
   attendanceSnap = [...attendance];
   securityLogSnap = [...securityLog];
+  expensesSnap = [...expensesList];
 }
 
 function notify() {
@@ -825,11 +827,62 @@ export function addManualStockMovement(productId: string, productName: string, t
 }
 
 // ==============================
+// EXPENSES
+// ==============================
+function loadExpenses(): Expense[] {
+  try {
+    const saved = localStorage.getItem("expenses");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+const expensesList: Expense[] = loadExpenses();
+let expensesSnap: Expense[] = [...expensesList];
+
+function saveExpenses() {
+  localStorage.setItem("expenses", JSON.stringify(expensesList));
+}
+
+export function getExpenses(): Expense[] { return expensesSnap; }
+
+export function addExpense(data: Omit<Expense, "id">): Expense {
+  const e: Expense = { id: nextId("EXP", expensesList), ...data };
+  expensesList.push(e);
+  saveExpenses();
+  addAuditLog("create", "expense", e.id, e.description, `إضافة مصروف: ${e.description} - ${e.amount} ج.م`);
+  notify();
+  return e;
+}
+
+export function updateExpense(id: string, data: Partial<Expense>) {
+  const idx = expensesList.findIndex(e => e.id === id);
+  if (idx >= 0) {
+    const desc = expensesList[idx].description;
+    expensesList[idx] = { ...expensesList[idx], ...data };
+    saveExpenses();
+    addAuditLog("update", "expense", id, data.description || desc, `تعديل مصروف: ${data.description || desc}`);
+    notify();
+  }
+}
+
+export function deleteExpense(id: string) {
+  const idx = expensesList.findIndex(e => e.id === id);
+  if (idx >= 0) {
+    const desc = expensesList[idx].description;
+    expensesList.splice(idx, 1);
+    saveExpenses();
+    addAuditLog("delete", "expense", id, desc, `حذف مصروف: ${desc}`);
+    notify();
+  }
+}
+
+// ==============================
 // BACKUP (Web mode - export/import JSON)
 // ==============================
 export function exportBackup(): string {
   const data = {
-    version: 4,
+    version: 5,
     timestamp: new Date().toISOString(),
     customers: [...customers],
     products: [...products],
@@ -842,6 +895,7 @@ export function exportBackup(): string {
     productReturns: [...productReturns],
     shifts: [...shifts],
     attendance: [...attendance],
+    expenses: [...expensesList],
     settings: { ...companySettings },
     users: [...users],
     auditLog: [...auditLog],
@@ -858,7 +912,7 @@ export function importBackup(jsonStr: string): boolean {
     employees.length = 0; branches.length = 0; receipts.length = 0;
     auditLog.length = 0; offers.length = 0;
     stockMovements.length = 0; productReturns.length = 0;
-    shifts.length = 0; attendance.length = 0;
+    shifts.length = 0; attendance.length = 0; expensesList.length = 0;
 
     (data.customers || []).forEach((c: Customer) => customers.push(c));
     (data.products || []).forEach((p: Product) => products.push(p));
@@ -872,6 +926,7 @@ export function importBackup(jsonStr: string): boolean {
     (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
     (data.shifts || []).forEach((s: Shift) => shifts.push(s));
     (data.attendance || []).forEach((a: AttendanceRecord) => attendance.push(a));
+    (data.expenses || []).forEach((e: Expense) => expensesList.push(e));
 
     if (data.settings) {
       companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
@@ -888,6 +943,7 @@ export function importBackup(jsonStr: string): boolean {
     saveReturns();
     saveShifts();
     saveAttendance();
+    saveExpenses();
     addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
     notify();
     return true;

@@ -129,3 +129,13 @@ export function useSecurityLog() {
   const events = useStoreData(store.getSecurityLog);
   return { events, clearSecurityLog: useCallback(store.clearSecurityLog, []) };
 }
+
+export function useExpenses() {
+  const expenses = useStoreData(store.getExpenses);
+  return {
+    expenses,
+    addExpense: useCallback(store.addExpense, []),
+    updateExpense: useCallback(store.updateExpense, []),
+    deleteExpense: useCallback(store.deleteExpense, []),
+  };
+}
