@@ -468,7 +468,7 @@ export function deleteOffer(id: string) {
     offers.splice(idx, 1);
     saveOffers();
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
-    notify();
+    notify("offers");
   }
 }
 
