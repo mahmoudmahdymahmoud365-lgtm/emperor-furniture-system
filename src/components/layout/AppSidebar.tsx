@@ -14,7 +14,7 @@ const allMenuItems = [
   { title: "المنتجات والمخزون", icon: Package, path: "/products", perm: "products" },
   
   { title: "الفواتير", icon: FileText, path: "/invoices", perm: "invoices" },
-  { title: "الأقساط", icon: CreditCard, path: "/installments", perm: "installments" },
+  { title: "الأقساط/المدفوعات", icon: CreditCard, path: "/installments", perm: "installments" },
   { title: "العروض", icon: Tag, path: "/offers", perm: "offers" },
   { title: "الموظفين", icon: UserCog, path: "/employees", perm: "employees" },
   { title: "الفروع", icon: Building2, path: "/branches", perm: "branches" },
