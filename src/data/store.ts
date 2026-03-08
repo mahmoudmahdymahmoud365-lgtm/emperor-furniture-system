@@ -89,7 +89,7 @@ export function addUser(data: Omit<UserAccount, "id">): UserAccount {
   users.push(u);
   saveUsers();
   addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
-  notify();
+  notify("users");
   return u;
 }
 
