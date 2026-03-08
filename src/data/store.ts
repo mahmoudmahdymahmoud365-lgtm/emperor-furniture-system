@@ -99,7 +99,7 @@ export function updateUser(id: string, data: Partial<UserAccount>) {
     users[idx] = { ...users[idx], ...data };
     saveUsers();
     addAuditLog("update", "settings" as AuditEntity, id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
-    notify();
+    notify("users");
   }
 }
 
