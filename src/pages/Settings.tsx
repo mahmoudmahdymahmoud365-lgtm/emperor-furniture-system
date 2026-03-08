@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Settings as SettingsIcon, Save, Download, Upload, Database, ImagePlus, Phone, Mail, Plus, X, Building2, MapPin } from "lucide-react";
+import { Settings as SettingsIcon, Save, ImagePlus, Phone, Mail, Plus, X, Building2, MapPin, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings, useUsers } from "@/data/hooks";
-import { exportBackup, importBackup } from "@/data/store";
+import { BackupManager } from "@/components/BackupManager";
 
 export default function Settings() {
   const { settings, updateSettings } = useCompanySettings();
