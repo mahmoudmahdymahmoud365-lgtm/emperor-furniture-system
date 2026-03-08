@@ -174,7 +174,7 @@ export default function Dashboard() {
   const overdueCustomers = useMemo(() => {
     const customerBalances = new Map<string, { balance: number; lastPayment: string | null; invoiceIds: string[]; phone: string }>();
     invoices.forEach((inv) => {
-      const total = calcTotal(inv.items);
+      const total = getInvoiceTotal(inv);
       const remaining = total - inv.paidTotal;
       if (remaining > 0) {
         const existing = customerBalances.get(inv.customer);
