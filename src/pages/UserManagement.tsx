@@ -221,15 +221,48 @@ export default function UserManagement() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>الاسم</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={100} />
               </div>
               <div className="space-y-1.5">
                 <Label>البريد الإلكتروني</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" />
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" maxLength={255} />
               </div>
               <div className="space-y-1.5">
-                <Label>كلمة المرور</Label>
-                <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} dir="ltr" />
+                <Label>{editing ? "كلمة المرور الجديدة (اتركها فارغة للإبقاء)" : "كلمة المرور"}</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    dir="ltr"
+                    maxLength={128}
+                    placeholder={editing ? "اتركها فارغة للإبقاء على الحالية" : "أدخل كلمة مرور قوية"}
+                    className="pl-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {form.password && (() => {
+                  const strength = checkPasswordStrength(form.password);
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < strength.score ? strength.color : "bg-muted"}`} />
+                        ))}
+                      </div>
+                      <p className={`text-xs ${strength.score >= 3 ? "text-green-600" : strength.score >= 2 ? "text-yellow-600" : "text-destructive"}`}>
+                        {strength.label}
+                        {strength.errors.length > 0 && ` — ${strength.errors[0]}`}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label>الدور</Label>
