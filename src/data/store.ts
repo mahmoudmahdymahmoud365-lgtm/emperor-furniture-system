@@ -112,9 +112,13 @@ export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccoun
   return u;
 }
 
-export function updateUser(id: string, data: Partial<UserAccount>) {
+export async function updateUser(id: string, data: Partial<UserAccount>) {
   const idx = users.findIndex((u) => u.id === id);
   if (idx >= 0) {
+    // Hash password if it's being updated and isn't already hashed
+    if (data.password && (!data.password.includes(":") || data.password.length < 40)) {
+      data.password = await hashPassword(data.password);
+    }
     users[idx] = { ...users[idx], ...data };
     saveUsers();
     addAuditLog("update", "settings" as AuditEntity, id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
