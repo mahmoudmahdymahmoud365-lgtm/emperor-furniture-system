@@ -564,7 +564,151 @@ export function deleteInvoice(id: string) {
 }
 
 // ==============================
-// EMPLOYEES
+// MANUFACTURING STATUS
+// ==============================
+export function updateManufacturingStatus(invoiceId: string, status: ManufacturingStatus, mfgNotes?: string) {
+  const idx = invoices.findIndex(i => i.id === invoiceId);
+  if (idx >= 0) {
+    invoices[idx] = {
+      ...invoices[idx],
+      manufacturingStatus: status,
+      manufacturingNotes: mfgNotes ?? invoices[idx].manufacturingNotes,
+      manufacturingUpdatedAt: new Date().toISOString(),
+    };
+    if (status === "delivered" && invoices[idx].status !== "تم التسليم") {
+      invoices[idx].status = "تم التسليم";
+    }
+    saveInvoices();
+    addAuditLog("update", "invoice", invoiceId, invoiceId, `تحديث حالة التصنيع: ${status}`);
+    notify("invoices");
+  }
+}
+
+// ==============================
+// RECURRING INVOICES
+// ==============================
+export function createRecurringTemplate(data: Omit<Invoice, "id">, interval: RecurringInterval): Invoice {
+  const nextDate = calculateNextDate(new Date().toISOString().split("T")[0], interval);
+  const inv = addInvoice({
+    ...data,
+    isRecurring: true,
+    recurringInterval: interval,
+    recurringNextDate: nextDate,
+  });
+  addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة متكررة (${interval})`);
+  return inv;
+}
+
+export function processRecurringInvoices(): Invoice[] {
+  const today = new Date().toISOString().split("T")[0];
+  const created: Invoice[] = [];
+  
+  const recurringInvoices = invoices.filter(i => i.isRecurring && i.recurringNextDate && i.recurringNextDate <= today);
+  
+  for (const template of recurringInvoices) {
+    // Create new invoice from template
+    const newInv = addInvoice({
+      customer: template.customer,
+      branch: template.branch,
+      employee: template.employee,
+      date: today,
+      deliveryDate: "",
+      items: [...template.items],
+      status: "مسودة",
+      paidTotal: 0,
+      commissionPercent: template.commissionPercent,
+      notes: `فاتورة متكررة من ${template.id}`,
+      recurringTemplateId: template.id,
+    });
+    created.push(newInv);
+    
+    // Update next date on template
+    const idx = invoices.findIndex(i => i.id === template.id);
+    if (idx >= 0 && template.recurringInterval) {
+      invoices[idx] = {
+        ...invoices[idx],
+        recurringNextDate: calculateNextDate(today, template.recurringInterval),
+      };
+      saveInvoices();
+    }
+  }
+  
+  if (created.length > 0) {
+    notify("invoices");
+  }
+  return created;
+}
+
+function calculateNextDate(fromDate: string, interval: RecurringInterval): string {
+  const date = new Date(fromDate);
+  switch (interval) {
+    case "weekly": date.setDate(date.getDate() + 7); break;
+    case "monthly": date.setMonth(date.getMonth() + 1); break;
+    case "quarterly": date.setMonth(date.getMonth() + 3); break;
+    case "yearly": date.setFullYear(date.getFullYear() + 1); break;
+  }
+  return date.toISOString().split("T")[0];
+}
+
+// ==============================
+// INSTALLMENT SCHEDULING
+// ==============================
+export function setInstallmentSchedule(invoiceId: string, nextDueDate: string, count?: number) {
+  const idx = invoices.findIndex(i => i.id === invoiceId);
+  if (idx >= 0) {
+    invoices[idx] = {
+      ...invoices[idx],
+      nextDueDate,
+      installmentCount: count ?? invoices[idx].installmentCount,
+    };
+    saveInvoices();
+    notify("invoices");
+  }
+}
+
+export function getOverdueInstallments(): { invoice: Invoice; daysOverdue: number; remaining: number }[] {
+  const today = new Date();
+  const result: { invoice: Invoice; daysOverdue: number; remaining: number }[] = [];
+  
+  for (const inv of invoices) {
+    const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
+    const remaining = total - inv.paidTotal;
+    if (remaining <= 0) continue;
+    
+    if (inv.nextDueDate) {
+      const dueDate = new Date(inv.nextDueDate);
+      const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / 86400000);
+      if (diffDays >= 0) {
+        result.push({ invoice: inv, daysOverdue: diffDays, remaining });
+      }
+    }
+  }
+  
+  return result.sort((a, b) => b.daysOverdue - a.daysOverdue);
+}
+
+export function getUpcomingInstallments(daysAhead: number = 7): { invoice: Invoice; daysUntilDue: number; remaining: number }[] {
+  const today = new Date();
+  const result: { invoice: Invoice; daysUntilDue: number; remaining: number }[] = [];
+  
+  for (const inv of invoices) {
+    const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
+    const remaining = total - inv.paidTotal;
+    if (remaining <= 0) continue;
+    
+    if (inv.nextDueDate) {
+      const dueDate = new Date(inv.nextDueDate);
+      const diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
+      if (diffDays > 0 && diffDays <= daysAhead) {
+        result.push({ invoice: inv, daysUntilDue: diffDays, remaining });
+      }
+    }
+  }
+  
+  return result.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+}
+
+//
 // ==============================
 export function getEmployees(): Employee[] { return employeesSnap; }
 
