@@ -241,8 +241,11 @@ export async function login(email: string, password: string): Promise<{ success:
   }
 
   recordLoginAttempt(cleanEmail, true);
+  const sessionToken = generateSessionToken();
   localStorage.setItem(AUTH_KEY, "true");
   localStorage.setItem(CURRENT_USER_KEY, user.id);
+  localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+  localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_DURATION));
   currentUser = user;
   addSecurityEvent("login_success", cleanEmail, user.name);
   return { success: true };
