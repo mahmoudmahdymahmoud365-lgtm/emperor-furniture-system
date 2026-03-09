@@ -27,10 +27,12 @@ export default function UserManagement() {
   const [permUser, setPermUser] = useState<UserAccount | null>(null);
   const [customPerms, setCustomPerms] = useState<RolePermissions>({ ...DEFAULT_PERMISSIONS.sales });
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
+  const openAdd = () => { setEditing(null); setForm(emptyForm); setShowPassword(false); setDialogOpen(true); };
   const openEdit = (u: UserAccount) => {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, password: u.password, role: u.role, active: u.active });
+    // Don't pre-fill password for security — user must enter new one if changing
+    setForm({ name: u.name, email: u.email, password: "", role: u.role, active: u.active });
+    setShowPassword(false);
     setDialogOpen(true);
   };
 
