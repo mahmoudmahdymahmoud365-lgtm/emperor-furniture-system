@@ -35,8 +35,7 @@ export default function ManufacturingReport() {
     setImages(meta);
     const urls: Record<string, string> = {};
     for (const img of meta) {
-      const url = await getImageURL(img.id);
-      if (url) urls[img.id] = url;
+      urls[img.id] = getImageURL(img.id);
     }
     setImageUrls(urls);
   };
