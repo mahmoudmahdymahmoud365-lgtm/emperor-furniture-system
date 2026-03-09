@@ -232,7 +232,7 @@ export default function ManufacturingReport() {
       if (!url) return "";
       return `<div style="text-align:center;margin:10px 0;page-break-inside:avoid;">
         <img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;border:1px solid #ddd;" />
-        ${meta ? `<p style="font-size:11px;color:#666;margin-top:4px;">${meta.name} — ${meta.type}</p>` : ""}
+        ${meta ? `<p style="font-size:11px;color:#666;margin-top:4px;">${escapeHtml(meta.name)} — ${escapeHtml(meta.type)}</p>` : ""}
       </div>`;
     }).join("");
 
