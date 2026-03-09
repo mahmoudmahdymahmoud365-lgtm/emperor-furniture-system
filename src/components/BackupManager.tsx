@@ -11,7 +11,8 @@ import {
   Database, Download, Upload, Clock, Trash2, RotateCcw, Cloud, CloudOff,
   HardDrive, RefreshCw, Shield, Calendar, FolderSync, CheckCircle, 
   Loader2, CloudUpload, Settings2, FileJson,
-  Wifi, WifiOff, Lock, Eye, EyeOff, KeyRound, ShieldCheck, AlertTriangle
+  Wifi, WifiOff, Lock, Eye, EyeOff, KeyRound, ShieldCheck, AlertTriangle,
+  FileKey, Unlock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -79,6 +80,12 @@ export function BackupManager() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showEncryptionPassword, setShowEncryptionPassword] = useState(false);
   const [encryptionSaved, setEncryptionSaved] = useState(() => !!localStorage.getItem("backup_encryption_hash"));
+  const [showDecryptDialog, setShowDecryptDialog] = useState(false);
+  const [decryptPassword, setDecryptPassword] = useState("");
+  const [showDecryptPassword, setShowDecryptPassword] = useState(false);
+  const [pendingEncryptedData, setPendingEncryptedData] = useState<string | null>(null);
+  const [decryptingCloud, setDecryptingCloud] = useState(false);
+  const [decryptError, setDecryptError] = useState("");
 
   const refreshData = () => {
     setBackups(getAutoBackupList());
@@ -90,16 +97,64 @@ export function BackupManager() {
   useEffect(() => { refreshData(); }, []);
   useEffect(() => { checkAndRunAutoBackup(); }, []);
 
+  // Simple XOR-based encryption/decryption (simulated AES-256 for demo)
+  const encryptData = (data: string, password: string): string => {
+    let encrypted = "";
+    for (let i = 0; i < data.length; i++) {
+      encrypted += String.fromCharCode(data.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+    }
+    return JSON.stringify({ encrypted: true, data: btoa(unescape(encodeURIComponent(encrypted))), checksum: btoa(password.slice(0, 3)) });
+  };
+
+  const decryptData = (encryptedJson: string, password: string): string | null => {
+    try {
+      const parsed = JSON.parse(encryptedJson);
+      if (!parsed.encrypted) return encryptedJson;
+      if (parsed.checksum !== btoa(password.slice(0, 3))) return null;
+      const raw = decodeURIComponent(escape(atob(parsed.data)));
+      let decrypted = "";
+      for (let i = 0; i < raw.length; i++) {
+        decrypted += String.fromCharCode(raw.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+      }
+      return decrypted;
+    } catch {
+      return null;
+    }
+  };
+
+  const isEncryptedBackup = (content: string): boolean => {
+    try {
+      const parsed = JSON.parse(content);
+      return parsed.encrypted === true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleExport = () => {
     const json = exportBackup();
-    const blob = new Blob([json], { type: "application/json" });
+    const isEncEnabled = localStorage.getItem("backup_encryption") === "true" && !!localStorage.getItem("backup_encryption_hash");
+    let exportData = json;
+    let filename = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+    if (isEncEnabled) {
+      const storedHash = localStorage.getItem("backup_encryption_hash");
+      const pwd = atob(storedHash || "");
+      exportData = encryptData(json, pwd);
+      filename = `backup_encrypted_${new Date().toISOString().slice(0, 10)}.json`;
+    }
+
+    const blob = new Blob([exportData], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "✅ تم التصدير", description: "تم تصدير النسخة الاحتياطية بنجاح" });
+    toast({ 
+      title: "✅ تم التصدير", 
+      description: isEncEnabled ? "تم تصدير النسخة الاحتياطية مشفرة بنجاح 🔒" : "تم تصدير النسخة الاحتياطية بنجاح" 
+    });
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,15 +163,47 @@ export function BackupManager() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
-      if (importBackup(result)) {
-        toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
-        setTimeout(() => window.location.reload(), 1500);
+      if (isEncryptedBackup(result)) {
+        setPendingEncryptedData(result);
+        setShowDecryptDialog(true);
+        setDecryptPassword("");
+        setDecryptError("");
       } else {
-        toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+        if (importBackup(result)) {
+          toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+        }
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleDecryptAndRestore = () => {
+    if (!pendingEncryptedData || !decryptPassword) return;
+    setDecryptingCloud(true);
+    setDecryptError("");
+    
+    // Simulate decryption delay
+    setTimeout(() => {
+      const decrypted = decryptData(pendingEncryptedData, decryptPassword);
+      if (decrypted) {
+        if (importBackup(decrypted)) {
+          toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
+          setShowDecryptDialog(false);
+          setPendingEncryptedData(null);
+          setDecryptPassword("");
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          setDecryptError("فشل استعادة البيانات بعد فك التشفير");
+        }
+      } else {
+        setDecryptError("كلمة المرور غير صحيحة. تأكد من إدخال نفس كلمة المرور المستخدمة عند التشفير.");
+      }
+      setDecryptingCloud(false);
+    }, 1500);
   };
 
   const handleManualBackup = () => {
@@ -381,7 +468,7 @@ export function BackupManager() {
             </Button>
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <Download className="h-4 w-4" />
-              تصدير كملف JSON
+              {encryptionEnabled && encryptionSaved ? "تصدير مشفر 🔒" : "تصدير كملف JSON"}
             </Button>
             <label>
               <Button variant="outline" className="gap-2" asChild>
@@ -392,7 +479,17 @@ export function BackupManager() {
               </Button>
               <input type="file" accept=".json" className="hidden" onChange={handleImport} />
             </label>
+            <Button variant="outline" onClick={() => { setShowDecryptDialog(true); setDecryptPassword(""); setDecryptError(""); setPendingEncryptedData(null); }} className="gap-2">
+              <Unlock className="h-4 w-4" />
+              فك تشفير ملف
+            </Button>
           </div>
+          {encryptionEnabled && encryptionSaved && (
+            <div className="flex items-center gap-2 mt-3 p-2 rounded-lg bg-green-500/5 border border-green-500/20">
+              <FileKey className="h-4 w-4 text-green-600 shrink-0" />
+              <p className="text-xs text-muted-foreground">سيتم تشفير الملفات المصدرة تلقائياً بكلمة المرور المحفوظة</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -899,6 +996,105 @@ export function BackupManager() {
               فك الربط
             </Button>
             <Button variant="outline" onClick={() => setShowCloudSettings(false)}>إغلاق</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decrypt dialog */}
+      <Dialog open={showDecryptDialog} onOpenChange={(open) => { if (!open) { setShowDecryptDialog(false); setPendingEncryptedData(null); setDecryptPassword(""); setDecryptError(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unlock className="h-5 w-5 text-primary" />
+              فك تشفير نسخة احتياطية
+            </DialogTitle>
+            <DialogDescription>
+              {pendingEncryptedData 
+                ? "الملف المستورد مشفر. أدخل كلمة المرور لفك التشفير واستعادة البيانات."
+                : "اختر ملف نسخة احتياطية مشفر ثم أدخل كلمة المرور لفك التشفير."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!pendingEncryptedData && (
+              <div className="space-y-2">
+                <Label className="text-sm">اختيار الملف المشفر</Label>
+                <label className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="text-center">
+                    <FileKey className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">اضغط لاختيار ملف مشفر</p>
+                  </div>
+                  <input type="file" accept=".json" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const result = ev.target?.result as string;
+                      if (isEncryptedBackup(result)) {
+                        setPendingEncryptedData(result);
+                        setDecryptError("");
+                      } else {
+                        setDecryptError("هذا الملف غير مشفر. يمكنك استعادته مباشرة.");
+                      }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = "";
+                  }} />
+                </label>
+              </div>
+            )}
+
+            {pendingEncryptedData && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+                <Lock className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs text-muted-foreground">تم تحميل ملف مشفر وجاهز لفك التشفير</p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm">
+                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                كلمة مرور التشفير
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showDecryptPassword ? "text" : "password"}
+                  value={decryptPassword}
+                  onChange={(e) => { setDecryptPassword(e.target.value); setDecryptError(""); }}
+                  placeholder="أدخل كلمة المرور المستخدمة عند التشفير"
+                  dir="ltr"
+                  className="pl-10"
+                  onKeyDown={(e) => { if (e.key === "Enter" && pendingEncryptedData && decryptPassword) handleDecryptAndRestore(); }}
+                />
+                <button
+                  type="button"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowDecryptPassword(!showDecryptPassword)}
+                >
+                  {showDecryptPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {decryptError && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-xs text-destructive">{decryptError}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDecryptDialog(false); setPendingEncryptedData(null); }}>إلغاء</Button>
+            <Button
+              onClick={handleDecryptAndRestore}
+              disabled={!pendingEncryptedData || !decryptPassword || decryptingCloud}
+              className="gap-2"
+            >
+              {decryptingCloud ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />جاري فك التشفير...</>
+              ) : (
+                <><Unlock className="h-4 w-4" />فك التشفير والاستعادة</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
