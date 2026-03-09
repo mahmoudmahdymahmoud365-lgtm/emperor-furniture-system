@@ -9,7 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
@@ -31,6 +32,7 @@ app.use("/api/users", require("./routes/users"));
 app.use("/api/settings", require("./routes/settings"));
 app.use("/api/audit-log", require("./routes/auditLog"));
 app.use("/api/security-log", require("./routes/securityLog"));
+app.use("/api/files", require("./routes/files"));
 
 // Error handler
 app.use((err, _req, res, _next) => {

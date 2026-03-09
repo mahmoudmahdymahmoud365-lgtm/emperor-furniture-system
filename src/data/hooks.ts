@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useCallback } from "react";
-import * as store from "./store";
+import * as store from "./store.api";
 
 function useStoreData<T>(getter: () => T): T {
   return useSyncExternalStore(store.subscribe, getter, getter);

@@ -224,6 +224,20 @@ const schema = `
     value TEXT DEFAULT ''
   );
 
+  -- Files / Images
+  CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    name TEXT DEFAULT '',
+    related_to TEXT DEFAULT '',
+    related_id TEXT DEFAULT '',
+    file_name TEXT DEFAULT '',
+    stored_name TEXT DEFAULT '',
+    mime_type TEXT DEFAULT '',
+    size BIGINT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE SEQUENCE IF NOT EXISTS files_seq START 1;
+
   -- Seed default settings
   INSERT INTO settings (key, value) VALUES
     ('name', 'الامبراطور للأثاث'),
@@ -249,7 +263,7 @@ async function init() {
     const sequences = [
       "customers_seq", "products_seq", "invoices_seq", "employees_seq",
       "branches_seq", "receipts_seq", "offers_seq", "returns_seq",
-      "shifts_seq", "attendance_seq", "expenses_seq", "users_seq"
+      "shifts_seq", "attendance_seq", "expenses_seq", "users_seq", "files_seq"
     ];
     for (const seq of sequences) {
       await pool.query(`CREATE SEQUENCE IF NOT EXISTS ${seq} START 1`).catch(() => {});
