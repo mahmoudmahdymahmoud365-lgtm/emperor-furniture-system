@@ -212,8 +212,9 @@ export function BackupManager() {
           <CardDescription>ربط البرنامج بخدمة سحابية لحفظ النسخ الاحتياطية</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Lovable Cloud */}
+            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30 hover:bg-muted/50 transition-colors">
               <Cloud className="h-8 w-8 text-primary" />
               <h4 className="font-semibold text-sm">Lovable Cloud</h4>
               <p className="text-xs text-muted-foreground text-center">قاعدة بيانات سحابية مع مزامنة تلقائية</p>
@@ -221,23 +222,72 @@ export function BackupManager() {
                 <CloudOff className="h-3 w-3 ml-1" />
                 غير متصل
               </Badge>
-              <p className="text-xs text-muted-foreground text-center">يمكن تفعيله لاحقاً للحصول على مزامنة كاملة</p>
+              <Button variant="outline" size="sm" className="w-full mt-2 gap-1" disabled>
+                <Cloud className="h-3.5 w-3.5" />
+                ربط
+              </Button>
             </div>
-            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30">
-              <FolderSync className="h-8 w-8 text-blue-500" />
-              <h4 className="font-semibold text-sm">OneDrive</h4>
-              <p className="text-xs text-muted-foreground text-center">استيراد وتصدير ملفات النسخ الاحتياطية</p>
+            
+            {/* Google Drive */}
+            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30 hover:bg-muted/50 transition-colors">
+              <svg className="h-8 w-8" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+                <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+              </svg>
+              <h4 className="font-semibold text-sm">Google Drive</h4>
+              <p className="text-xs text-muted-foreground text-center">حفظ النسخ الاحتياطية على Google Drive</p>
               <Badge variant="outline" className="text-xs">
                 <CloudOff className="h-3 w-3 ml-1" />
                 غير متصل
               </Badge>
-              <p className="text-xs text-muted-foreground text-center">يمكن ربطه لاحقاً لسحب/رفع البيانات</p>
+              <Button variant="outline" size="sm" className="w-full mt-2 gap-1" disabled>
+                <Cloud className="h-3.5 w-3.5" />
+                ربط
+              </Button>
+            </div>
+            
+            {/* OneDrive */}
+            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30 hover:bg-muted/50 transition-colors">
+              <svg className="h-8 w-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19.5 14c0-.34-.04-.67-.09-1C21.47 12.35 23 10.36 23 8c0-2.76-2.24-5-5-5-1.34 0-2.55.53-3.45 1.38C13.73 3.53 12.42 3 11 3c-2.76 0-5 2.24-5 5 0 .31.03.61.08.91C3.66 9.45 2 11.49 2 14c0 3.31 2.69 6 6 6h10c2.76 0 5-2.24 5-5z" fill="#0078D4"/>
+              </svg>
+              <h4 className="font-semibold text-sm">OneDrive</h4>
+              <p className="text-xs text-muted-foreground text-center">حفظ النسخ الاحتياطية على OneDrive</p>
+              <Badge variant="outline" className="text-xs">
+                <CloudOff className="h-3 w-3 ml-1" />
+                غير متصل
+              </Badge>
+              <Button variant="outline" size="sm" className="w-full mt-2 gap-1" disabled>
+                <Cloud className="h-3.5 w-3.5" />
+                ربط
+              </Button>
+            </div>
+            
+            {/* Dropbox */}
+            <div className="border rounded-xl p-4 flex flex-col items-center gap-3 bg-muted/30 hover:bg-muted/50 transition-colors">
+              <svg className="h-8 w-8" viewBox="0 0 43 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.6 0L0 8.3l8.6 6.9 12.5-8.2zm17.8 0l-9 6.9 12.5 8.2 8.6-6.9zM0 22l12.6 8.2 8.5-6.9-12.5-8.1zm30.4-8.8l-9 6.9 8.5 6.9 12.6-8.2zM12.6 32.5l8.5 6.8 8.5-6.8-8.5-6.9z" fill="#0061FF"/>
+              </svg>
+              <h4 className="font-semibold text-sm">Dropbox</h4>
+              <p className="text-xs text-muted-foreground text-center">حفظ النسخ الاحتياطية على Dropbox</p>
+              <Badge variant="outline" className="text-xs">
+                <CloudOff className="h-3 w-3 ml-1" />
+                غير متصل
+              </Badge>
+              <Button variant="outline" size="sm" className="w-full mt-2 gap-1" disabled>
+                <Cloud className="h-3.5 w-3.5" />
+                ربط
+              </Button>
             </div>
           </div>
           <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
             <HardDrive className="h-4 w-4 text-primary shrink-0" />
             <p className="text-xs text-muted-foreground">
-              حالياً يتم الحفظ محلياً في المتصفح. يمكن تفعيل التخزين السحابي مستقبلاً للمزامنة مع Lovable Cloud أو OneDrive.
+              حالياً يتم الحفظ محلياً في المتصفح. لتفعيل التخزين السحابي يجب أولاً تفعيل Lovable Cloud ثم ربط الخدمة المطلوبة.
             </p>
           </div>
         </CardContent>
