@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
 import { saveImage, getAllImagesMeta, getImageURL, deleteImage } from "@/data/imageStore";
 import html2canvas from "html2canvas";
+import { escapeHtml } from "@/utils/security";
 
 export default function ManufacturingReport() {
   const { invoices } = useInvoices();
@@ -231,7 +232,7 @@ export default function ManufacturingReport() {
       if (!url) return "";
       return `<div style="text-align:center;margin:10px 0;page-break-inside:avoid;">
         <img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;border:1px solid #ddd;" />
-        ${meta ? `<p style="font-size:11px;color:#666;margin-top:4px;">${meta.name} — ${meta.type}</p>` : ""}
+        ${meta ? `<p style="font-size:11px;color:#666;margin-top:4px;">${escapeHtml(meta.name)} — ${escapeHtml(meta.type)}</p>` : ""}
       </div>`;
     }).join("");
 
@@ -267,39 +268,39 @@ export default function ManufacturingReport() {
         </head>
         <body>
           <div class="header">
-            ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" />` : ""}
-            <h1>${settings.name}</h1>
-            ${settings.phone ? `<p>${settings.phone} | ${settings.address || ""}</p>` : ""}
+            ${settings.logoUrl ? `<img src="${escapeHtml(settings.logoUrl)}" alt="logo" />` : ""}
+            <h1>${escapeHtml(settings.name)}</h1>
+            ${settings.phone ? `<p>${escapeHtml(settings.phone)} | ${escapeHtml(settings.address || "")}</p>` : ""}
           </div>
           <div class="header" style="border:none;padding:0;">
             <h1 style="font-size:24px;">🏭 طلب تصنيع</h1>
-            <p>رقم الفاتورة: ${selectedInvoice.id} — التاريخ: ${selectedInvoice.date}</p>
+            <p>رقم الفاتورة: ${escapeHtml(selectedInvoice.id)} — التاريخ: ${escapeHtml(selectedInvoice.date)}</p>
           </div>
           <div class="section">
             <h2>بيانات العميل</h2>
             <div class="info-grid">
-              <div class="info-item"><span>الاسم: </span><strong>${selectedInvoice.customer}</strong></div>
-              <div class="info-item"><span>الهاتف: </span><strong>${customer?.phone || "-"}</strong></div>
-              <div class="info-item"><span>العنوان: </span><strong>${customer?.address || "-"}</strong></div>
-              <div class="info-item"><span>المحافظة: </span><strong>${customer?.governorate || "-"}</strong></div>
+              <div class="info-item"><span>الاسم: </span><strong>${escapeHtml(selectedInvoice.customer)}</strong></div>
+              <div class="info-item"><span>الهاتف: </span><strong>${escapeHtml(customer?.phone || "-")}</strong></div>
+              <div class="info-item"><span>العنوان: </span><strong>${escapeHtml(customer?.address || "-")}</strong></div>
+              <div class="info-item"><span>المحافظة: </span><strong>${escapeHtml(customer?.governorate || "-")}</strong></div>
             </div>
           </div>
-          ${selectedInvoice.deliveryDate ? `<div class="section"><h2>تاريخ التسليم المطلوب</h2><p style="font-size:16px;font-weight:700;color:#0d5c63;">${selectedInvoice.deliveryDate}</p></div>` : ""}
+          ${selectedInvoice.deliveryDate ? `<div class="section"><h2>تاريخ التسليم المطلوب</h2><p style="font-size:16px;font-weight:700;color:#0d5c63;">${escapeHtml(selectedInvoice.deliveryDate)}</p></div>` : ""}
           <div class="section">
             <h2>المنتجات المطلوبة</h2>
             <table>
               <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th></tr></thead>
               <tbody>
                 ${selectedInvoice.items.map((item, i) => `
-                  <tr><td>${i + 1}</td><td>${item.productName}</td><td>${item.qty}</td></tr>
+                  <tr><td>${i + 1}</td><td>${escapeHtml(item.productName)}</td><td>${item.qty}</td></tr>
                 `).join("")}
               </tbody>
             </table>
           </div>
-          ${notes ? `<div class="section"><h2>ملاحظات</h2><div class="notes-box">${notes.replace(/\n/g, "<br/>")}</div></div>` : ""}
+          ${notes ? `<div class="section"><h2>ملاحظات</h2><div class="notes-box">${escapeHtml(notes).replace(/\n/g, "<br/>")}</div></div>` : ""}
           ${imageHtml ? `<div class="section images-section"><h2>صور مرفقة</h2>${imageHtml}</div>` : ""}
           <div class="footer">
-            طلب تصنيع صادر بتاريخ ${new Date().toLocaleDateString("ar-EG")} — ${settings.name}
+            طلب تصنيع صادر بتاريخ ${new Date().toLocaleDateString("ar-EG")} — ${escapeHtml(settings.name)}
           </div>
         </body>
       </html>

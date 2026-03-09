@@ -9,6 +9,7 @@ import type {
   Expense,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
+import { hashPassword, verifyPassword, checkRateLimit, recordLoginAttempt, sanitizeEmail } from "@/utils/security";
 
 // ---- Generic persistence helpers ----
 function loadFromStorage<T>(key: string, fallback: T[]): T[] {
@@ -101,8 +102,9 @@ export function getUserPermissions(): RolePermissions {
   return base;
 }
 
-export function addUser(data: Omit<UserAccount, "id">): UserAccount {
-  const u = { id: nextId("U", users), ...data };
+export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccount> {
+  const hashedPassword = await hashPassword(data.password);
+  const u = { id: nextId("U", users), ...data, password: hashedPassword };
   users.push(u);
   saveUsers();
   addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
@@ -110,9 +112,13 @@ export function addUser(data: Omit<UserAccount, "id">): UserAccount {
   return u;
 }
 
-export function updateUser(id: string, data: Partial<UserAccount>) {
+export async function updateUser(id: string, data: Partial<UserAccount>) {
   const idx = users.findIndex((u) => u.id === id);
   if (idx >= 0) {
+    // Hash password if it's being updated and isn't already hashed
+    if (data.password && (!data.password.includes(":") || data.password.length < 40)) {
+      data.password = await hashPassword(data.password);
+    }
     users[idx] = { ...users[idx], ...data };
     saveUsers();
     addAuditLog("update", "settings" as AuditEntity, id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
@@ -167,17 +173,55 @@ export function clearSecurityLog() {
 
 export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
 
-export function login(email: string, password: string): boolean {
-  const user = users.find((u) => u.email === email && u.password === password && u.active);
-  if (user) {
-    localStorage.setItem(AUTH_KEY, "true");
-    localStorage.setItem(CURRENT_USER_KEY, user.id);
-    currentUser = user;
-    addSecurityEvent("login_success", email, user.name);
-    return true;
+export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+  const cleanEmail = sanitizeEmail(email);
+  
+  // Rate limiting
+  const rateCheck = checkRateLimit(cleanEmail);
+  if (!rateCheck.allowed) {
+    const minutes = Math.ceil((rateCheck.lockedUntilMs || 0) / 60000);
+    addSecurityEvent("login_failed", cleanEmail, "محاولات كثيرة");
+    return { success: false, error: `تم تجاوز الحد المسموح. حاول بعد ${minutes} دقيقة` };
   }
-  addSecurityEvent("login_failed", email, "");
-  return false;
+
+  // Find user by email
+  const user = users.find((u) => u.email === cleanEmail && u.active);
+  if (!user) {
+    recordLoginAttempt(cleanEmail, false);
+    addSecurityEvent("login_failed", cleanEmail, "");
+    return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+  }
+
+  // Verify password (supports both hashed and legacy plain-text)
+  const passwordValid = await verifyPassword(password, user.password);
+  if (!passwordValid) {
+    recordLoginAttempt(cleanEmail, false);
+    addSecurityEvent("login_failed", cleanEmail, "");
+    const remaining = rateCheck.remainingAttempts - 1;
+    return { 
+      success: false, 
+      error: remaining > 0 
+        ? `كلمة المرور غير صحيحة. متبقي ${remaining} محاولات`
+        : "تم تجاوز الحد المسموح. حاول لاحقاً"
+    };
+  }
+
+  // Auto-migrate plain-text passwords to hashed
+  if (!user.password.includes(":") || user.password.length < 40) {
+    const hashed = await hashPassword(password);
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      users[idx].password = hashed;
+      saveUsers();
+    }
+  }
+
+  recordLoginAttempt(cleanEmail, true);
+  localStorage.setItem(AUTH_KEY, "true");
+  localStorage.setItem(CURRENT_USER_KEY, user.id);
+  currentUser = user;
+  addSecurityEvent("login_success", cleanEmail, user.name);
+  return { success: true };
 }
 
 export function logout() {

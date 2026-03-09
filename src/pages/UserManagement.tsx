@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2 } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2, Eye, EyeOff } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAccount, UserRole, RolePermissions, ModuleAccess } from "@/data/types";
 import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS, OPERATION_LABELS, canDo } from "@/data/types";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { checkPasswordStrength } from "@/utils/security";
 
 const emptyForm = { name: "", email: "", password: "", role: "sales" as UserRole, active: true };
 
@@ -20,15 +21,18 @@ export default function UserManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<UserAccount | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [showPassword, setShowPassword] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [permDialogOpen, setPermDialogOpen] = useState(false);
   const [permUser, setPermUser] = useState<UserAccount | null>(null);
   const [customPerms, setCustomPerms] = useState<RolePermissions>({ ...DEFAULT_PERMISSIONS.sales });
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
+  const openAdd = () => { setEditing(null); setForm(emptyForm); setShowPassword(false); setDialogOpen(true); };
   const openEdit = (u: UserAccount) => {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, password: u.password, role: u.role, active: u.active });
+    // Don't pre-fill password for security — user must enter new one if changing
+    setForm({ name: u.name, email: u.email, password: "", role: u.role, active: u.active });
+    setShowPassword(false);
     setDialogOpen(true);
   };
 
@@ -40,16 +44,31 @@ export default function UserManagement() {
     setPermDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.email || !form.password) {
-      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول", variant: "destructive" });
+  const handleSave = async () => {
+    if (!form.name || !form.email) {
+      toast({ title: "خطأ", description: "يرجى ملء الاسم والبريد الإلكتروني", variant: "destructive" });
       return;
     }
+    // Password required for new users
+    if (!editing && !form.password) {
+      toast({ title: "خطأ", description: "يرجى إدخال كلمة المرور", variant: "destructive" });
+      return;
+    }
+    // Check password strength for new passwords
+    if (form.password) {
+      const strength = checkPasswordStrength(form.password);
+      if (strength.score < 2) {
+        toast({ title: "كلمة المرور ضعيفة", description: strength.errors[0] || "يرجى اختيار كلمة مرور أقوى", variant: "destructive" });
+        return;
+      }
+    }
     if (editing) {
-      updateUser(editing.id, form);
+      const updateData: Partial<typeof form> = { name: form.name, email: form.email, role: form.role, active: form.active };
+      if (form.password) updateData.password = form.password;
+      await updateUser(editing.id, updateData);
       toast({ title: "تم التحديث", description: `تم تحديث المستخدم ${form.name}` });
     } else {
-      addUser(form);
+      await addUser(form);
       toast({ title: "تم الإضافة", description: `تم إضافة المستخدم ${form.name}` });
     }
     setDialogOpen(false);
@@ -202,15 +221,48 @@ export default function UserManagement() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>الاسم</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={100} />
               </div>
               <div className="space-y-1.5">
                 <Label>البريد الإلكتروني</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" />
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" maxLength={255} />
               </div>
               <div className="space-y-1.5">
-                <Label>كلمة المرور</Label>
-                <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} dir="ltr" />
+                <Label>{editing ? "كلمة المرور الجديدة (اتركها فارغة للإبقاء)" : "كلمة المرور"}</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    dir="ltr"
+                    maxLength={128}
+                    placeholder={editing ? "اتركها فارغة للإبقاء على الحالية" : "أدخل كلمة مرور قوية"}
+                    className="pl-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {form.password && (() => {
+                  const strength = checkPasswordStrength(form.password);
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < strength.score ? strength.color : "bg-muted"}`} />
+                        ))}
+                      </div>
+                      <p className={`text-xs ${strength.score >= 3 ? "text-green-600" : strength.score >= 2 ? "text-yellow-600" : "text-destructive"}`}>
+                        {strength.label}
+                        {strength.errors.length > 0 && ` — ${strength.errors[0]}`}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label>الدور</Label>
