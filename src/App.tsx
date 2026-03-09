@@ -4,8 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { isAuthenticated } from "@/data/store";
-import { Loader2 } from "lucide-react";
+import { isAuthenticated, getUserPermissions } from "@/data/store";
+import { canDo, type RolePermissions, type ModuleAccess } from "@/data/types";
+import { Loader2, ShieldX } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
+import { Button } from "@/components/ui/button";
 
 // Lazy-loaded pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -37,44 +41,82 @@ function PageLoader() {
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function AccessDenied() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4" dir="rtl">
+      <div className="text-center space-y-4">
+        <ShieldX className="h-16 w-16 text-destructive mx-auto" />
+        <h1 className="text-2xl font-bold text-foreground">غير مصرح</h1>
+        <p className="text-muted-foreground">ليس لديك صلاحية للوصول لهذه الصفحة</p>
+        <Button onClick={() => window.history.back()} variant="outline">العودة</Button>
+      </div>
+    </div>
+  );
+}
+
+type PermKey = keyof RolePermissions;
+
+function ProtectedRoute({ children, permissionKey, operation }: { 
+  children: React.ReactNode; 
+  permissionKey?: PermKey;
+  operation?: "view" | "create" | "edit" | "delete";
+}) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  
+  if (permissionKey) {
+    const perms = getUserPermissions();
+    const access = perms[permissionKey] as ModuleAccess | boolean | undefined;
+    
+    if (access === false || access === undefined) return <AccessDenied />;
+    if (operation && typeof access === "object") {
+      if (!canDo(access, operation)) return <AccessDenied />;
+    }
+  }
+  
   return <>{children}</>;
 }
 
+function InactivityWatcher() {
+  useInactivityLogout();
+  return null;
+}
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/installments" element={<ProtectedRoute><Installments /></ProtectedRoute>} />
-            <Route path="/customer-report/:customerId" element={<ProtectedRoute><CustomerReport /></ProtectedRoute>} />
-            <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-            <Route path="/branches" element={<ProtectedRoute><Branches /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/audit-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-            <Route path="/offers" element={<ProtectedRoute><Offers /></ProtectedRoute>} />
-            <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingReport /></ProtectedRoute>} />
-            <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-            <Route path="/advanced-reports" element={<Navigate to="/reports" replace />} />
-            <Route path="/security-log" element={<ProtectedRoute><SecurityLog /></ProtectedRoute>} />
-            <Route path="/inventory" element={<Navigate to="/products" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <InactivityWatcher />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<ProtectedRoute permissionKey="dashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="/customers" element={<ProtectedRoute permissionKey="customers" operation="view"><Customers /></ProtectedRoute>} />
+              <Route path="/products" element={<ProtectedRoute permissionKey="products" operation="view"><Products /></ProtectedRoute>} />
+              <Route path="/invoices" element={<ProtectedRoute permissionKey="invoices" operation="view"><Invoices /></ProtectedRoute>} />
+              <Route path="/installments" element={<ProtectedRoute permissionKey="installments" operation="view"><Installments /></ProtectedRoute>} />
+              <Route path="/customer-report/:customerId" element={<ProtectedRoute permissionKey="customers" operation="view"><CustomerReport /></ProtectedRoute>} />
+              <Route path="/employees" element={<ProtectedRoute permissionKey="employees" operation="view"><Employees /></ProtectedRoute>} />
+              <Route path="/branches" element={<ProtectedRoute permissionKey="branches" operation="view"><Branches /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute permissionKey="reports"><Reports /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute permissionKey="settings"><Settings /></ProtectedRoute>} />
+              <Route path="/audit-log" element={<ProtectedRoute permissionKey="auditLog"><AuditLog /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute permissionKey="users"><UserManagement /></ProtectedRoute>} />
+              <Route path="/offers" element={<ProtectedRoute permissionKey="offers" operation="view"><Offers /></ProtectedRoute>} />
+              <Route path="/manufacturing" element={<ProtectedRoute permissionKey="invoices" operation="view"><ManufacturingReport /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute permissionKey="reports"><Expenses /></ProtectedRoute>} />
+              <Route path="/advanced-reports" element={<Navigate to="/reports" replace />} />
+              <Route path="/security-log" element={<ProtectedRoute permissionKey="auditLog"><SecurityLog /></ProtectedRoute>} />
+              <Route path="/inventory" element={<Navigate to="/products" replace />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
