@@ -909,7 +909,20 @@ export default function Employees() {
                 </div>
                 <div className="form-group">
                   <Label>الشفت</Label>
-                  <Select value={bulkShiftId} onValueChange={setBulkShiftId}>
+                  <Select value={bulkShiftId} onValueChange={(v) => {
+                    const shiftId = v === "none" ? "" : v;
+                    setBulkShiftId(shiftId);
+                    const shift = shifts.find(s => s.id === shiftId);
+                    setBulkRecords(prev => {
+                      const updated: typeof prev = {};
+                      Object.entries(prev).forEach(([empId, rec]) => {
+                        updated[empId] = shift
+                          ? { ...rec, checkIn: shift.startTime, checkOut: shift.endTime }
+                          : { ...rec, checkIn: "", checkOut: "" };
+                      });
+                      return updated;
+                    });
+                  }}>
                     <SelectTrigger><SelectValue placeholder="اختر الشفت" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">بدون شفت</SelectItem>
