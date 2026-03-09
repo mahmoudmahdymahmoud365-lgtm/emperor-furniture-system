@@ -32,6 +32,7 @@ app.use("/api/users", require("./routes/users"));
 app.use("/api/settings", require("./routes/settings"));
 app.use("/api/audit-log", require("./routes/auditLog"));
 app.use("/api/security-log", require("./routes/securityLog"));
+app.use("/api/files", require("./routes/files"));
 
 // Error handler
 app.use((err, _req, res, _next) => {
