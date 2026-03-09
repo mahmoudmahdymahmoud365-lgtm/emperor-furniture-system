@@ -26,6 +26,8 @@ export default function Installments() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterMethod, setFilterMethod] = useState("");
+  const [dueDateInvoice, setDueDateInvoice] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState("");
   const { toast } = useToast();
 
   const filteredReceipts = useMemo(() => {
