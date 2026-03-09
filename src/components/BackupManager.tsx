@@ -468,7 +468,7 @@ export function BackupManager() {
             </Button>
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <Download className="h-4 w-4" />
-              تصدير كملف JSON
+              {encryptionEnabled && encryptionSaved ? "تصدير مشفر 🔒" : "تصدير كملف JSON"}
             </Button>
             <label>
               <Button variant="outline" className="gap-2" asChild>
@@ -479,7 +479,17 @@ export function BackupManager() {
               </Button>
               <input type="file" accept=".json" className="hidden" onChange={handleImport} />
             </label>
+            <Button variant="outline" onClick={() => { setShowDecryptDialog(true); setDecryptPassword(""); setDecryptError(""); setPendingEncryptedData(null); }} className="gap-2">
+              <Unlock className="h-4 w-4" />
+              فك تشفير ملف
+            </Button>
           </div>
+          {encryptionEnabled && encryptionSaved && (
+            <div className="flex items-center gap-2 mt-3 p-2 rounded-lg bg-green-500/5 border border-green-500/20">
+              <FileKey className="h-4 w-4 text-green-600 shrink-0" />
+              <p className="text-xs text-muted-foreground">سيتم تشفير الملفات المصدرة تلقائياً بكلمة المرور المحفوظة</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
