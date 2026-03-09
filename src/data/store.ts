@@ -102,8 +102,9 @@ export function getUserPermissions(): RolePermissions {
   return base;
 }
 
-export function addUser(data: Omit<UserAccount, "id">): UserAccount {
-  const u = { id: nextId("U", users), ...data };
+export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccount> {
+  const hashedPassword = await hashPassword(data.password);
+  const u = { id: nextId("U", users), ...data, password: hashedPassword };
   users.push(u);
   saveUsers();
   addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
