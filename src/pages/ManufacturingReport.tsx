@@ -25,7 +25,7 @@ import html2canvas from "html2canvas";
 import { escapeHtml } from "@/utils/security";
 
 export default function ManufacturingReport() {
-  const { invoices } = useInvoices();
+  const { invoices, updateManufacturingStatus } = useInvoices();
   const { customers } = useCustomers();
   const { settings } = useCompanySettings();
   const { toast } = useToast();
