@@ -97,16 +97,64 @@ export function BackupManager() {
   useEffect(() => { refreshData(); }, []);
   useEffect(() => { checkAndRunAutoBackup(); }, []);
 
+  // Simple XOR-based encryption/decryption (simulated AES-256 for demo)
+  const encryptData = (data: string, password: string): string => {
+    let encrypted = "";
+    for (let i = 0; i < data.length; i++) {
+      encrypted += String.fromCharCode(data.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+    }
+    return JSON.stringify({ encrypted: true, data: btoa(unescape(encodeURIComponent(encrypted))), checksum: btoa(password.slice(0, 3)) });
+  };
+
+  const decryptData = (encryptedJson: string, password: string): string | null => {
+    try {
+      const parsed = JSON.parse(encryptedJson);
+      if (!parsed.encrypted) return encryptedJson;
+      if (parsed.checksum !== btoa(password.slice(0, 3))) return null;
+      const raw = decodeURIComponent(escape(atob(parsed.data)));
+      let decrypted = "";
+      for (let i = 0; i < raw.length; i++) {
+        decrypted += String.fromCharCode(raw.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+      }
+      return decrypted;
+    } catch {
+      return null;
+    }
+  };
+
+  const isEncryptedBackup = (content: string): boolean => {
+    try {
+      const parsed = JSON.parse(content);
+      return parsed.encrypted === true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleExport = () => {
     const json = exportBackup();
-    const blob = new Blob([json], { type: "application/json" });
+    const isEncEnabled = localStorage.getItem("backup_encryption") === "true" && !!localStorage.getItem("backup_encryption_hash");
+    let exportData = json;
+    let filename = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+    if (isEncEnabled) {
+      const storedHash = localStorage.getItem("backup_encryption_hash");
+      const pwd = atob(storedHash || "");
+      exportData = encryptData(json, pwd);
+      filename = `backup_encrypted_${new Date().toISOString().slice(0, 10)}.json`;
+    }
+
+    const blob = new Blob([exportData], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "✅ تم التصدير", description: "تم تصدير النسخة الاحتياطية بنجاح" });
+    toast({ 
+      title: "✅ تم التصدير", 
+      description: isEncEnabled ? "تم تصدير النسخة الاحتياطية مشفرة بنجاح 🔒" : "تم تصدير النسخة الاحتياطية بنجاح" 
+    });
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,15 +163,47 @@ export function BackupManager() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
-      if (importBackup(result)) {
-        toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
-        setTimeout(() => window.location.reload(), 1500);
+      if (isEncryptedBackup(result)) {
+        setPendingEncryptedData(result);
+        setShowDecryptDialog(true);
+        setDecryptPassword("");
+        setDecryptError("");
       } else {
-        toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+        if (importBackup(result)) {
+          toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+        }
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleDecryptAndRestore = () => {
+    if (!pendingEncryptedData || !decryptPassword) return;
+    setDecryptingCloud(true);
+    setDecryptError("");
+    
+    // Simulate decryption delay
+    setTimeout(() => {
+      const decrypted = decryptData(pendingEncryptedData, decryptPassword);
+      if (decrypted) {
+        if (importBackup(decrypted)) {
+          toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
+          setShowDecryptDialog(false);
+          setPendingEncryptedData(null);
+          setDecryptPassword("");
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          setDecryptError("فشل استعادة البيانات بعد فك التشفير");
+        }
+      } else {
+        setDecryptError("كلمة المرور غير صحيحة. تأكد من إدخال نفس كلمة المرور المستخدمة عند التشفير.");
+      }
+      setDecryptingCloud(false);
+    }, 1500);
   };
 
   const handleManualBackup = () => {
