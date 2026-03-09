@@ -77,6 +77,16 @@ export default function Employees() {
     employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0],
     checkIn: "", checkOut: "", status: "present" as AttendanceStatus, notes: "",
   });
+
+  // Auto-fill times when shift changes
+  const handleShiftChange = (shiftId: string) => {
+    const shift = shifts.find(s => s.id === shiftId);
+    if (shift) {
+      setAttForm({ ...attForm, shiftId, checkIn: shift.startTime, checkOut: shift.endTime });
+    } else {
+      setAttForm({ ...attForm, shiftId, checkIn: "", checkOut: "" });
+    }
+  };
   const [attSearch, setAttSearch] = useState("");
   const [attDateFilter, setAttDateFilter] = useState<"today" | "week" | "month" | "all">("today");
   const [attBranchFilter, setAttBranchFilter] = useState("all");
