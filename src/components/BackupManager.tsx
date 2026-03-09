@@ -1000,6 +1000,105 @@ export function BackupManager() {
         </DialogContent>
       </Dialog>
 
+      {/* Decrypt dialog */}
+      <Dialog open={showDecryptDialog} onOpenChange={(open) => { if (!open) { setShowDecryptDialog(false); setPendingEncryptedData(null); setDecryptPassword(""); setDecryptError(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unlock className="h-5 w-5 text-primary" />
+              فك تشفير نسخة احتياطية
+            </DialogTitle>
+            <DialogDescription>
+              {pendingEncryptedData 
+                ? "الملف المستورد مشفر. أدخل كلمة المرور لفك التشفير واستعادة البيانات."
+                : "اختر ملف نسخة احتياطية مشفر ثم أدخل كلمة المرور لفك التشفير."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!pendingEncryptedData && (
+              <div className="space-y-2">
+                <Label className="text-sm">اختيار الملف المشفر</Label>
+                <label className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="text-center">
+                    <FileKey className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">اضغط لاختيار ملف مشفر</p>
+                  </div>
+                  <input type="file" accept=".json" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const result = ev.target?.result as string;
+                      if (isEncryptedBackup(result)) {
+                        setPendingEncryptedData(result);
+                        setDecryptError("");
+                      } else {
+                        setDecryptError("هذا الملف غير مشفر. يمكنك استعادته مباشرة.");
+                      }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = "";
+                  }} />
+                </label>
+              </div>
+            )}
+
+            {pendingEncryptedData && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+                <Lock className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs text-muted-foreground">تم تحميل ملف مشفر وجاهز لفك التشفير</p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm">
+                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                كلمة مرور التشفير
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showDecryptPassword ? "text" : "password"}
+                  value={decryptPassword}
+                  onChange={(e) => { setDecryptPassword(e.target.value); setDecryptError(""); }}
+                  placeholder="أدخل كلمة المرور المستخدمة عند التشفير"
+                  dir="ltr"
+                  className="pl-10"
+                  onKeyDown={(e) => { if (e.key === "Enter" && pendingEncryptedData && decryptPassword) handleDecryptAndRestore(); }}
+                />
+                <button
+                  type="button"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowDecryptPassword(!showDecryptPassword)}
+                >
+                  {showDecryptPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {decryptError && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-xs text-destructive">{decryptError}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDecryptDialog(false); setPendingEncryptedData(null); }}>إلغاء</Button>
+            <Button
+              onClick={handleDecryptAndRestore}
+              disabled={!pendingEncryptedData || !decryptPassword || decryptingCloud}
+              className="gap-2"
+            >
+              {decryptingCloud ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />جاري فك التشفير...</>
+              ) : (
+                <><Unlock className="h-4 w-4" />فك التشفير والاستعادة</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Restore confirm */}
       <DeleteConfirmDialog
         open={!!restoreId}
