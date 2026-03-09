@@ -80,6 +80,12 @@ export function BackupManager() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showEncryptionPassword, setShowEncryptionPassword] = useState(false);
   const [encryptionSaved, setEncryptionSaved] = useState(() => !!localStorage.getItem("backup_encryption_hash"));
+  const [showDecryptDialog, setShowDecryptDialog] = useState(false);
+  const [decryptPassword, setDecryptPassword] = useState("");
+  const [showDecryptPassword, setShowDecryptPassword] = useState(false);
+  const [pendingEncryptedData, setPendingEncryptedData] = useState<string | null>(null);
+  const [decryptingCloud, setDecryptingCloud] = useState(false);
+  const [decryptError, setDecryptError] = useState("");
 
   const refreshData = () => {
     setBackups(getAutoBackupList());
