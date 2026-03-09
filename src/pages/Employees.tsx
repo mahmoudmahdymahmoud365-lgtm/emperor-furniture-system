@@ -207,10 +207,6 @@ export default function Employees() {
 
   // Bulk attendance
   const initBulk = () => {
-    if (!bulkShiftId) {
-      toast({ title: "تنبيه", description: "يرجى اختيار الشفت أولاً", variant: "destructive" });
-      return;
-    }
     const shift = shifts.find(s => s.id === bulkShiftId);
     const records: typeof bulkRecords = {};
     const activeEmps = employees.filter(e => e.active);
