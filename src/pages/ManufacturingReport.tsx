@@ -268,24 +268,24 @@ export default function ManufacturingReport() {
         </head>
         <body>
           <div class="header">
-            ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="logo" />` : ""}
-            <h1>${settings.name}</h1>
-            ${settings.phone ? `<p>${settings.phone} | ${settings.address || ""}</p>` : ""}
+            ${settings.logoUrl ? `<img src="${escapeHtml(settings.logoUrl)}" alt="logo" />` : ""}
+            <h1>${escapeHtml(settings.name)}</h1>
+            ${settings.phone ? `<p>${escapeHtml(settings.phone)} | ${escapeHtml(settings.address || "")}</p>` : ""}
           </div>
           <div class="header" style="border:none;padding:0;">
             <h1 style="font-size:24px;">🏭 طلب تصنيع</h1>
-            <p>رقم الفاتورة: ${selectedInvoice.id} — التاريخ: ${selectedInvoice.date}</p>
+            <p>رقم الفاتورة: ${escapeHtml(selectedInvoice.id)} — التاريخ: ${escapeHtml(selectedInvoice.date)}</p>
           </div>
           <div class="section">
             <h2>بيانات العميل</h2>
             <div class="info-grid">
-              <div class="info-item"><span>الاسم: </span><strong>${selectedInvoice.customer}</strong></div>
-              <div class="info-item"><span>الهاتف: </span><strong>${customer?.phone || "-"}</strong></div>
-              <div class="info-item"><span>العنوان: </span><strong>${customer?.address || "-"}</strong></div>
-              <div class="info-item"><span>المحافظة: </span><strong>${customer?.governorate || "-"}</strong></div>
+              <div class="info-item"><span>الاسم: </span><strong>${escapeHtml(selectedInvoice.customer)}</strong></div>
+              <div class="info-item"><span>الهاتف: </span><strong>${escapeHtml(customer?.phone || "-")}</strong></div>
+              <div class="info-item"><span>العنوان: </span><strong>${escapeHtml(customer?.address || "-")}</strong></div>
+              <div class="info-item"><span>المحافظة: </span><strong>${escapeHtml(customer?.governorate || "-")}</strong></div>
             </div>
           </div>
-          ${selectedInvoice.deliveryDate ? `<div class="section"><h2>تاريخ التسليم المطلوب</h2><p style="font-size:16px;font-weight:700;color:#0d5c63;">${selectedInvoice.deliveryDate}</p></div>` : ""}
+          ${selectedInvoice.deliveryDate ? `<div class="section"><h2>تاريخ التسليم المطلوب</h2><p style="font-size:16px;font-weight:700;color:#0d5c63;">${escapeHtml(selectedInvoice.deliveryDate)}</p></div>` : ""}
           <div class="section">
             <h2>المنتجات المطلوبة</h2>
             <table>
