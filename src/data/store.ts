@@ -180,7 +180,22 @@ export function clearSecurityLog() {
   notify("securityLog");
 }
 
-export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
+export function isAuthenticated(): boolean {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY);
+  const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
+  const loggedIn = localStorage.getItem(AUTH_KEY) === "true";
+  
+  if (!loggedIn || !token || !expiry) return false;
+  
+  // Check session expiry
+  if (Date.now() > parseInt(expiry, 10)) {
+    // Session expired
+    logout();
+    return false;
+  }
+  
+  return true;
+}
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   const cleanEmail = sanitizeEmail(email);
