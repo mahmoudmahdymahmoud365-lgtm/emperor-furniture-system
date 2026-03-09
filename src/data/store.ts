@@ -257,6 +257,8 @@ export function logout() {
   }
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  localStorage.removeItem(SESSION_EXPIRY_KEY);
   currentUser = null;
 }
 
