@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, AlertTriangle, Clock, Tag, Package,
-  CreditCard, Calendar, CheckCircle2, X,
+  CreditCard, Calendar, CheckCircle2, X, Factory, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -34,7 +34,7 @@ const priorityBg: Record<NotifPriority, string> = {
 };
 
 export function NotificationCenter() {
-  const { invoices } = useInvoices();
+  const { invoices, getOverdueInstallments, getUpcomingInstallments } = useInvoices();
   const { receipts } = useReceipts();
   const { products } = useProducts();
   const { offers } = useOffers();
@@ -63,7 +63,76 @@ export function NotificationCenter() {
       });
     });
 
-    // Overdue payments — critical (30+ days), warning (15+ days)
+    // ---- Installment due alerts (new) ----
+    const overdue = getOverdueInstallments();
+    overdue.forEach(({ invoice, daysOverdue, remaining }) => {
+      notifs.push({
+        id: `inst-overdue-${invoice.id}`,
+        title: daysOverdue === 0 ? "قسط مستحق اليوم!" : `قسط متأخر ${daysOverdue} يوم`,
+        description: `${invoice.customer} — ${remaining.toLocaleString()} ج.م (${invoice.id})`,
+        icon: CreditCard,
+        priority: daysOverdue >= 7 ? "critical" : "warning",
+        category: "installment",
+        link: "/installments",
+      });
+    });
+
+    const upcoming = getUpcomingInstallments(7);
+    upcoming.forEach(({ invoice, daysUntilDue, remaining }) => {
+      notifs.push({
+        id: `inst-upcoming-${invoice.id}`,
+        title: `قسط خلال ${daysUntilDue} ${daysUntilDue === 1 ? "يوم" : "أيام"}`,
+        description: `${invoice.customer} — ${remaining.toLocaleString()} ج.م`,
+        icon: Clock,
+        priority: "info",
+        category: "installment",
+        link: "/installments",
+      });
+    });
+
+    // ---- Manufacturing alerts ----
+    invoices.filter(inv => inv.manufacturingStatus && inv.manufacturingStatus !== "delivered").forEach(inv => {
+      if (inv.deliveryDate) {
+        const diff = Math.floor((new Date(inv.deliveryDate).getTime() - now.getTime()) / 86400000);
+        if (diff < 0 && inv.manufacturingStatus !== "ready") {
+          notifs.push({
+            id: `mfg-late-${inv.id}`,
+            title: "تصنيع متأخر!",
+            description: `${inv.id} — ${inv.customer} (متأخر ${Math.abs(diff)} يوم)`,
+            icon: Factory,
+            priority: "critical",
+            category: "manufacturing",
+            link: "/manufacturing",
+          });
+        } else if (diff <= 3 && diff >= 0) {
+          notifs.push({
+            id: `mfg-soon-${inv.id}`,
+            title: "موعد تسليم تصنيع قريب",
+            description: `${inv.id} — ${inv.customer} (${diff === 0 ? "اليوم" : `خلال ${diff} يوم`})`,
+            icon: Factory,
+            priority: "warning",
+            category: "manufacturing",
+            link: "/manufacturing",
+          });
+        }
+      }
+    });
+
+    // ---- Recurring invoices due ----
+    const today = now.toISOString().split("T")[0];
+    invoices.filter(inv => inv.isRecurring && inv.recurringNextDate && inv.recurringNextDate <= today).forEach(inv => {
+      notifs.push({
+        id: `recurring-${inv.id}`,
+        title: "فاتورة متكررة مستحقة",
+        description: `${inv.customer} — ${inv.id}`,
+        icon: RotateCcw,
+        priority: "info",
+        category: "recurring",
+        link: "/invoices",
+      });
+    });
+
+    // Overdue payments (legacy — based on last payment date)
     const customerLastPay = new Map<string, string>();
     receipts.forEach(r => {
       const existing = customerLastPay.get(r.customer);
@@ -71,6 +140,7 @@ export function NotificationCenter() {
     });
 
     invoices.forEach(inv => {
+      if (inv.nextDueDate) return; // handled by installment alerts above
       const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
       const remaining = total - inv.paidTotal;
       if (remaining > 0) {
@@ -95,6 +165,7 @@ export function NotificationCenter() {
 
     // Upcoming delivery dates
     invoices.forEach(inv => {
+      if (inv.manufacturingStatus) return; // handled by manufacturing alerts
       if (inv.deliveryDate && inv.status !== "تم التسليم" && inv.status !== "مغلقة") {
         const diff = Math.floor((new Date(inv.deliveryDate).getTime() - now.getTime()) / 86400000);
         if (diff < 0) {
@@ -131,10 +202,9 @@ export function NotificationCenter() {
       }
     });
 
-    // Sort: critical first, then warning, then info
     const order: Record<NotifPriority, number> = { critical: 0, warning: 1, info: 2 };
     return notifs.sort((a, b) => order[a.priority] - order[b.priority]);
-  }, [invoices, receipts, products, offers]);
+  }, [invoices, receipts, products, offers, getOverdueInstallments, getUpcomingInstallments]);
 
   const visibleNotifs = notifications.filter(n => !dismissed.has(n.id));
   const filteredNotifs = filter === "all" ? visibleNotifs : visibleNotifs.filter(n => n.category === filter);
@@ -143,6 +213,7 @@ export function NotificationCenter() {
   const categories = [...new Set(visibleNotifs.map(n => n.category))];
   const categoryLabels: Record<string, string> = {
     stock: "المخزون", payment: "المدفوعات", delivery: "التسليم", offer: "العروض",
+    installment: "الأقساط", manufacturing: "التصنيع", recurring: "متكررة",
   };
 
   return (
@@ -169,7 +240,6 @@ export function NotificationCenter() {
           )}
         </div>
 
-        {/* Category filter */}
         {categories.length > 1 && (
           <div className="flex gap-1 px-3 py-2 border-b overflow-x-auto">
             <Badge
