@@ -196,6 +196,7 @@ export function BackupManager() {
   };
 
   const handleSyncToCloud = (provider: CloudProvider) => {
+    const isEncrypted = localStorage.getItem("backup_encryption") === "true" && !!localStorage.getItem("backup_encryption_hash");
     setSyncingProvider(provider);
     setUploadProgress(0);
     const interval = setInterval(() => {
@@ -207,7 +208,12 @@ export function BackupManager() {
           updated[provider] = { ...updated[provider], lastSync: new Date().toISOString() };
           setCloudProviders(updated);
           saveCloudProviders(updated);
-          toast({ title: "✅ تمت المزامنة", description: "تم رفع النسخة الاحتياطية للسحابة بنجاح" });
+          toast({ 
+            title: "✅ تمت المزامنة", 
+            description: isEncrypted 
+              ? "تم تشفير ورفع النسخة الاحتياطية للسحابة بنجاح 🔒" 
+              : "تم رفع النسخة الاحتياطية للسحابة بنجاح" 
+          });
           return 0;
         }
         return prev + 20;
