@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2 } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2, Eye, EyeOff } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAccount, UserRole, RolePermissions, ModuleAccess } from "@/data/types";
 import { ROLE_LABELS, DEFAULT_PERMISSIONS, PERMISSION_LABELS, OPERATION_LABELS, canDo } from "@/data/types";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { checkPasswordStrength } from "@/utils/security";
 
 const emptyForm = { name: "", email: "", password: "", role: "sales" as UserRole, active: true };
 
