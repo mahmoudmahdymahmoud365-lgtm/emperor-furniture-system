@@ -10,8 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   Database, Download, Upload, Clock, Trash2, RotateCcw, Cloud, CloudOff,
   HardDrive, RefreshCw, Shield, Calendar, FolderSync, CheckCircle, 
-  Loader2, CloudUpload, CloudDownload, Settings2, Eye, FileJson,
-  ArrowUpDown, Wifi, WifiOff, Lock
+  Loader2, CloudUpload, Settings2, FileJson,
+  Wifi, WifiOff, Lock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
