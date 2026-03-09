@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle, CreditCard } from "lucide-react";
+import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle, CreditCard, CalendarDays } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
