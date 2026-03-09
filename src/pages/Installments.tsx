@@ -225,6 +225,74 @@ export default function Installments() {
           </div>
         )}
 
+        {/* Installment Schedule Alerts */}
+        {(() => {
+          const overdue = getOverdueInstallments();
+          const upcoming = getUpcomingInstallments(7);
+          if (overdue.length === 0 && upcoming.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              {overdue.length > 0 && (
+                <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="h-4 w-4 text-destructive" />
+                    <h3 className="font-bold text-sm text-destructive">أقساط متأخرة ({overdue.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {overdue.slice(0, 5).map(({ invoice, daysOverdue, remaining }) => (
+                      <div key={invoice.id} className="flex justify-between text-sm">
+                        <span>{invoice.id} — {invoice.customer}</span>
+                        <span className="font-medium text-destructive">
+                          {daysOverdue === 0 ? "مستحق اليوم" : `متأخر ${daysOverdue} يوم`} — {remaining.toLocaleString()} ج.م
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {upcoming.length > 0 && (
+                <div className="p-4 bg-info/5 border border-info/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarDays className="h-4 w-4 text-info" />
+                    <h3 className="font-bold text-sm">أقساط قادمة ({upcoming.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {upcoming.map(({ invoice, daysUntilDue, remaining }) => (
+                      <div key={invoice.id} className="flex justify-between text-sm">
+                        <span>{invoice.id} — {invoice.customer}</span>
+                        <span className="font-medium text-info">
+                          خلال {daysUntilDue} {daysUntilDue === 1 ? "يوم" : "أيام"} — {remaining.toLocaleString()} ج.م
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Set Due Date Dialog */}
+        <Dialog open={!!dueDateInvoice} onOpenChange={(v) => { if (!v) { setDueDateInvoice(null); setDueDate(""); } }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>تحديد موعد القسط القادم</DialogTitle></DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-1.5">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} dir="ltr" />
+              </div>
+              <Button className="w-full" onClick={() => {
+                if (dueDateInvoice && dueDate) {
+                  setInstallmentSchedule(dueDateInvoice, dueDate);
+                  toast({ title: "✅ تم التحديد", description: `موعد القسط القادم: ${dueDate}` });
+                  setDueDateInvoice(null);
+                  setDueDate("");
+                }
+              }}>حفظ</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Table */}
         <div className="table-container">
           <div className="overflow-x-auto">
