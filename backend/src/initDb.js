@@ -263,7 +263,7 @@ async function init() {
     const sequences = [
       "customers_seq", "products_seq", "invoices_seq", "employees_seq",
       "branches_seq", "receipts_seq", "offers_seq", "returns_seq",
-      "shifts_seq", "attendance_seq", "expenses_seq", "users_seq"
+      "shifts_seq", "attendance_seq", "expenses_seq", "users_seq", "files_seq"
     ];
     for (const seq of sequences) {
       await pool.query(`CREATE SEQUENCE IF NOT EXISTS ${seq} START 1`).catch(() => {});

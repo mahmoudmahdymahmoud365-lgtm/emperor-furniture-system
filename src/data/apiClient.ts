@@ -108,4 +108,26 @@ export const api = {
   getSecurityLog: () => request<any[]>("/security-log"),
   addSecurityEvent: (data: any) => request<any>("/security-log", { method: "POST", body: JSON.stringify(data) }),
   clearSecurityLog: () => request<any>("/security-log", { method: "DELETE" }),
+
+  // Files / Images
+  getFiles: (params?: { relatedTo?: string; relatedId?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.relatedTo) query.set("relatedTo", params.relatedTo);
+    if (params?.relatedId) query.set("relatedId", params.relatedId);
+    const qs = query.toString();
+    return request<any[]>(`/files${qs ? `?${qs}` : ""}`);
+  },
+  uploadFile: async (file: File, meta: { name?: string; relatedTo?: string; relatedId?: string }) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (meta.name) formData.append("name", meta.name);
+    if (meta.relatedTo) formData.append("relatedTo", meta.relatedTo);
+    if (meta.relatedId) formData.append("relatedId", meta.relatedId);
+    const res = await fetch(`${API_BASE}/files`, { method: "POST", body: formData });
+    if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(err.error || res.statusText); }
+    return res.json();
+  },
+  getFileURL: (id: string) => `${API_BASE}/files/${id}/view`,
+  downloadFile: (id: string) => `${API_BASE}/files/${id}/download`,
+  deleteFile: (id: string) => request<any>(`/files/${id}`, { method: "DELETE" }),
 };
