@@ -292,15 +292,15 @@ export default function ManufacturingReport() {
               <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th></tr></thead>
               <tbody>
                 ${selectedInvoice.items.map((item, i) => `
-                  <tr><td>${i + 1}</td><td>${item.productName}</td><td>${item.qty}</td></tr>
+                  <tr><td>${i + 1}</td><td>${escapeHtml(item.productName)}</td><td>${item.qty}</td></tr>
                 `).join("")}
               </tbody>
             </table>
           </div>
-          ${notes ? `<div class="section"><h2>ملاحظات</h2><div class="notes-box">${notes.replace(/\n/g, "<br/>")}</div></div>` : ""}
+          ${notes ? `<div class="section"><h2>ملاحظات</h2><div class="notes-box">${escapeHtml(notes).replace(/\n/g, "<br/>")}</div></div>` : ""}
           ${imageHtml ? `<div class="section images-section"><h2>صور مرفقة</h2>${imageHtml}</div>` : ""}
           <div class="footer">
-            طلب تصنيع صادر بتاريخ ${new Date().toLocaleDateString("ar-EG")} — ${settings.name}
+            طلب تصنيع صادر بتاريخ ${new Date().toLocaleDateString("ar-EG")} — ${escapeHtml(settings.name)}
           </div>
         </body>
       </html>
