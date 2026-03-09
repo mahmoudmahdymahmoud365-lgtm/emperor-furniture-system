@@ -140,6 +140,15 @@ export function deleteUser(id: string) {
 // ---- Auth ----
 const AUTH_KEY = "isLoggedIn";
 const CURRENT_USER_KEY = "currentUserId";
+const SESSION_TOKEN_KEY = "sessionToken";
+const SESSION_EXPIRY_KEY = "sessionExpiry";
+const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
+
+function generateSessionToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, "0")).join("");
+}
 
 // ==============================
 // SECURITY LOG
@@ -171,7 +180,22 @@ export function clearSecurityLog() {
   notify("securityLog");
 }
 
-export function isAuthenticated(): boolean { return localStorage.getItem(AUTH_KEY) === "true"; }
+export function isAuthenticated(): boolean {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY);
+  const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
+  const loggedIn = localStorage.getItem(AUTH_KEY) === "true";
+  
+  if (!loggedIn || !token || !expiry) return false;
+  
+  // Check session expiry
+  if (Date.now() > parseInt(expiry, 10)) {
+    // Session expired
+    logout();
+    return false;
+  }
+  
+  return true;
+}
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   const cleanEmail = sanitizeEmail(email);
@@ -217,8 +241,11 @@ export async function login(email: string, password: string): Promise<{ success:
   }
 
   recordLoginAttempt(cleanEmail, true);
+  const sessionToken = generateSessionToken();
   localStorage.setItem(AUTH_KEY, "true");
   localStorage.setItem(CURRENT_USER_KEY, user.id);
+  localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+  localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_DURATION));
   currentUser = user;
   addSecurityEvent("login_success", cleanEmail, user.name);
   return { success: true };
@@ -230,6 +257,8 @@ export function logout() {
   }
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  localStorage.removeItem(SESSION_EXPIRY_KEY);
   currentUser = null;
 }
 
