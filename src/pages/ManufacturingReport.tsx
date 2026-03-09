@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
 import { saveImage, getAllImagesMeta, getImageURL, deleteImage } from "@/data/imageStore";
 import html2canvas from "html2canvas";
+import { escapeHtml } from "@/utils/security";
 
 export default function ManufacturingReport() {
   const { invoices } = useInvoices();
