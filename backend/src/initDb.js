@@ -224,6 +224,20 @@ const schema = `
     value TEXT DEFAULT ''
   );
 
+  -- Files / Images
+  CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    name TEXT DEFAULT '',
+    related_to TEXT DEFAULT '',
+    related_id TEXT DEFAULT '',
+    file_name TEXT DEFAULT '',
+    stored_name TEXT DEFAULT '',
+    mime_type TEXT DEFAULT '',
+    size BIGINT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE SEQUENCE IF NOT EXISTS files_seq START 1;
+
   -- Seed default settings
   INSERT INTO settings (key, value) VALUES
     ('name', 'الامبراطور للأثاث'),
