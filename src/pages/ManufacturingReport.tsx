@@ -4,12 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Printer, Image, Plus, Trash2, Factory } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuTrigger, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import {
+  Printer, Image, Plus, Trash2, Factory, Share2, MessageCircle,
+  Send, Copy, FileImage, Link2, StickyNote, CalendarDays, User, Package
+} from "lucide-react";
 import { useInvoices, useCustomers, useCompanySettings } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
 import { saveImage, getAllImagesMeta, getImageURL, deleteImage } from "@/data/imageStore";
+import html2canvas from "html2canvas";
 
 export default function ManufacturingReport() {
   const { invoices } = useInvoices();
@@ -23,8 +33,10 @@ export default function ManufacturingReport() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState("تصميم");
   const [uploadRelated, setUploadRelated] = useState("");
+  const [notes, setNotes] = useState("");
+  const [sharing, setSharing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const printRef = useRef<HTMLDivElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadImages();
@@ -66,6 +78,146 @@ export default function ManufacturingReport() {
 
   const getCustomerInfo = (name: string) => customers.find(c => c.fullName === name);
 
+  // ─── Sharing helpers ───────────────────────────
+  const generateTextSummary = (): string => {
+    if (!selectedInvoice) return "";
+    const customer = getCustomerInfo(selectedInvoice.customer);
+    const sep = "━".repeat(24);
+    let text = `🏭 طلب تصنيع\n`;
+    text += settings.name ? `📊 ${settings.name}\n` : "";
+    text += `📅 ${new Date().toLocaleDateString("ar-EG")}\n${sep}\n\n`;
+    text += `📋 رقم الطلب: ${selectedInvoice.id}\n`;
+    text += `👤 العميل: ${selectedInvoice.customer}\n`;
+    text += `📞 الهاتف: ${customer?.phone || "-"}\n`;
+    text += `📍 العنوان: ${customer?.address || "-"} — ${customer?.governorate || ""}\n`;
+    if (selectedInvoice.deliveryDate) text += `📆 تاريخ التسليم: ${selectedInvoice.deliveryDate}\n`;
+    text += `\n${sep}\n📦 المنتجات المطلوبة:\n`;
+    selectedInvoice.items.forEach((item, i) => {
+      text += `  ${i + 1}. ${item.productName} — الكمية: ${item.qty}\n`;
+    });
+    if (notes) text += `\n${sep}\n📝 ملاحظات:\n${notes}\n`;
+    text += `\n${sep}\n${settings.name} — ${new Date().toLocaleDateString("ar-EG")}`;
+    return text;
+  };
+
+  const shareViaWhatsApp = () => {
+    const text = generateTextSummary();
+    if (!text) { toast({ title: "اختر فاتورة أولاً", variant: "destructive" }); return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    toast({ title: "✅ تم فتح واتساب" });
+  };
+
+  const shareViaMessenger = () => {
+    const text = generateTextSummary();
+    if (!text) return;
+    window.open(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(window.location.href)}&redirect_uri=${encodeURIComponent(window.location.href)}&display=popup&quote=${encodeURIComponent(text)}`, "_blank");
+    toast({ title: "✅ تم فتح ماسنجر" });
+  };
+
+  const copyToClipboard = async () => {
+    const text = generateTextSummary();
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    toast({ title: "✅ تم النسخ", description: "تم نسخ طلب التصنيع للحافظة" });
+  };
+
+  const shareViaWebAPI = async () => {
+    const text = generateTextSummary();
+    if (!text) return;
+    if (navigator.share) {
+      try { await navigator.share({ title: "طلب تصنيع", text }); } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "✅ تم النسخ للحافظة" });
+    }
+  };
+
+  const shareAsImage = async () => {
+    if (!selectedInvoice) { toast({ title: "اختر فاتورة أولاً", variant: "destructive" }); return; }
+    setSharing(true);
+    try {
+      const customer = getCustomerInfo(selectedInvoice.customer);
+      const tempDiv = document.createElement("div");
+      tempDiv.style.cssText = "position:absolute;left:-9999px;top:0;width:800px;padding:40px;background:#fff;font-family:Cairo,sans-serif;direction:rtl;";
+
+      const rows = selectedInvoice.items.map((item, i) =>
+        `<tr style="background:${i % 2 === 0 ? "#fff" : "#f0fdf4"}">
+          <td style="padding:10px 14px;border:1px solid #e5e7eb;text-align:center;">${i + 1}</td>
+          <td style="padding:10px 14px;border:1px solid #e5e7eb;">${item.productName}</td>
+          <td style="padding:10px 14px;border:1px solid #e5e7eb;text-align:center;">${item.qty}</td>
+        </tr>`
+      ).join("");
+
+      const imgBlocks = selectedImages.map(id => {
+        const url = imageUrls[id];
+        const meta = images.find(i => i.id === id);
+        if (!url) return "";
+        return `<div style="text-align:center;margin:8px;display:inline-block;">
+          <img src="${url}" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid #ddd;" />
+          ${meta ? `<p style="font-size:10px;color:#888;margin-top:4px;">${meta.name}</p>` : ""}
+        </div>`;
+      }).join("");
+
+      tempDiv.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px;border-bottom:3px solid #0d5c63;padding-bottom:16px;">
+          ${settings.logoUrl ? `<img src="${settings.logoUrl}" style="height:50px;margin-bottom:8px;" />` : ""}
+          <h1 style="color:#0d5c63;font-size:22px;margin:4px 0;">${settings.name}</h1>
+          <h2 style="font-size:18px;color:#333;">🏭 طلب تصنيع</h2>
+          <p style="color:#888;font-size:12px;">رقم: ${selectedInvoice.id} — ${selectedInvoice.date}</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:13px;">
+          <div>👤 العميل: <strong>${selectedInvoice.customer}</strong></div>
+          <div>📞 الهاتف: <strong>${customer?.phone || "-"}</strong></div>
+          <div>📍 العنوان: <strong>${customer?.address || "-"}</strong></div>
+          <div>🏛 المحافظة: <strong>${customer?.governorate || "-"}</strong></div>
+          ${selectedInvoice.deliveryDate ? `<div style="grid-column:span 2;">📆 تاريخ التسليم: <strong style="color:#0d5c63;">${selectedInvoice.deliveryDate}</strong></div>` : ""}
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:10px;background:#0d5c63;color:#fff;border:1px solid #0a4a50;text-align:center;">#</th>
+            <th style="padding:10px;background:#0d5c63;color:#fff;border:1px solid #0a4a50;">المنتج</th>
+            <th style="padding:10px;background:#0d5c63;color:#fff;border:1px solid #0a4a50;text-align:center;">الكمية</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${notes ? `<div style="margin-top:16px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;"><strong>📝 ملاحظات:</strong><br/>${notes}</div>` : ""}
+        ${imgBlocks ? `<div style="margin-top:16px;text-align:center;">${imgBlocks}</div>` : ""}
+        <p style="text-align:center;color:#bbb;font-size:10px;margin-top:20px;border-top:1px solid #eee;padding-top:10px;">${settings.name} — ${new Date().toLocaleDateString("ar-EG")}</p>
+      `;
+      document.body.appendChild(tempDiv);
+      await new Promise(r => setTimeout(r, 400));
+
+      const canvas = await html2canvas(tempDiv, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      document.body.removeChild(tempDiv);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        if (navigator.share && navigator.canShare) {
+          const file = new File([blob], `طلب-تصنيع-${selectedInvoice.id}.png`, { type: "image/png" });
+          try { await navigator.share({ title: "طلب تصنيع", files: [file] }); } catch {
+            downloadBlob(blob);
+          }
+        } else {
+          downloadBlob(blob);
+        }
+      }, "image/png");
+    } catch {
+      toast({ title: "خطأ", description: "فشل إنشاء صورة التقرير", variant: "destructive" });
+    }
+    setSharing(false);
+  };
+
+  const downloadBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `طلب-تصنيع-${selectedInvoice?.id || "report"}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "✅ تم التحميل", description: "يمكنك مشاركة الصورة يدوياً" });
+  };
+
+  // ─── Print ───────────────────────────
   const handlePrint = () => {
     if (!selectedInvoice) {
       toast({ title: "تنبيه", description: "يرجى اختيار فاتورة أولاً", variant: "destructive" });
@@ -107,6 +259,7 @@ export default function ManufacturingReport() {
             th, td { padding: 10px 14px; border: 1px solid #ddd; text-align: right; font-size: 13px; }
             th { background: #0d5c63; color: #fff; font-weight: 600; }
             tr:nth-child(even) { background: #f8f9fa; }
+            .notes-box { margin: 16px 0; padding: 12px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 13px; }
             .images-section { margin-top: 24px; }
             .footer { margin-top: 30px; text-align: center; color: #999; font-size: 11px; border-top: 1px solid #ddd; padding-top: 12px; }
             @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
@@ -118,12 +271,10 @@ export default function ManufacturingReport() {
             <h1>${settings.name}</h1>
             ${settings.phone ? `<p>${settings.phone} | ${settings.address || ""}</p>` : ""}
           </div>
-
           <div class="header" style="border:none;padding:0;">
             <h1 style="font-size:24px;">🏭 طلب تصنيع</h1>
             <p>رقم الفاتورة: ${selectedInvoice.id} — التاريخ: ${selectedInvoice.date}</p>
           </div>
-
           <div class="section">
             <h2>بيانات العميل</h2>
             <div class="info-grid">
@@ -133,9 +284,7 @@ export default function ManufacturingReport() {
               <div class="info-item"><span>المحافظة: </span><strong>${customer?.governorate || "-"}</strong></div>
             </div>
           </div>
-
           ${selectedInvoice.deliveryDate ? `<div class="section"><h2>تاريخ التسليم المطلوب</h2><p style="font-size:16px;font-weight:700;color:#0d5c63;">${selectedInvoice.deliveryDate}</p></div>` : ""}
-
           <div class="section">
             <h2>المنتجات المطلوبة</h2>
             <table>
@@ -147,9 +296,8 @@ export default function ManufacturingReport() {
               </tbody>
             </table>
           </div>
-
+          ${notes ? `<div class="section"><h2>ملاحظات</h2><div class="notes-box">${notes.replace(/\n/g, "<br/>")}</div></div>` : ""}
           ${imageHtml ? `<div class="section images-section"><h2>صور مرفقة</h2>${imageHtml}</div>` : ""}
-
           <div class="footer">
             طلب تصنيع صادر بتاريخ ${new Date().toLocaleDateString("ar-EG")} — ${settings.name}
           </div>
@@ -164,15 +312,64 @@ export default function ManufacturingReport() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <h1 className="page-header">تقرير طلب تصنيع</h1>
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Factory className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">طلب تصنيع</h1>
+              <p className="text-xs text-muted-foreground">إنشاء ومشاركة طلبات التصنيع للمصانع</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Share dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5" disabled={!selectedInvoice || sharing}>
+                  {sharing ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                  مشاركة
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">مشاركة طلب التصنيع</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={shareViaWhatsApp} className="gap-2 cursor-pointer">
+                  <MessageCircle className="h-4 w-4 text-green-600" />واتساب
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={shareViaMessenger} className="gap-2 cursor-pointer">
+                  <Send className="h-4 w-4 text-blue-600" />ماسنجر
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={shareAsImage} className="gap-2 cursor-pointer">
+                  <FileImage className="h-4 w-4 text-primary" />مشاركة كصورة
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={copyToClipboard} className="gap-2 cursor-pointer">
+                  <Copy className="h-4 w-4 text-muted-foreground" />نسخ النص
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={shareViaWebAPI} className="gap-2 cursor-pointer">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  {navigator.share ? "مشاركة عبر النظام" : "نسخ للحافظة"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" onClick={handlePrint} disabled={!selectedInvoice} className="gap-1.5">
+              <Printer className="h-4 w-4" />طباعة
+            </Button>
+          </div>
         </div>
 
         {/* Invoice Selector */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Factory className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
               اختر الفاتورة
             </CardTitle>
           </CardHeader>
@@ -190,45 +387,109 @@ export default function ManufacturingReport() {
                 <option key={inv.id} value={inv.id}>{inv.id} — {inv.customer} ({inv.date})</option>
               ))}
             </select>
+          </CardContent>
+        </Card>
 
-            {selectedInvoice && (
-              <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-3">
-                <h3 className="font-semibold">بيانات الطلب (بدون أسعار)</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-muted-foreground">العميل: </span>{selectedInvoice.customer}</div>
-                  <div><span className="text-muted-foreground">الهاتف: </span>{getCustomerInfo(selectedInvoice.customer)?.phone || "-"}</div>
-                  <div><span className="text-muted-foreground">العنوان: </span>{getCustomerInfo(selectedInvoice.customer)?.address || "-"}</div>
-                  <div><span className="text-muted-foreground">التسليم: </span>{selectedInvoice.deliveryDate || "-"}</div>
+        {/* Invoice Preview */}
+        {selectedInvoice && (
+          <Card ref={reportRef}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Factory className="h-4 w-4 text-primary" />
+                  معاينة طلب التصنيع
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">{selectedInvoice.id}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Customer Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">العميل:</span>
+                  <span className="font-medium">{selectedInvoice.customer}</span>
                 </div>
-                <table className="w-full text-sm mt-2">
-                  <thead><tr className="border-b bg-muted/50"><th className="text-right p-2">#</th><th className="text-right p-2">المنتج</th><th className="text-right p-2">الكمية</th></tr></thead>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">📞 الهاتف:</span>
+                  <span className="font-medium">{getCustomerInfo(selectedInvoice.customer)?.phone || "-"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">📍 العنوان:</span>
+                  <span className="font-medium">{getCustomerInfo(selectedInvoice.customer)?.address || "-"}</span>
+                </div>
+                {selectedInvoice.deliveryDate && (
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-muted-foreground">التسليم:</span>
+                    <span className="font-semibold text-primary">{selectedInvoice.deliveryDate}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Products */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-right p-2.5 font-medium text-muted-foreground">#</th>
+                      <th className="text-right p-2.5 font-medium text-muted-foreground">المنتج</th>
+                      <th className="text-right p-2.5 font-medium text-muted-foreground">الكمية</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {selectedInvoice.items.map((item, i) => (
-                      <tr key={i} className="border-b last:border-0"><td className="p-2">{i + 1}</td><td className="p-2">{item.productName}</td><td className="p-2">{item.qty}</td></tr>
+                      <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="p-2.5">{i + 1}</td>
+                        <td className="p-2.5 font-medium">{item.productName}</td>
+                        <td className="p-2.5">
+                          <Badge variant="secondary" className="text-xs">{item.qty}</Badge>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  ملاحظات للمصنع
+                </Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="أضف ملاحظات خاصة بالتصنيع (ألوان، مقاسات، خامات...)"
+                  className="min-h-[80px] text-sm"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Image Manager */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Image className="h-5 w-5" />
-                الصور المحفوظة
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Image className="h-4 w-4 text-primary" />
+                الصور المرفقة
+                {selectedImages.length > 0 && (
+                  <Badge variant="default" className="text-[10px] h-5">{selectedImages.length} مختارة</Badge>
+                )}
               </CardTitle>
-              <Button size="sm" onClick={() => setUploadOpen(true)}>
+              <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
                 <Plus className="h-4 w-4 ml-1" />رفع صور
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {images.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">لا توجد صور محفوظة بعد — ارفع صوراً لاستخدامها في التقارير</p>
+              <div className="text-center py-10 text-muted-foreground">
+                <Image className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">لا توجد صور — ارفع صوراً لإرفاقها بالطلب</p>
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {images.map(img => (
@@ -261,19 +522,8 @@ export default function ManufacturingReport() {
                 ))}
               </div>
             )}
-            {selectedImages.length > 0 && (
-              <p className="text-sm text-primary mt-3 font-medium">تم اختيار {selectedImages.length} صورة للتقرير</p>
-            )}
           </CardContent>
         </Card>
-
-        {/* Print Button */}
-        <div className="flex justify-center">
-          <Button size="lg" onClick={handlePrint} disabled={!selectedInvoice} className="gap-2">
-            <Printer className="h-5 w-5" />
-            طباعة تقرير التصنيع
-          </Button>
-        </div>
 
         {/* Upload Dialog */}
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
