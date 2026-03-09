@@ -194,6 +194,16 @@ export default function Employees() {
     setAttOpen(true);
   };
 
+  // Handle opening new attendance form
+  const handleNewAttendance = () => {
+    setAttForm({
+      employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0],
+      checkIn: "", checkOut: "", status: "present", notes: "",
+    });
+    setEditingAttId(null);
+    setAttOpen(true);
+  };
+
   // Bulk attendance
   const initBulk = () => {
     const records: typeof bulkRecords = {};
