@@ -1,5 +1,6 @@
 // ==============================
-// In-Memory Data Store (with localStorage persistence)
+// In-Memory Data Store — Main Orchestrator
+// Re-exports from modular files + entity CRUD
 // ==============================
 
 import type {
@@ -9,41 +10,37 @@ import type {
   Expense,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
-import { hashPassword, verifyPassword, checkRateLimit, recordLoginAttempt, sanitizeEmail } from "@/utils/security";
+import { loadFromStorage, saveToStorage, nextId, subscribe as coreSub, notifyListeners } from "./store.core";
 
-// ---- Generic persistence helpers ----
-function loadFromStorage<T>(key: string, fallback: T[]): T[] {
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [...fallback];
-}
+// ---- Re-export core ----
+export { subscribe } from "./store.core";
 
-function saveToStorage<T>(key: string, data: T[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.warn(`Failed to save ${key}:`, e);
-  }
-}
+// ---- Re-export auth ----
+export {
+  getUsers, getCurrentUser, getUserPermissions,
+  addUser, updateUser, deleteUser,
+  isAuthenticated, login, logout,
+  getSecurityLog, addSecurityEvent, clearSecurityLog,
+  rebuildUsersSnap, rebuildSecurityLogSnap,
+  setAuthDeps,
+} from "./store.auth";
 
-// ---- Generic helpers ----
-function nextId(prefix: string, list: { id: string }[]): string {
-  let maxNum = 0;
-  const isInvoice = prefix.includes("INV");
-  for (const item of list) {
-    const match = item.id.match(/(\d+)$/);
-    if (match) {
-      const n = parseInt(match[1], 10);
-      if (n > maxNum) maxNum = n;
-    }
-  }
-  const next = maxNum + 1;
-  return isInvoice
-    ? `INV-${String(next).padStart(3, "0")}`
-    : `${prefix}${String(next).padStart(3, "0")}`;
-}
+import {
+  getCurrentUser, rebuildUsersSnap, rebuildSecurityLogSnap, setAuthDeps,
+} from "./store.auth";
+
+// ---- Re-export backup ----
+export {
+  exportBackup, exportBackupAsFile,
+  getAutoBackupList, createAutoBackup, createManualBackup,
+  restoreFromBackupId, deleteBackup,
+  getLastAutoBackupTime, getAutoBackupInterval, setAutoBackupInterval,
+  checkAndRunAutoBackup,
+  getCloudConfig, updateCloudConfig,
+} from "./store.backup";
+export type { BackupMeta, CloudConfig } from "./store.backup";
+
+import { setBackupDeps } from "./store.backup";
 
 // ---- Company Settings ----
 const DEFAULT_SETTINGS: CompanySettings = {
@@ -75,201 +72,6 @@ export function updateCompanySettings(data: Partial<CompanySettings>) {
 }
 
 // ==============================
-// USER ACCOUNTS & ROLES
-// ==============================
-const DEFAULT_USERS: UserAccount[] = [
-  { id: "U001", name: "المدير", email: "admin@emperor.com", password: "admin123", role: "admin", active: true },
-  { id: "U002", name: "موظف مبيعات", email: "sales@emperor.com", password: "sales123", role: "sales", active: true },
-  { id: "U003", name: "المحاسب", email: "accountant@emperor.com", password: "acc123", role: "accountant", active: true },
-];
-
-const users: UserAccount[] = loadFromStorage("userAccounts", DEFAULT_USERS);
-let usersSnap: UserAccount[] = [...users];
-
-function saveUsers() { saveToStorage("userAccounts", users); }
-
-let currentUser: UserAccount | null = null;
-
-export function getUsers(): UserAccount[] { return usersSnap; }
-export function getCurrentUser(): UserAccount | null { return currentUser; }
-
-export function getUserPermissions(): RolePermissions {
-  if (!currentUser) return DEFAULT_PERMISSIONS.sales;
-  const base = DEFAULT_PERMISSIONS[currentUser.role] || DEFAULT_PERMISSIONS.sales;
-  if (currentUser.customPermissions) {
-    return { ...base, ...currentUser.customPermissions };
-  }
-  return base;
-}
-
-export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccount> {
-  const hashedPassword = await hashPassword(data.password);
-  const u = { id: nextId("U", users), ...data, password: hashedPassword };
-  users.push(u);
-  saveUsers();
-  addAuditLog("create", "settings" as AuditEntity, u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
-  notify("users");
-  return u;
-}
-
-export async function updateUser(id: string, data: Partial<UserAccount>) {
-  const idx = users.findIndex((u) => u.id === id);
-  if (idx >= 0) {
-    // Hash password if it's being updated and isn't already hashed
-    if (data.password && (!data.password.includes(":") || data.password.length < 40)) {
-      data.password = await hashPassword(data.password);
-    }
-    users[idx] = { ...users[idx], ...data };
-    saveUsers();
-    addAuditLog("update", "settings" as AuditEntity, id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
-    notify("users");
-  }
-}
-
-export function deleteUser(id: string) {
-  const idx = users.findIndex((u) => u.id === id);
-  if (idx >= 0) {
-    const name = users[idx].name;
-    users.splice(idx, 1);
-    saveUsers();
-    addAuditLog("delete", "settings" as AuditEntity, id, name, `حذف مستخدم: ${name}`);
-    notify("users");
-  }
-}
-
-// ---- Auth ----
-const AUTH_KEY = "isLoggedIn";
-const CURRENT_USER_KEY = "currentUserId";
-const SESSION_TOKEN_KEY = "sessionToken";
-const SESSION_EXPIRY_KEY = "sessionExpiry";
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
-
-function generateSessionToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-// ==============================
-// SECURITY LOG
-// ==============================
-const securityLog: SecurityEvent[] = loadFromStorage("securityLog", []);
-let securityLogSnap: SecurityEvent[] = [...securityLog];
-
-function saveSecurityLog() { saveToStorage("securityLog", securityLog); }
-
-export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
-
-export function addSecurityEvent(type: SecurityEvent["type"], email: string, userName: string) {
-  const event: SecurityEvent = {
-    id: `SEC${Date.now().toString(36)}`,
-    type, email, userName,
-    timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent,
-  };
-  securityLog.unshift(event);
-  if (securityLog.length > 500) securityLog.splice(500);
-  saveSecurityLog();
-  securityLogSnap = [...securityLog];
-}
-
-export function clearSecurityLog() {
-  securityLog.length = 0;
-  saveSecurityLog();
-  securityLogSnap = [];
-  notify("securityLog");
-}
-
-export function isAuthenticated(): boolean {
-  const token = localStorage.getItem(SESSION_TOKEN_KEY);
-  const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
-  const loggedIn = localStorage.getItem(AUTH_KEY) === "true";
-  
-  if (!loggedIn || !token || !expiry) return false;
-  
-  // Check session expiry
-  if (Date.now() > parseInt(expiry, 10)) {
-    // Session expired
-    logout();
-    return false;
-  }
-  
-  return true;
-}
-
-export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-  const cleanEmail = sanitizeEmail(email);
-  
-  // Rate limiting
-  const rateCheck = checkRateLimit(cleanEmail);
-  if (!rateCheck.allowed) {
-    const minutes = Math.ceil((rateCheck.lockedUntilMs || 0) / 60000);
-    addSecurityEvent("login_failed", cleanEmail, "محاولات كثيرة");
-    return { success: false, error: `تم تجاوز الحد المسموح. حاول بعد ${minutes} دقيقة` };
-  }
-
-  // Find user by email
-  const user = users.find((u) => u.email === cleanEmail && u.active);
-  if (!user) {
-    recordLoginAttempt(cleanEmail, false);
-    addSecurityEvent("login_failed", cleanEmail, "");
-    return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-  }
-
-  // Verify password (supports both hashed and legacy plain-text)
-  const passwordValid = await verifyPassword(password, user.password);
-  if (!passwordValid) {
-    recordLoginAttempt(cleanEmail, false);
-    addSecurityEvent("login_failed", cleanEmail, "");
-    const remaining = rateCheck.remainingAttempts - 1;
-    return { 
-      success: false, 
-      error: remaining > 0 
-        ? `كلمة المرور غير صحيحة. متبقي ${remaining} محاولات`
-        : "تم تجاوز الحد المسموح. حاول لاحقاً"
-    };
-  }
-
-  // Auto-migrate plain-text passwords to hashed
-  if (!user.password.includes(":") || user.password.length < 40) {
-    const hashed = await hashPassword(password);
-    const idx = users.findIndex(u => u.id === user.id);
-    if (idx >= 0) {
-      users[idx].password = hashed;
-      saveUsers();
-    }
-  }
-
-  recordLoginAttempt(cleanEmail, true);
-  const sessionToken = generateSessionToken();
-  localStorage.setItem(AUTH_KEY, "true");
-  localStorage.setItem(CURRENT_USER_KEY, user.id);
-  localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
-  localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_DURATION));
-  currentUser = user;
-  addSecurityEvent("login_success", cleanEmail, user.name);
-  return { success: true };
-}
-
-export function logout() {
-  if (currentUser) {
-    addSecurityEvent("logout", currentUser.email, currentUser.name);
-  }
-  localStorage.removeItem(AUTH_KEY);
-  localStorage.removeItem(CURRENT_USER_KEY);
-  localStorage.removeItem(SESSION_TOKEN_KEY);
-  localStorage.removeItem(SESSION_EXPIRY_KEY);
-  currentUser = null;
-}
-
-(function restoreUser() {
-  const userId = localStorage.getItem(CURRENT_USER_KEY);
-  if (userId) {
-    currentUser = users.find((u) => u.id === userId) || null;
-  }
-})();
-
-// ==============================
 // AUDIT LOG
 // ==============================
 const auditLog: AuditLogEntry[] = loadFromStorage("auditLog", []);
@@ -280,13 +82,13 @@ function saveAuditLog() { saveToStorage("auditLog", auditLog); }
 export function getAuditLog(): AuditLogEntry[] { return auditLogSnap; }
 
 export function addAuditLog(
-  action: AuditAction, entity: AuditEntity, entityId: string, entityName: string, details: string,
+  action: AuditAction | string, entity: AuditEntity | string, entityId: string, entityName: string, details: string,
 ) {
   const entry: AuditLogEntry = {
     id: `AL${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     timestamp: new Date().toISOString(),
-    user: currentUser?.name || "النظام",
-    action, entity, entityId, entityName, details,
+    user: getCurrentUser()?.name || "النظام",
+    action: action as AuditAction, entity: entity as AuditEntity, entityId, entityName, details,
   };
   auditLog.unshift(entry);
   if (auditLog.length > 1000) auditLog.splice(1000);
@@ -301,7 +103,7 @@ export function clearAuditLog() {
   notify("auditLog");
 }
 
-// ---- Seed data (used only if no localStorage data exists) ----
+// ---- Seed data ----
 const SEED_CUSTOMERS: Customer[] = [
   { id: "C001", fullName: "أحمد محمد علي", nationalId: "29901011234567", phone: "01012345678", address: "شارع التحرير", governorate: "القاهرة", jobTitle: "مهندس", notes: "" },
   { id: "C002", fullName: "سارة أحمد حسن", nationalId: "30001021234567", phone: "01098765432", address: "شارع الهرم", governorate: "الجيزة", jobTitle: "طبيبة", notes: "عميل مميز" },
@@ -357,7 +159,7 @@ const SEED_SHIFTS: Shift[] = [
   { id: "SH003", name: "مرن", startTime: "10:00", endTime: "18:00", hours: 8, branch: "الجيزة", active: true, notes: "" },
 ];
 
-// ---- Load all data with persistence ----
+// ---- Load all data ----
 const customers: Customer[] = loadFromStorage("emp_customers", SEED_CUSTOMERS);
 const products: Product[] = loadFromStorage("emp_products", SEED_PRODUCTS);
 const invoices: Invoice[] = loadFromStorage("emp_invoices", SEED_INVOICES);
@@ -371,7 +173,7 @@ const shifts: Shift[] = loadFromStorage("shifts", SEED_SHIFTS);
 const attendance: AttendanceRecord[] = loadFromStorage("attendance", []);
 const expensesList: Expense[] = loadFromStorage("expenses", []);
 
-// ---- Save functions for core entities ----
+// ---- Save functions ----
 function saveCustomers() { saveToStorage("emp_customers", customers); }
 function saveProducts() { saveToStorage("emp_products", products); }
 function saveInvoices() { saveToStorage("emp_invoices", invoices); }
@@ -385,6 +187,121 @@ function saveShifts() { saveToStorage("shifts", shifts); }
 function saveAttendance() { saveToStorage("attendance", attendance); }
 function saveExpenses() { saveToStorage("expenses", expensesList); }
 
+// ---- Snapshots ----
+let customersSnap: Customer[] = [...customers];
+let productsSnap: Product[] = [...products];
+let invoicesSnap: Invoice[] = [...invoices];
+let employeesSnap: Employee[] = [...employees];
+let branchesSnap: Branch[] = [...branches];
+let receiptsSnap: Receipt[] = [...receipts];
+let offersSnap: Offer[] = [...offers];
+let stockMovementsSnap: StockMovement[] = [...stockMovements];
+let returnsSnap: ProductReturn[] = [...productReturns];
+let shiftsSnap: Shift[] = [...shifts];
+let attendanceSnap: AttendanceRecord[] = [...attendance];
+let expensesSnap: Expense[] = [...expensesList];
+
+let dirtyFlags = new Set<string>();
+function markDirty(entity: string) { dirtyFlags.add(entity); }
+
+function rebuildSnapshots() {
+  if (dirtyFlags.has("all") || dirtyFlags.size === 0) {
+    customersSnap = [...customers]; productsSnap = [...products]; invoicesSnap = [...invoices];
+    employeesSnap = [...employees]; branchesSnap = [...branches]; receiptsSnap = [...receipts];
+    auditLogSnap = [...auditLog]; offersSnap = [...offers];
+    stockMovementsSnap = [...stockMovements]; returnsSnap = [...productReturns];
+    shiftsSnap = [...shifts]; attendanceSnap = [...attendance]; expensesSnap = [...expensesList];
+    rebuildUsersSnap(); rebuildSecurityLogSnap();
+  } else {
+    if (dirtyFlags.has("customers")) customersSnap = [...customers];
+    if (dirtyFlags.has("products")) productsSnap = [...products];
+    if (dirtyFlags.has("invoices")) invoicesSnap = [...invoices];
+    if (dirtyFlags.has("employees")) employeesSnap = [...employees];
+    if (dirtyFlags.has("branches")) branchesSnap = [...branches];
+    if (dirtyFlags.has("receipts")) receiptsSnap = [...receipts];
+    if (dirtyFlags.has("auditLog")) auditLogSnap = [...auditLog];
+    if (dirtyFlags.has("users")) rebuildUsersSnap();
+    if (dirtyFlags.has("offers")) offersSnap = [...offers];
+    if (dirtyFlags.has("stockMovements")) stockMovementsSnap = [...stockMovements];
+    if (dirtyFlags.has("returns")) returnsSnap = [...productReturns];
+    if (dirtyFlags.has("shifts")) shiftsSnap = [...shifts];
+    if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
+    if (dirtyFlags.has("securityLog")) rebuildSecurityLogSnap();
+    if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
+  }
+  dirtyFlags = new Set();
+}
+
+function notify(...entities: string[]) {
+  for (const e of entities) markDirty(e);
+  markDirty("auditLog");
+  rebuildSnapshots();
+  notifyListeners();
+}
+
+// ---- Wire up auth deps ----
+setAuthDeps(addAuditLog, notify);
+
+// ---- Wire up backup deps ----
+function getBackupData() {
+  return {
+    version: 7,
+    timestamp: new Date().toISOString(),
+    customers: [...customers], products: [...products], invoices: [...invoices],
+    employees: [...employees], branches: [...branches], receipts: [...receipts],
+    offers: [...offers], stockMovements: [...stockMovements], productReturns: [...productReturns],
+    shifts: [...shifts], attendance: [...attendance], expenses: [...expensesList],
+    settings: { ...companySettings },
+    users: [], // users handled by auth module
+    auditLog: [...auditLog],
+  };
+}
+
+export function importBackup(jsonStr: string): boolean {
+  try {
+    const data = JSON.parse(jsonStr);
+    if (!data.version) return false;
+
+    customers.length = 0; products.length = 0; invoices.length = 0;
+    employees.length = 0; branches.length = 0; receipts.length = 0;
+    auditLog.length = 0; offers.length = 0;
+    stockMovements.length = 0; productReturns.length = 0;
+    shifts.length = 0; attendance.length = 0; expensesList.length = 0;
+
+    (data.customers || []).forEach((c: Customer) => customers.push(c));
+    (data.products || []).forEach((p: Product) => products.push(p));
+    (data.invoices || []).forEach((i: Invoice) => invoices.push(i));
+    (data.employees || []).forEach((e: Employee) => employees.push(e));
+    (data.branches || []).forEach((b: Branch) => branches.push(b));
+    (data.receipts || []).forEach((r: Receipt) => receipts.push(r));
+    (data.auditLog || []).forEach((a: AuditLogEntry) => auditLog.push(a));
+    (data.offers || []).forEach((o: Offer) => offers.push(o));
+    (data.stockMovements || []).forEach((sm: StockMovement) => stockMovements.push(sm));
+    (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
+    (data.shifts || []).forEach((s: Shift) => shifts.push(s));
+    (data.attendance || []).forEach((a: AttendanceRecord) => attendance.push(a));
+    (data.expenses || []).forEach((e: Expense) => expensesList.push(e));
+
+    if (data.settings) {
+      companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
+      localStorage.setItem("companySettings", JSON.stringify(companySettings));
+    }
+
+    saveCustomers(); saveProducts(); saveInvoices();
+    saveEmployees(); saveBranches(); saveReceipts();
+    saveAuditLog(); saveOffers(); saveStockMovements();
+    saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
+
+    addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
+    notify("all");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+setBackupDeps(getBackupData, importBackup);
+
 // ==============================
 // STOCK MOVEMENTS
 // ==============================
@@ -393,8 +310,7 @@ function recordStockMovement(productName: string, type: StockMovement["type"], q
   stockMovements.unshift({
     id: `SM${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     productId: product?.id || "",
-    productName,
-    type, qty,
+    productName, type, qty,
     date: new Date().toISOString(),
     reason, relatedId,
   });
@@ -425,8 +341,7 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
     invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - r.totalAmount) };
     saveInvoices();
   }
-  saveReturns();
-  saveProducts();
+  saveReturns(); saveProducts();
   addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
   notify("returns", "products", "invoices", "stockMovements");
   return r;
@@ -439,18 +354,15 @@ export function getShifts(): Shift[] { return shiftsSnap; }
 
 export function addShift(data: Omit<Shift, "id">): Shift {
   const s: Shift = { id: nextId("SH", shifts), ...data };
-  shifts.push(s);
-  saveShifts();
+  shifts.push(s); saveShifts();
   addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
-  notify("shifts");
-  return s;
+  notify("shifts"); return s;
 }
 
 export function updateShift(id: string, data: Partial<Shift>) {
   const idx = shifts.findIndex(s => s.id === id);
   if (idx >= 0) {
-    shifts[idx] = { ...shifts[idx], ...data };
-    saveShifts();
+    shifts[idx] = { ...shifts[idx], ...data }; saveShifts();
     addAuditLog("update", "shift", id, shifts[idx].name, `تعديل شفت: ${shifts[idx].name}`);
     notify("shifts");
   }
@@ -459,9 +371,7 @@ export function updateShift(id: string, data: Partial<Shift>) {
 export function deleteShift(id: string) {
   const idx = shifts.findIndex(s => s.id === id);
   if (idx >= 0) {
-    const name = shifts[idx].name;
-    shifts.splice(idx, 1);
-    saveShifts();
+    const name = shifts[idx].name; shifts.splice(idx, 1); saveShifts();
     addAuditLog("delete", "shift", id, name, `حذف شفت: ${name}`);
     notify("shifts");
   }
@@ -474,18 +384,15 @@ export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
 
 export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
   const a: AttendanceRecord = { id: nextId("ATT", attendance), ...data };
-  attendance.push(a);
-  saveAttendance();
+  attendance.push(a); saveAttendance();
   addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
-  notify("attendance");
-  return a;
+  notify("attendance"); return a;
 }
 
 export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
   const idx = attendance.findIndex(a => a.id === id);
   if (idx >= 0) {
-    attendance[idx] = { ...attendance[idx], ...data };
-    saveAttendance();
+    attendance[idx] = { ...attendance[idx], ...data }; saveAttendance();
     addAuditLog("update", "attendance", id, attendance[idx].employeeName, `تعديل حضور: ${attendance[idx].employeeName}`);
     notify("attendance");
   }
@@ -494,9 +401,7 @@ export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
 export function deleteAttendance(id: string) {
   const idx = attendance.findIndex(a => a.id === id);
   if (idx >= 0) {
-    const name = attendance[idx].employeeName;
-    attendance.splice(idx, 1);
-    saveAttendance();
+    const name = attendance[idx].employeeName; attendance.splice(idx, 1); saveAttendance();
     addAuditLog("delete", "attendance", id, name, `حذف سجل حضور: ${name}`);
     notify("attendance");
   }
@@ -533,19 +438,16 @@ export function getProductDiscount(productName: string): number {
 
 export function addOffer(data: Omit<Offer, "id">): Offer {
   const o = { id: nextId("OF", offers), ...data };
-  offers.push(o);
-  saveOffers();
+  offers.push(o); saveOffers();
   addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
-  notify("offers");
-  return o;
+  notify("offers"); return o;
 }
 
 export function updateOffer(id: string, data: Partial<Offer>) {
   const idx = offers.findIndex((o) => o.id === id);
   if (idx >= 0) {
     const name = offers[idx].name;
-    offers[idx] = { ...offers[idx], ...data };
-    saveOffers();
+    offers[idx] = { ...offers[idx], ...data }; saveOffers();
     addAuditLog("update", "offer", id, data.name || name, `تعديل عرض: ${data.name || name}`);
     notify("offers");
   }
@@ -554,90 +456,14 @@ export function updateOffer(id: string, data: Partial<Offer>) {
 export function deleteOffer(id: string) {
   const idx = offers.findIndex((o) => o.id === id);
   if (idx >= 0) {
-    const name = offers[idx].name;
-    offers.splice(idx, 1);
-    saveOffers();
+    const name = offers[idx].name; offers.splice(idx, 1); saveOffers();
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
     notify("offers");
   }
 }
 
-// Track last added customer name
+// Track last added customer
 let lastAddedCustomer = "";
-
-// ---- Change listeners ----
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-export function subscribe(fn: Listener) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-
-// ---- Snapshot caches ----
-let customersSnap: Customer[] = [...customers];
-let productsSnap: Product[] = [...products];
-let invoicesSnap: Invoice[] = [...invoices];
-let employeesSnap: Employee[] = [...employees];
-let branchesSnap: Branch[] = [...branches];
-let receiptsSnap: Receipt[] = [...receipts];
-let offersSnap: Offer[] = [...offers];
-let stockMovementsSnap: StockMovement[] = [...stockMovements];
-let returnsSnap: ProductReturn[] = [...productReturns];
-let shiftsSnap: Shift[] = [...shifts];
-let attendanceSnap: AttendanceRecord[] = [...attendance];
-let expensesSnap: Expense[] = [...expensesList];
-
-// Dirty flags - only rebuild snapshots that changed
-let dirtyFlags = new Set<string>();
-
-function markDirty(entity: string) { dirtyFlags.add(entity); }
-
-function rebuildSnapshots() {
-  if (dirtyFlags.has("all") || dirtyFlags.size === 0) {
-    // Full rebuild on init or "all"
-    customersSnap = [...customers];
-    productsSnap = [...products];
-    invoicesSnap = [...invoices];
-    employeesSnap = [...employees];
-    branchesSnap = [...branches];
-    receiptsSnap = [...receipts];
-    auditLogSnap = [...auditLog];
-    usersSnap = [...users];
-    offersSnap = [...offers];
-    stockMovementsSnap = [...stockMovements];
-    returnsSnap = [...productReturns];
-    shiftsSnap = [...shifts];
-    attendanceSnap = [...attendance];
-    securityLogSnap = [...securityLog];
-    expensesSnap = [...expensesList];
-  } else {
-    if (dirtyFlags.has("customers")) customersSnap = [...customers];
-    if (dirtyFlags.has("products")) productsSnap = [...products];
-    if (dirtyFlags.has("invoices")) invoicesSnap = [...invoices];
-    if (dirtyFlags.has("employees")) employeesSnap = [...employees];
-    if (dirtyFlags.has("branches")) branchesSnap = [...branches];
-    if (dirtyFlags.has("receipts")) receiptsSnap = [...receipts];
-    if (dirtyFlags.has("auditLog")) auditLogSnap = [...auditLog];
-    if (dirtyFlags.has("users")) usersSnap = [...users];
-    if (dirtyFlags.has("offers")) offersSnap = [...offers];
-    if (dirtyFlags.has("stockMovements")) stockMovementsSnap = [...stockMovements];
-    if (dirtyFlags.has("returns")) returnsSnap = [...productReturns];
-    if (dirtyFlags.has("shifts")) shiftsSnap = [...shifts];
-    if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
-    if (dirtyFlags.has("securityLog")) securityLogSnap = [...securityLog];
-    if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
-  }
-  dirtyFlags = new Set();
-}
-
-function notify(...entities: string[]) {
-  for (const e of entities) markDirty(e);
-  // Always mark auditLog dirty since most ops add an audit entry
-  markDirty("auditLog");
-  rebuildSnapshots();
-  listeners.forEach((fn) => fn());
-}
 
 // ==============================
 // CUSTOMERS
@@ -647,19 +473,14 @@ export function getLastAddedCustomer(): string { return lastAddedCustomer; }
 
 export function addCustomer(data: Omit<Customer, "id">): Customer {
   const c = { id: nextId("C", customers), ...data };
-  customers.push(c);
-  lastAddedCustomer = c.fullName;
-  saveCustomers();
-  notify("customers");
-  return c;
+  customers.push(c); lastAddedCustomer = c.fullName; saveCustomers();
+  notify("customers"); return c;
 }
 
 export function updateCustomer(id: string, data: Partial<Customer>) {
   const idx = customers.findIndex((c) => c.id === id);
   if (idx >= 0) {
-    const name = customers[idx].fullName;
-    customers[idx] = { ...customers[idx], ...data };
-    saveCustomers();
+    customers[idx] = { ...customers[idx], ...data }; saveCustomers();
     notify("customers");
   }
 }
@@ -667,9 +488,7 @@ export function updateCustomer(id: string, data: Partial<Customer>) {
 export function deleteCustomer(id: string) {
   const idx = customers.findIndex((c) => c.id === id);
   if (idx >= 0) {
-    const name = customers[idx].fullName;
-    customers.splice(idx, 1);
-    saveCustomers();
+    customers.splice(idx, 1); saveCustomers();
     notify("customers");
   }
 }
@@ -681,18 +500,14 @@ export function getProducts(): Product[] { return productsSnap; }
 
 export function addProduct(data: Omit<Product, "id">): Product {
   const p = { id: nextId("P", products), ...data };
-  products.push(p);
-  saveProducts();
-  notify("products");
-  return p;
+  products.push(p); saveProducts();
+  notify("products"); return p;
 }
 
 export function updateProduct(id: string, data: Partial<Product>) {
   const idx = products.findIndex((p) => p.id === id);
   if (idx >= 0) {
-    const name = products[idx].name;
-    products[idx] = { ...products[idx], ...data };
-    saveProducts();
+    products[idx] = { ...products[idx], ...data }; saveProducts();
     notify("products");
   }
 }
@@ -700,9 +515,7 @@ export function updateProduct(id: string, data: Partial<Product>) {
 export function deleteProduct(id: string) {
   const idx = products.findIndex((p) => p.id === id);
   if (idx >= 0) {
-    const name = products[idx].name;
-    products.splice(idx, 1);
-    saveProducts();
+    products.splice(idx, 1); saveProducts();
     notify("products");
   }
 }
@@ -722,17 +535,14 @@ export function addInvoice(data: Omit<Invoice, "id">): Invoice {
       recordStockMovement(item.productName, "out", item.qty, `فاتورة ${inv.id}`, inv.id);
     }
   }
-  saveInvoices();
-  saveProducts();
-  notify("invoices", "products", "stockMovements");
-  return inv;
+  saveInvoices(); saveProducts();
+  notify("invoices", "products", "stockMovements"); return inv;
 }
 
 export function updateInvoice(id: string, data: Partial<Invoice>) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
-    invoices[idx] = { ...invoices[idx], ...data };
-    saveInvoices();
+    invoices[idx] = { ...invoices[idx], ...data }; saveInvoices();
     notify("invoices");
   }
 }
@@ -748,9 +558,7 @@ export function deleteInvoice(id: string) {
         recordStockMovement(item.productName, "in", item.qty, `حذف فاتورة ${id} (استرجاع)`, id);
       }
     }
-    invoices.splice(idx, 1);
-    saveInvoices();
-    saveProducts();
+    invoices.splice(idx, 1); saveInvoices(); saveProducts();
     notify("invoices", "products", "stockMovements");
   }
 }
@@ -762,18 +570,14 @@ export function getEmployees(): Employee[] { return employeesSnap; }
 
 export function addEmployee(data: Omit<Employee, "id">): Employee {
   const e = { id: nextId("E", employees), ...data };
-  employees.push(e);
-  saveEmployees();
-  notify("employees");
-  return e;
+  employees.push(e); saveEmployees();
+  notify("employees"); return e;
 }
 
 export function updateEmployee(id: string, data: Partial<Employee>) {
   const idx = employees.findIndex((e) => e.id === id);
   if (idx >= 0) {
-    const name = employees[idx].name;
-    employees[idx] = { ...employees[idx], ...data };
-    saveEmployees();
+    employees[idx] = { ...employees[idx], ...data }; saveEmployees();
     notify("employees");
   }
 }
@@ -781,9 +585,7 @@ export function updateEmployee(id: string, data: Partial<Employee>) {
 export function deleteEmployee(id: string) {
   const idx = employees.findIndex((e) => e.id === id);
   if (idx >= 0) {
-    const name = employees[idx].name;
-    employees.splice(idx, 1);
-    saveEmployees();
+    employees.splice(idx, 1); saveEmployees();
     notify("employees");
   }
 }
@@ -795,18 +597,14 @@ export function getBranches(): Branch[] { return branchesSnap; }
 
 export function addBranch(data: Omit<Branch, "id">): Branch {
   const b = { id: nextId("B", branches), ...data };
-  branches.push(b);
-  saveBranches();
-  notify("branches");
-  return b;
+  branches.push(b); saveBranches();
+  notify("branches"); return b;
 }
 
 export function updateBranch(id: string, data: Partial<Branch>) {
   const idx = branches.findIndex((b) => b.id === id);
   if (idx >= 0) {
-    const name = branches[idx].name;
-    branches[idx] = { ...branches[idx], ...data };
-    saveBranches();
+    branches[idx] = { ...branches[idx], ...data }; saveBranches();
     notify("branches");
   }
 }
@@ -814,9 +612,7 @@ export function updateBranch(id: string, data: Partial<Branch>) {
 export function deleteBranch(id: string) {
   const idx = branches.findIndex((b) => b.id === id);
   if (idx >= 0) {
-    const name = branches[idx].name;
-    branches.splice(idx, 1);
-    saveBranches();
+    branches.splice(idx, 1); saveBranches();
     notify("branches");
   }
 }
@@ -837,8 +633,7 @@ export function addReceipt(data: Omit<Receipt, "id">): Receipt {
     }
   }
   saveReceipts();
-  notify("receipts", "invoices");
-  return r;
+  notify("receipts", "invoices"); return r;
 }
 
 export function updateReceipt(id: string, data: Partial<Receipt>) {
@@ -853,8 +648,7 @@ export function updateReceipt(id: string, data: Partial<Receipt>) {
         saveInvoices();
       }
     }
-    receipts[idx] = updated;
-    saveReceipts();
+    receipts[idx] = updated; saveReceipts();
     notify("receipts", "invoices");
   }
 }
@@ -868,8 +662,7 @@ export function deleteReceipt(id: string) {
       invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - old.amount) };
       saveInvoices();
     }
-    receipts.splice(idx, 1);
-    saveReceipts();
+    receipts.splice(idx, 1); saveReceipts();
     notify("receipts", "invoices");
   }
 }
@@ -898,18 +691,14 @@ export function getExpenses(): Expense[] { return expensesSnap; }
 
 export function addExpense(data: Omit<Expense, "id">): Expense {
   const e: Expense = { id: nextId("EXP", expensesList), ...data };
-  expensesList.push(e);
-  saveExpenses();
-  notify("expenses");
-  return e;
+  expensesList.push(e); saveExpenses();
+  notify("expenses"); return e;
 }
 
 export function updateExpense(id: string, data: Partial<Expense>) {
   const idx = expensesList.findIndex(e => e.id === id);
   if (idx >= 0) {
-    const desc = expensesList[idx].description;
-    expensesList[idx] = { ...expensesList[idx], ...data };
-    saveExpenses();
+    expensesList[idx] = { ...expensesList[idx], ...data }; saveExpenses();
     notify("expenses");
   }
 }
@@ -917,237 +706,7 @@ export function updateExpense(id: string, data: Partial<Expense>) {
 export function deleteExpense(id: string) {
   const idx = expensesList.findIndex(e => e.id === id);
   if (idx >= 0) {
-    const desc = expensesList[idx].description;
-    expensesList.splice(idx, 1);
-    saveExpenses();
+    expensesList.splice(idx, 1); saveExpenses();
     notify("expenses");
-  }
-}
-
-// ==============================
-// BACKUP (Web mode - export/import JSON)
-// ==============================
-
-export interface BackupMeta {
-  id: string;
-  timestamp: string;
-  size: number;
-  type: "auto" | "manual";
-  label?: string;
-}
-
-const MAX_AUTO_BACKUPS = 7; // Keep last 7 daily auto-backups
-const AUTO_BACKUP_KEY = "auto_backup_list";
-const AUTO_BACKUP_INTERVAL_KEY = "auto_backup_interval";
-const LAST_AUTO_BACKUP_KEY = "last_auto_backup";
-
-function getBackupData() {
-  return {
-    version: 7,
-    timestamp: new Date().toISOString(),
-    customers: [...customers],
-    products: [...products],
-    invoices: [...invoices],
-    employees: [...employees],
-    branches: [...branches],
-    receipts: [...receipts],
-    offers: [...offers],
-    stockMovements: [...stockMovements],
-    productReturns: [...productReturns],
-    shifts: [...shifts],
-    attendance: [...attendance],
-    expenses: [...expensesList],
-    settings: { ...companySettings },
-    users: [...users],
-    auditLog: [...auditLog],
-  };
-}
-
-export function exportBackup(): string {
-  return JSON.stringify(getBackupData(), null, 2);
-}
-
-// ---- Auto-backup system ----
-export function getAutoBackupList(): BackupMeta[] {
-  try {
-    const saved = localStorage.getItem(AUTO_BACKUP_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return [];
-}
-
-function saveAutoBackupList(list: BackupMeta[]) {
-  localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(list));
-}
-
-export function createAutoBackup(): BackupMeta | null {
-  try {
-    const json = JSON.stringify(getBackupData());
-    const id = `auto_${Date.now()}`;
-    const meta: BackupMeta = {
-      id,
-      timestamp: new Date().toISOString(),
-      size: new Blob([json]).size,
-      type: "auto",
-    };
-    localStorage.setItem(`backup_${id}`, json);
-    const list = getAutoBackupList();
-    list.unshift(meta);
-    // Remove old backups beyond limit
-    while (list.length > MAX_AUTO_BACKUPS) {
-      const old = list.pop();
-      if (old) localStorage.removeItem(`backup_${old.id}`);
-    }
-    saveAutoBackupList(list);
-    localStorage.setItem(LAST_AUTO_BACKUP_KEY, new Date().toISOString());
-    return meta;
-  } catch (e) {
-    console.warn("Auto-backup failed:", e);
-    return null;
-  }
-}
-
-export function createManualBackup(label?: string): BackupMeta | null {
-  try {
-    const json = JSON.stringify(getBackupData());
-    const id = `manual_${Date.now()}`;
-    const meta: BackupMeta = {
-      id,
-      timestamp: new Date().toISOString(),
-      size: new Blob([json]).size,
-      type: "manual",
-      label,
-    };
-    localStorage.setItem(`backup_${id}`, json);
-    const list = getAutoBackupList();
-    list.unshift(meta);
-    saveAutoBackupList(list);
-    return meta;
-  } catch (e) {
-    console.warn("Manual backup failed:", e);
-    return null;
-  }
-}
-
-export function restoreFromBackupId(id: string): boolean {
-  try {
-    const json = localStorage.getItem(`backup_${id}`);
-    if (!json) return false;
-    return importBackup(json);
-  } catch {
-    return false;
-  }
-}
-
-export function deleteBackup(id: string) {
-  localStorage.removeItem(`backup_${id}`);
-  const list = getAutoBackupList().filter(b => b.id !== id);
-  saveAutoBackupList(list);
-}
-
-export function getLastAutoBackupTime(): string | null {
-  return localStorage.getItem(LAST_AUTO_BACKUP_KEY);
-}
-
-export function getAutoBackupInterval(): number {
-  try {
-    const v = localStorage.getItem(AUTO_BACKUP_INTERVAL_KEY);
-    if (v) return parseInt(v, 10);
-  } catch {}
-  return 24; // default 24 hours
-}
-
-export function setAutoBackupInterval(hours: number) {
-  localStorage.setItem(AUTO_BACKUP_INTERVAL_KEY, String(hours));
-}
-
-export function checkAndRunAutoBackup(): boolean {
-  const interval = getAutoBackupInterval();
-  const last = getLastAutoBackupTime();
-  if (!last) {
-    createAutoBackup();
-    return true;
-  }
-  const elapsed = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60);
-  if (elapsed >= interval) {
-    createAutoBackup();
-    return true;
-  }
-  return false;
-}
-
-// ---- Cloud integration readiness ----
-export interface CloudConfig {
-  enabled: boolean;
-  provider: "lovable-cloud" | "onedrive" | "none";
-  lastSync?: string;
-  autoSync: boolean;
-}
-
-export function getCloudConfig(): CloudConfig {
-  try {
-    const saved = localStorage.getItem("cloud_config");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return { enabled: false, provider: "none", autoSync: false };
-}
-
-export function updateCloudConfig(config: Partial<CloudConfig>) {
-  const current = getCloudConfig();
-  const updated = { ...current, ...config };
-  localStorage.setItem("cloud_config", JSON.stringify(updated));
-}
-
-export function exportBackupAsFile(): Blob {
-  const json = exportBackup();
-  return new Blob([json], { type: "application/json" });
-}
-
-export function importBackup(jsonStr: string): boolean {
-  try {
-    const data = JSON.parse(jsonStr);
-    if (!data.version) return false;
-
-    customers.length = 0; products.length = 0; invoices.length = 0;
-    employees.length = 0; branches.length = 0; receipts.length = 0;
-    auditLog.length = 0; offers.length = 0;
-    stockMovements.length = 0; productReturns.length = 0;
-    shifts.length = 0; attendance.length = 0; expensesList.length = 0;
-
-    (data.customers || []).forEach((c: Customer) => customers.push(c));
-    (data.products || []).forEach((p: Product) => products.push(p));
-    (data.invoices || []).forEach((i: Invoice) => invoices.push(i));
-    (data.employees || []).forEach((e: Employee) => employees.push(e));
-    (data.branches || []).forEach((b: Branch) => branches.push(b));
-    (data.receipts || []).forEach((r: Receipt) => receipts.push(r));
-    (data.auditLog || []).forEach((a: AuditLogEntry) => auditLog.push(a));
-    (data.offers || []).forEach((o: Offer) => offers.push(o));
-    (data.stockMovements || []).forEach((sm: StockMovement) => stockMovements.push(sm));
-    (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
-    (data.shifts || []).forEach((s: Shift) => shifts.push(s));
-    (data.attendance || []).forEach((a: AttendanceRecord) => attendance.push(a));
-    (data.expenses || []).forEach((e: Expense) => expensesList.push(e));
-
-    if (data.settings) {
-      companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
-      localStorage.setItem("companySettings", JSON.stringify(companySettings));
-    }
-    if (data.users) {
-      users.length = 0;
-      data.users.forEach((u: UserAccount) => users.push(u));
-      saveUsers();
-    }
-
-    // Save all core entities
-    saveCustomers(); saveProducts(); saveInvoices();
-    saveEmployees(); saveBranches(); saveReceipts();
-    saveAuditLog(); saveOffers(); saveStockMovements();
-    saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
-
-    addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
-    notify("all");
-    return true;
-  } catch {
-    return false;
   }
 }
