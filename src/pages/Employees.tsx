@@ -749,7 +749,7 @@ export default function Employees() {
                   title="سجل الحضور والانصراف"
                 />
                 <Dialog open={attOpen} onOpenChange={(v) => { setAttOpen(v); if (!v) { setAttForm({ employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0], checkIn: "", checkOut: "", status: "present", notes: "" }); setEditingAttId(null); } }}>
-                  <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />تسجيل حضور</Button></DialogTrigger>
+                  <DialogTrigger asChild><Button className="gap-2 shadow-md" onClick={handleNewAttendance}><Plus className="h-4 w-4" />تسجيل حضور</Button></DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader><DialogTitle>{editingAttId ? "تعديل سجل الحضور" : "تسجيل حضور وانصراف"}</DialogTitle></DialogHeader>
                     <div className="space-y-4 mt-4">
