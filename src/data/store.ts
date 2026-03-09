@@ -9,6 +9,7 @@ import type {
   Expense,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
+import { hashPassword, verifyPassword, checkRateLimit, recordLoginAttempt, sanitizeEmail } from "@/utils/security";
 
 // ---- Generic persistence helpers ----
 function loadFromStorage<T>(key: string, fallback: T[]): T[] {
