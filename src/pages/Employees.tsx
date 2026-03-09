@@ -206,13 +206,18 @@ export default function Employees() {
 
   // Bulk attendance
   const initBulk = () => {
+    if (!bulkShiftId) {
+      toast({ title: "تنبيه", description: "يرجى اختيار الشفت أولاً", variant: "destructive" });
+      return;
+    }
+    const shift = shifts.find(s => s.id === bulkShiftId);
     const records: typeof bulkRecords = {};
     const activeEmps = employees.filter(e => e.active);
     activeEmps.forEach(e => {
       const existing = attendance.find(a => a.employeeId === e.id && a.date === bulkDate);
       records[e.id] = existing
         ? { status: existing.status, checkIn: existing.checkIn, checkOut: existing.checkOut }
-        : { status: "present", checkIn: "", checkOut: "" };
+        : { status: "present", checkIn: shift?.startTime || "", checkOut: shift?.endTime || "" };
     });
     setBulkRecords(records);
     setBulkOpen(true);
