@@ -2,15 +2,18 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCompanySettings } from "@/data/store";
+import { ShareButton } from "@/components/ShareButton";
 
 interface ExportButtonsProps {
   data: Record<string, unknown>[];
   headers: { key: string; label: string }[];
   fileName: string;
   title: string;
+  /** Optional: element ref to capture as image for sharing */
+  captureRef?: React.RefObject<HTMLElement>;
 }
 
-export function ExportButtons({ data, headers, fileName, title }: ExportButtonsProps) {
+export function ExportButtons({ data, headers, fileName, title, captureRef }: ExportButtonsProps) {
   const { toast } = useToast();
 
   const exportToExcel = async () => {
@@ -92,6 +95,12 @@ export function ExportButtons({ data, headers, fileName, title }: ExportButtonsP
         <FileText className="h-4 w-4 ml-1" />
         PDF
       </Button>
+      <ShareButton
+        title={title}
+        data={data}
+        headers={headers}
+        captureRef={captureRef}
+      />
     </div>
   );
 }
