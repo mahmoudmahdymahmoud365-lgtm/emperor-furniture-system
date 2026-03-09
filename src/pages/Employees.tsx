@@ -79,7 +79,8 @@ export default function Employees() {
   });
 
   // Auto-fill times when shift changes
-  const handleShiftChange = (shiftId: string) => {
+  const handleShiftChange = (selectedShiftId: string) => {
+    const shiftId = selectedShiftId === "none" ? "" : selectedShiftId;
     const shift = shifts.find(s => s.id === shiftId);
     if (shift) {
       setAttForm({ ...attForm, shiftId, checkIn: shift.startTime, checkOut: shift.endTime });
