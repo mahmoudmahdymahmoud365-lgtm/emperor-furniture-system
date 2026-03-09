@@ -766,7 +766,7 @@ export default function Employees() {
                       </div>
                       <div className="form-group">
                         <Label>الشفت</Label>
-                        <Select value={attForm.shiftId} onValueChange={(v) => setAttForm({ ...attForm, shiftId: v === "none" ? "" : v })}>
+                        <Select value={attForm.shiftId} onValueChange={handleShiftChange}>
                           <SelectTrigger><SelectValue placeholder="بدون شفت" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">بدون شفت</SelectItem>
@@ -775,6 +775,9 @@ export default function Employees() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          سيتم ملء أوقات الحضور والانصراف تلقائياً حسب وقت الشفت ويمكن تعديلها
+                        </p>
                       </div>
                       <div className="form-group"><Label>التاريخ *</Label><Input type="date" value={attForm.date} onChange={(e) => setAttForm({ ...attForm, date: e.target.value })} dir="ltr" /></div>
                       <div className="grid grid-cols-2 gap-4">
