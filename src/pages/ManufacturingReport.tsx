@@ -394,6 +394,7 @@ export default function ManufacturingReport() {
 
         {/* Invoice Preview */}
         {selectedInvoice && (
+          <>
           <Card ref={reportRef}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
