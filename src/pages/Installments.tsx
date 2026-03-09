@@ -333,6 +333,7 @@ export default function Installments() {
                       </td>
                       <td className="p-3.5">
                         <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" onClick={() => { setDueDateInvoice(r.invoiceId); setDueDate(inv?.nextDueDate || ""); }} title="تحديد موعد القسط" className="h-8 w-8"><CalendarDays className="h-4 w-4 text-info" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة" className="h-8 w-8"><Printer className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
