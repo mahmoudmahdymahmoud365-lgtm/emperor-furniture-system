@@ -44,16 +44,31 @@ export default function UserManagement() {
     setPermDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.email || !form.password) {
-      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول", variant: "destructive" });
+  const handleSave = async () => {
+    if (!form.name || !form.email) {
+      toast({ title: "خطأ", description: "يرجى ملء الاسم والبريد الإلكتروني", variant: "destructive" });
       return;
     }
+    // Password required for new users
+    if (!editing && !form.password) {
+      toast({ title: "خطأ", description: "يرجى إدخال كلمة المرور", variant: "destructive" });
+      return;
+    }
+    // Check password strength for new passwords
+    if (form.password) {
+      const strength = checkPasswordStrength(form.password);
+      if (strength.score < 2) {
+        toast({ title: "كلمة المرور ضعيفة", description: strength.errors[0] || "يرجى اختيار كلمة مرور أقوى", variant: "destructive" });
+        return;
+      }
+    }
     if (editing) {
-      updateUser(editing.id, form);
+      const updateData: Partial<typeof form> = { name: form.name, email: form.email, role: form.role, active: form.active };
+      if (form.password) updateData.password = form.password;
+      await updateUser(editing.id, updateData);
       toast({ title: "تم التحديث", description: `تم تحديث المستخدم ${form.name}` });
     } else {
-      addUser(form);
+      await addUser(form);
       toast({ title: "تم الإضافة", description: `تم إضافة المستخدم ${form.name}` });
     }
     setDialogOpen(false);
