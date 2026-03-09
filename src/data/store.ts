@@ -140,6 +140,15 @@ export function deleteUser(id: string) {
 // ---- Auth ----
 const AUTH_KEY = "isLoggedIn";
 const CURRENT_USER_KEY = "currentUserId";
+const SESSION_TOKEN_KEY = "sessionToken";
+const SESSION_EXPIRY_KEY = "sessionExpiry";
+const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
+
+function generateSessionToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, "0")).join("");
+}
 
 // ==============================
 // SECURITY LOG
