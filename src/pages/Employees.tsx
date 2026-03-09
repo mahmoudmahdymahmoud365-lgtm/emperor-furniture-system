@@ -77,6 +77,17 @@ export default function Employees() {
     employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0],
     checkIn: "", checkOut: "", status: "present" as AttendanceStatus, notes: "",
   });
+
+  // Auto-fill times when shift changes
+  const handleShiftChange = (selectedShiftId: string) => {
+    const shiftId = selectedShiftId === "none" ? "" : selectedShiftId;
+    const shift = shifts.find(s => s.id === shiftId);
+    if (shift) {
+      setAttForm({ ...attForm, shiftId, checkIn: shift.startTime, checkOut: shift.endTime });
+    } else {
+      setAttForm({ ...attForm, shiftId, checkIn: "", checkOut: "" });
+    }
+  };
   const [attSearch, setAttSearch] = useState("");
   const [attDateFilter, setAttDateFilter] = useState<"today" | "week" | "month" | "all">("today");
   const [attBranchFilter, setAttBranchFilter] = useState("all");
@@ -184,15 +195,26 @@ export default function Employees() {
     setAttOpen(true);
   };
 
+  // Handle opening new attendance form
+  const handleNewAttendance = () => {
+    setAttForm({
+      employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0],
+      checkIn: "", checkOut: "", status: "present", notes: "",
+    });
+    setEditingAttId(null);
+    setAttOpen(true);
+  };
+
   // Bulk attendance
   const initBulk = () => {
+    const shift = shifts.find(s => s.id === bulkShiftId);
     const records: typeof bulkRecords = {};
     const activeEmps = employees.filter(e => e.active);
     activeEmps.forEach(e => {
       const existing = attendance.find(a => a.employeeId === e.id && a.date === bulkDate);
       records[e.id] = existing
         ? { status: existing.status, checkIn: existing.checkIn, checkOut: existing.checkOut }
-        : { status: "present", checkIn: "", checkOut: "" };
+        : { status: "present", checkIn: shift?.startTime || "", checkOut: shift?.endTime || "" };
     });
     setBulkRecords(records);
     setBulkOpen(true);
@@ -724,7 +746,7 @@ export default function Employees() {
                   title="سجل الحضور والانصراف"
                 />
                 <Dialog open={attOpen} onOpenChange={(v) => { setAttOpen(v); if (!v) { setAttForm({ employeeId: "", shiftId: "", date: new Date().toISOString().split("T")[0], checkIn: "", checkOut: "", status: "present", notes: "" }); setEditingAttId(null); } }}>
-                  <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />تسجيل حضور</Button></DialogTrigger>
+                  <DialogTrigger asChild><Button className="gap-2 shadow-md" onClick={handleNewAttendance}><Plus className="h-4 w-4" />تسجيل حضور</Button></DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader><DialogTitle>{editingAttId ? "تعديل سجل الحضور" : "تسجيل حضور وانصراف"}</DialogTitle></DialogHeader>
                     <div className="space-y-4 mt-4">
@@ -741,7 +763,7 @@ export default function Employees() {
                       </div>
                       <div className="form-group">
                         <Label>الشفت</Label>
-                        <Select value={attForm.shiftId} onValueChange={(v) => setAttForm({ ...attForm, shiftId: v === "none" ? "" : v })}>
+                        <Select value={attForm.shiftId} onValueChange={handleShiftChange}>
                           <SelectTrigger><SelectValue placeholder="بدون شفت" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">بدون شفت</SelectItem>
@@ -750,6 +772,9 @@ export default function Employees() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          سيتم ملء أوقات الحضور والانصراف تلقائياً حسب وقت الشفت ويمكن تعديلها
+                        </p>
                       </div>
                       <div className="form-group"><Label>التاريخ *</Label><Input type="date" value={attForm.date} onChange={(e) => setAttForm({ ...attForm, date: e.target.value })} dir="ltr" /></div>
                       <div className="grid grid-cols-2 gap-4">
@@ -884,7 +909,20 @@ export default function Employees() {
                 </div>
                 <div className="form-group">
                   <Label>الشفت</Label>
-                  <Select value={bulkShiftId} onValueChange={setBulkShiftId}>
+                  <Select value={bulkShiftId} onValueChange={(v) => {
+                    const shiftId = v === "none" ? "" : v;
+                    setBulkShiftId(shiftId);
+                    const shift = shifts.find(s => s.id === shiftId);
+                    setBulkRecords(prev => {
+                      const updated: typeof prev = {};
+                      Object.entries(prev).forEach(([empId, rec]) => {
+                        updated[empId] = shift
+                          ? { ...rec, checkIn: shift.startTime, checkOut: shift.endTime }
+                          : { ...rec, checkIn: "", checkOut: "" };
+                      });
+                      return updated;
+                    });
+                  }}>
                     <SelectTrigger><SelectValue placeholder="اختر الشفت" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">بدون شفت</SelectItem>
