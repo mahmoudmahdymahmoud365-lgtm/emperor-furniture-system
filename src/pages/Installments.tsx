@@ -17,7 +17,7 @@ const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }
 
 export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
-  const { invoices } = useInvoices();
+  const { invoices, setInstallmentSchedule, getOverdueInstallments, getUpcomingInstallments } = useInvoices();
   const { settings } = useCompanySettings();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
