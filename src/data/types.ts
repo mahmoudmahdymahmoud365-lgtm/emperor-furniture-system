@@ -45,7 +45,46 @@ export interface Invoice {
   appliedOfferName?: string;
   appliedDiscount?: number;
   notes?: string;
+  // Manufacturing tracking
+  manufacturingStatus?: ManufacturingStatus;
+  manufacturingNotes?: string;
+  manufacturingUpdatedAt?: string;
+  // Recurring invoice
+  isRecurring?: boolean;
+  recurringInterval?: RecurringInterval;
+  recurringNextDate?: string;
+  recurringTemplateId?: string;
+  // Installment schedule
+  nextDueDate?: string;
+  installmentCount?: number;
 }
+
+export type ManufacturingStatus = "pending" | "in_production" | "quality_check" | "ready" | "delivered";
+
+export const MANUFACTURING_STATUS_LABELS: Record<ManufacturingStatus, string> = {
+  pending: "في الانتظار",
+  in_production: "قيد التصنيع",
+  quality_check: "فحص الجودة",
+  ready: "جاهز للتسليم",
+  delivered: "تم التسليم",
+};
+
+export const MANUFACTURING_STATUS_COLORS: Record<ManufacturingStatus, string> = {
+  pending: "bg-muted text-muted-foreground",
+  in_production: "bg-info/10 text-info",
+  quality_check: "bg-warning/10 text-warning",
+  ready: "bg-success/10 text-success",
+  delivered: "bg-primary/10 text-primary",
+};
+
+export type RecurringInterval = "weekly" | "monthly" | "quarterly" | "yearly";
+
+export const RECURRING_INTERVAL_LABELS: Record<RecurringInterval, string> = {
+  weekly: "أسبوعي",
+  monthly: "شهري",
+  quarterly: "ربع سنوي",
+  yearly: "سنوي",
+};
 
 export interface CompanySettings {
   name: string;

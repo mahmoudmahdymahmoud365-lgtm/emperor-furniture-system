@@ -37,6 +37,12 @@ export function useInvoices() {
     addInvoice: useCallback(store.addInvoice, []),
     updateInvoice: useCallback(store.updateInvoice, []),
     deleteInvoice: useCallback(store.deleteInvoice, []),
+    updateManufacturingStatus: useCallback(store.updateManufacturingStatus, []),
+    createRecurringTemplate: useCallback(store.createRecurringTemplate, []),
+    processRecurringInvoices: useCallback(store.processRecurringInvoices, []),
+    setInstallmentSchedule: useCallback(store.setInstallmentSchedule, []),
+    getOverdueInstallments: store.getOverdueInstallments,
+    getUpcomingInstallments: store.getUpcomingInstallments,
   };
 }
 

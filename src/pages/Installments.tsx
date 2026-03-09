@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle, CreditCard } from "lucide-react";
+import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTriangle, CheckCircle, CreditCard, CalendarDays } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ const getInvoiceTotal = (inv: { items: InvoiceItem[]; appliedDiscount?: number }
 
 export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
-  const { invoices } = useInvoices();
+  const { invoices, setInstallmentSchedule, getOverdueInstallments, getUpcomingInstallments } = useInvoices();
   const { settings } = useCompanySettings();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -26,6 +26,8 @@ export default function Installments() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterMethod, setFilterMethod] = useState("");
+  const [dueDateInvoice, setDueDateInvoice] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState("");
   const { toast } = useToast();
 
   const filteredReceipts = useMemo(() => {
@@ -223,6 +225,74 @@ export default function Installments() {
           </div>
         )}
 
+        {/* Installment Schedule Alerts */}
+        {(() => {
+          const overdue = getOverdueInstallments();
+          const upcoming = getUpcomingInstallments(7);
+          if (overdue.length === 0 && upcoming.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              {overdue.length > 0 && (
+                <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="h-4 w-4 text-destructive" />
+                    <h3 className="font-bold text-sm text-destructive">أقساط متأخرة ({overdue.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {overdue.slice(0, 5).map(({ invoice, daysOverdue, remaining }) => (
+                      <div key={invoice.id} className="flex justify-between text-sm">
+                        <span>{invoice.id} — {invoice.customer}</span>
+                        <span className="font-medium text-destructive">
+                          {daysOverdue === 0 ? "مستحق اليوم" : `متأخر ${daysOverdue} يوم`} — {remaining.toLocaleString()} ج.م
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {upcoming.length > 0 && (
+                <div className="p-4 bg-info/5 border border-info/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarDays className="h-4 w-4 text-info" />
+                    <h3 className="font-bold text-sm">أقساط قادمة ({upcoming.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {upcoming.map(({ invoice, daysUntilDue, remaining }) => (
+                      <div key={invoice.id} className="flex justify-between text-sm">
+                        <span>{invoice.id} — {invoice.customer}</span>
+                        <span className="font-medium text-info">
+                          خلال {daysUntilDue} {daysUntilDue === 1 ? "يوم" : "أيام"} — {remaining.toLocaleString()} ج.م
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Set Due Date Dialog */}
+        <Dialog open={!!dueDateInvoice} onOpenChange={(v) => { if (!v) { setDueDateInvoice(null); setDueDate(""); } }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>تحديد موعد القسط القادم</DialogTitle></DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-1.5">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} dir="ltr" />
+              </div>
+              <Button className="w-full" onClick={() => {
+                if (dueDateInvoice && dueDate) {
+                  setInstallmentSchedule(dueDateInvoice, dueDate);
+                  toast({ title: "✅ تم التحديد", description: `موعد القسط القادم: ${dueDate}` });
+                  setDueDateInvoice(null);
+                  setDueDate("");
+                }
+              }}>حفظ</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Table */}
         <div className="table-container">
           <div className="overflow-x-auto">
@@ -263,6 +333,7 @@ export default function Installments() {
                       </td>
                       <td className="p-3.5">
                         <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" onClick={() => { setDueDateInvoice(r.invoiceId); setDueDate(inv?.nextDueDate || ""); }} title="تحديد موعد القسط" className="h-8 w-8"><CalendarDays className="h-4 w-4 text-info" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handlePrint(r)} title="طباعة" className="h-8 w-8"><Printer className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} title="تعديل" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)} title="حذف" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>

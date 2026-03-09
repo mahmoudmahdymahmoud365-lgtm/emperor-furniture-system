@@ -13,9 +13,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   Printer, Image, Plus, Trash2, Factory, Share2, MessageCircle,
-  Send, Copy, FileImage, Link2, StickyNote, CalendarDays, User, Package
+  Send, Copy, FileImage, Link2, StickyNote, CalendarDays, User, Package,
 } from "lucide-react";
 import { useInvoices, useCustomers, useCompanySettings } from "@/data/hooks";
+import { MANUFACTURING_STATUS_LABELS, MANUFACTURING_STATUS_COLORS, type ManufacturingStatus } from "@/data/types";
 import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
 import { saveImage, getAllImagesMeta, getImageURL, deleteImage } from "@/data/imageStore";
@@ -23,7 +24,7 @@ import html2canvas from "html2canvas";
 import { escapeHtml } from "@/utils/security";
 
 export default function ManufacturingReport() {
-  const { invoices } = useInvoices();
+  const { invoices, updateManufacturingStatus } = useInvoices();
   const { customers } = useCustomers();
   const { settings } = useCompanySettings();
   const { toast } = useToast();
@@ -393,6 +394,7 @@ export default function ManufacturingReport() {
 
         {/* Invoice Preview */}
         {selectedInvoice && (
+          <>
           <Card ref={reportRef}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -467,6 +469,70 @@ export default function ManufacturingReport() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Manufacturing Status Tracking */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Factory className="h-4 w-4 text-primary" />
+                تتبع حالة التصنيع
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(Object.entries(MANUFACTURING_STATUS_LABELS) as [ManufacturingStatus, string][]).map(([key, label]) => {
+                  const isActive = selectedInvoice.manufacturingStatus === key;
+                  const colorClass = MANUFACTURING_STATUS_COLORS[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        updateManufacturingStatus(selectedInvoice.id, key);
+                        toast({ title: "✅ تم التحديث", description: `حالة التصنيع: ${label}` });
+                        // Refresh selected invoice
+                        const updated = invoices.find(i => i.id === selectedInvoice.id);
+                        if (updated) setSelectedInvoice({ ...updated, manufacturingStatus: key });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
+                        isActive
+                          ? `${colorClass} border-current font-bold shadow-sm`
+                          : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {key === "pending" && "⏳ "}
+                      {key === "in_production" && "🏭 "}
+                      {key === "quality_check" && "🔍 "}
+                      {key === "ready" && "✅ "}
+                      {key === "delivered" && "🚚 "}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Progress bar */}
+              <div className="flex items-center gap-1">
+                {(["pending", "in_production", "quality_check", "ready", "delivered"] as ManufacturingStatus[]).map((step, i) => {
+                  const steps: ManufacturingStatus[] = ["pending", "in_production", "quality_check", "ready", "delivered"];
+                  const currentIdx = steps.indexOf(selectedInvoice.manufacturingStatus || "pending");
+                  const isCompleted = i <= currentIdx;
+                  return (
+                    <div key={step} className="flex-1 flex items-center">
+                      <div className={`h-2 w-full rounded-full transition-colors ${isCompleted ? "bg-primary" : "bg-muted"}`} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
+                <span>الانتظار</span><span>التصنيع</span><span>الفحص</span><span>جاهز</span><span>تم التسليم</span>
+              </div>
+              {selectedInvoice.manufacturingUpdatedAt && (
+                <p className="text-[11px] text-muted-foreground mt-3">
+                  آخر تحديث: {new Date(selectedInvoice.manufacturingUpdatedAt).toLocaleString("ar-EG")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
         )}
 
         {/* Image Manager */}
