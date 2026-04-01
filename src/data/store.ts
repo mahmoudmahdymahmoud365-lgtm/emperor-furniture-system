@@ -172,6 +172,7 @@ const productReturns: ProductReturn[] = loadFromStorage("productReturns", []);
 const shifts: Shift[] = loadFromStorage("shifts", SEED_SHIFTS);
 const attendance: AttendanceRecord[] = loadFromStorage("attendance", []);
 const expensesList: Expense[] = loadFromStorage("expenses", []);
+const manufacturingOrders: ManufacturingOrder[] = loadFromStorage("manufacturingOrders", []);
 
 // ---- Save functions ----
 function saveCustomers() { saveToStorage("emp_customers", customers); }
@@ -186,6 +187,7 @@ function saveReturns() { saveToStorage("productReturns", productReturns); }
 function saveShifts() { saveToStorage("shifts", shifts); }
 function saveAttendance() { saveToStorage("attendance", attendance); }
 function saveExpenses() { saveToStorage("expenses", expensesList); }
+function saveMfgOrders() { saveToStorage("manufacturingOrders", manufacturingOrders); }
 
 // ---- Snapshots ----
 let customersSnap: Customer[] = [...customers];
