@@ -59,6 +59,18 @@ export interface Invoice {
   installmentCount?: number;
 }
 
+export interface ManufacturingOrder {
+  id: string;
+  invoiceId: string;
+  customer: string;
+  items: { productName: string; qty: number }[];
+  notes: string;
+  selectedImageIds: string[];
+  status: ManufacturingStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ManufacturingStatus = "pending" | "in_production" | "quality_check" | "ready" | "delivered";
 
 export const MANUFACTURING_STATUS_LABELS: Record<ManufacturingStatus, string> = {
