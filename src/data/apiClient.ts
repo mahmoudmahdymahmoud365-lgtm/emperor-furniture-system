@@ -147,11 +147,11 @@ export const api = {
     if (meta.name) formData.append("name", meta.name);
     if (meta.relatedTo) formData.append("relatedTo", meta.relatedTo);
     if (meta.relatedId) formData.append("relatedId", meta.relatedId);
-    const res = await fetch(`${API_BASE}/files`, { method: "POST", body: formData });
+    const res = await fetch(`${getApiBase()}/files`, { method: "POST", body: formData });
     if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(err.error || res.statusText); }
     return res.json();
   },
-  getFileURL: (id: string) => `${API_BASE}/files/${id}/view`,
-  downloadFile: (id: string) => `${API_BASE}/files/${id}/download`,
+  getFileURL: (id: string) => `${getApiBase()}/files/${id}/view`,
+  downloadFile: (id: string) => `${getApiBase()}/files/${id}/download`,
   deleteFile: (id: string) => request<any>(`/files/${id}`, { method: "DELETE" }),
 };
