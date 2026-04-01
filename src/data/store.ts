@@ -602,8 +602,43 @@ export function updateManufacturingStatus(invoiceId: string, status: Manufacturi
 }
 
 // ==============================
-// RECURRING INVOICES
+// MANUFACTURING ORDERS
 // ==============================
+export function getManufacturingOrders(): ManufacturingOrder[] { return mfgOrdersSnap; }
+
+export function addManufacturingOrder(data: Omit<ManufacturingOrder, "id" | "createdAt" | "updatedAt">): ManufacturingOrder {
+  const now = new Date().toISOString();
+  const order: ManufacturingOrder = {
+    id: nextId("MFG", manufacturingOrders),
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  };
+  manufacturingOrders.push(order);
+  saveMfgOrders();
+  addAuditLog("create", "invoice", order.id, order.invoiceId, `إنشاء طلب تصنيع للفاتورة ${data.invoiceId}`);
+  notify("mfgOrders");
+  return order;
+}
+
+export function updateManufacturingOrder(id: string, data: Partial<ManufacturingOrder>) {
+  const idx = manufacturingOrders.findIndex(o => o.id === id);
+  if (idx >= 0) {
+    manufacturingOrders[idx] = { ...manufacturingOrders[idx], ...data, updatedAt: new Date().toISOString() };
+    saveMfgOrders();
+    notify("mfgOrders");
+  }
+}
+
+export function deleteManufacturingOrder(id: string) {
+  const idx = manufacturingOrders.findIndex(o => o.id === id);
+  if (idx >= 0) {
+    manufacturingOrders.splice(idx, 1);
+    saveMfgOrders();
+    notify("mfgOrders");
+  }
+}
+
 export function createRecurringTemplate(data: Omit<Invoice, "id">, interval: RecurringInterval): Invoice {
   const nextDate = calculateNextDate(new Date().toISOString().split("T")[0], interval);
   const inv = addInvoice({
