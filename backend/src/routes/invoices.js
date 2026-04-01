@@ -64,6 +64,8 @@ router.delete("/:id", async (req, res, next) => {
         await pool.query("UPDATE products SET stock = stock + $1 WHERE name = $2", [item.qty, item.productName]);
       }
     }
+    // Cascade delete related receipts (installments)
+    await pool.query("DELETE FROM receipts WHERE invoice_id=$1", [req.params.id]);
     await pool.query("DELETE FROM invoices WHERE id=$1", [req.params.id]);
     res.json({ ok: true });
   } catch (e) { next(e); }
