@@ -222,6 +222,33 @@ export default function ManufacturingReport() {
     toast({ title: "✅ تم التحميل", description: "يمكنك مشاركة الصورة يدوياً" });
   };
 
+  const handleSaveOrder = () => {
+    if (!selectedInvoice) {
+      toast({ title: "اختر فاتورة أولاً", variant: "destructive" });
+      return;
+    }
+    addOrder({
+      invoiceId: selectedInvoice.id,
+      customer: selectedInvoice.customer,
+      items: selectedInvoice.items.map(i => ({ productName: i.productName, qty: i.qty })),
+      notes,
+      selectedImageIds: selectedImages,
+      status: selectedInvoice.manufacturingStatus || "pending",
+    });
+    toast({ title: "✅ تم الحفظ", description: "تم حفظ طلب التصنيع في قاعدة البيانات" });
+  };
+
+  const loadSavedOrder = (order: typeof savedOrders[0]) => {
+    const inv = invoices.find(i => i.id === order.invoiceId);
+    if (inv) {
+      setSelectedInvoice(inv);
+      setNotes(order.notes);
+      setSelectedImages(order.selectedImageIds);
+    } else {
+      toast({ title: "الفاتورة غير موجودة", description: `الفاتورة ${order.invoiceId} ربما تم حذفها`, variant: "destructive" });
+    }
+  };
+
   // ─── Print ───────────────────────────
   const handlePrint = () => {
     if (!selectedInvoice) {
