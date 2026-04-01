@@ -145,3 +145,13 @@ export function useExpenses() {
     deleteExpense: useCallback(store.deleteExpense, []),
   };
 }
+
+export function useManufacturingOrders() {
+  const orders = useStoreData(store.getManufacturingOrders);
+  return {
+    orders,
+    addOrder: useCallback(store.addManufacturingOrder, []),
+    updateOrder: useCallback(store.updateManufacturingOrder, []),
+    deleteOrder: useCallback(store.deleteManufacturingOrder, []),
+  };
+}
