@@ -214,6 +214,7 @@ function rebuildSnapshots() {
     auditLogSnap = [...auditLog]; offersSnap = [...offers];
     stockMovementsSnap = [...stockMovements]; returnsSnap = [...productReturns];
     shiftsSnap = [...shifts]; attendanceSnap = [...attendance]; expensesSnap = [...expensesList];
+    mfgOrdersSnap = [...manufacturingOrders];
     rebuildUsersSnap(); rebuildSecurityLogSnap();
   } else {
     if (dirtyFlags.has("customers")) customersSnap = [...customers];
