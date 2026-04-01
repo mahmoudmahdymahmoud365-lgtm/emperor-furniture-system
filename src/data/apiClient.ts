@@ -2,18 +2,42 @@
 // API Client - Communicates with Express Backend
 // ==============================
 
-const API_BASE = (window as any).__API_URL__ || "http://localhost:3001/api";
+// ==============================
+// API Client — Enterprise-grade with retry and timeout
+// ==============================
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
+function getApiBase(): string {
+  return (window as any).__API_URL__ || "http://localhost:3001/api";
+}
+
+const MAX_RETRIES = 2;
+const REQUEST_TIMEOUT = 10000;
+
+async function request<T>(path: string, options?: RequestInit, retries = MAX_RETRIES): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const res = await fetch(`${getApiBase()}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      ...options,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    return res.json();
+  } catch (e: any) {
+    clearTimeout(timeout);
+    if (retries > 0 && (e.name === "AbortError" || e.message?.includes("fetch"))) {
+      await new Promise(r => setTimeout(r, 1000));
+      return request<T>(path, options, retries - 1);
+    }
+    throw e;
   }
-  return res.json();
 }
 
 export const api = {
