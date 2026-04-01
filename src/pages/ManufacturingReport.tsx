@@ -28,6 +28,7 @@ export default function ManufacturingReport() {
   const { invoices, updateManufacturingStatus } = useInvoices();
   const { customers } = useCustomers();
   const { settings } = useCompanySettings();
+  const { orders: savedOrders, addOrder, deleteOrder: deleteSavedOrder } = useManufacturingOrders();
   const { toast } = useToast();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [images, setImages] = useState<StoredImage[]>([]);
@@ -38,6 +39,7 @@ export default function ManufacturingReport() {
   const [uploadRelated, setUploadRelated] = useState("");
   const [notes, setNotes] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [showSavedOrders, setShowSavedOrders] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
