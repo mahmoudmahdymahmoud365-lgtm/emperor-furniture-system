@@ -906,3 +906,108 @@ export function deleteExpense(id: string) {
     notify("expenses");
   }
 }
+
+// ==============================
+// API SYNC LAYER — Enterprise Data Resilience
+// Tries API backend first, falls back to localStorage
+// ==============================
+let apiConnected = false;
+let apiUrl = (window as any).__API_URL__ || "";
+let syncInProgress = false;
+
+export function isApiConnected(): boolean { return apiConnected; }
+export function getApiUrl(): string { return apiUrl; }
+
+export function setApiUrl(url: string) {
+  apiUrl = url;
+  (window as any).__API_URL__ = url;
+}
+
+async function apiRequest<T>(path: string, options?: RequestInit): Promise<T | null> {
+  if (!apiUrl) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${apiUrl}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      ...options,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function checkApiHealth(): Promise<boolean> {
+  if (!apiUrl) { apiConnected = false; return false; }
+  const result = await apiRequest<{ status: string; database?: string }>("/health");
+  apiConnected = !!(result && result.status === "ok");
+  return apiConnected;
+}
+
+// Sync local data to API when connection is established
+export async function syncToApi(): Promise<{ synced: boolean; errors: string[] }> {
+  if (syncInProgress) return { synced: false, errors: ["Sync already in progress"] };
+  syncInProgress = true;
+  const errors: string[] = [];
+
+  try {
+    const healthy = await checkApiHealth();
+    if (!healthy) {
+      return { synced: false, errors: ["API not reachable"] };
+    }
+
+    const syncPairs: Array<{ storageKey: string; data: any[]; path: string }> = [
+      { storageKey: "emp_customers", data: customers, path: "/customers" },
+      { storageKey: "emp_products", data: products, path: "/products" },
+      { storageKey: "emp_invoices", data: invoices, path: "/invoices" },
+      { storageKey: "emp_employees", data: employees, path: "/employees" },
+      { storageKey: "emp_branches", data: branches, path: "/branches" },
+      { storageKey: "emp_receipts", data: receipts, path: "/receipts" },
+    ];
+
+    for (const pair of syncPairs) {
+      try {
+        const remote = await apiRequest<any[]>(pair.path);
+        if (remote && Array.isArray(remote)) {
+          pair.data.length = 0;
+          remote.forEach((item: any) => pair.data.push(item));
+          saveToStorage(pair.storageKey, pair.data as any[]);
+        }
+      } catch (e: any) {
+        errors.push(`Failed to sync ${pair.storageKey}: ${e.message}`);
+      }
+    }
+
+    notify("all");
+    return { synced: true, errors };
+  } finally {
+    syncInProgress = false;
+  }
+}
+
+// Auto-check API connection on load
+if (typeof window !== "undefined") {
+  // Listen for Electron backend status changes
+  const emperorAPI = (window as any).emperorAPI;
+  if (emperorAPI?.onBackendStatus) {
+    emperorAPI.onBackendStatus((status: { connected: boolean }) => {
+      apiConnected = status.connected;
+      if (status.connected) {
+        syncToApi().catch(() => {});
+      }
+    });
+  }
+
+  // Initial health check (delayed to avoid race condition)
+  setTimeout(() => {
+    checkApiHealth().then((connected) => {
+      if (connected) {
+        syncToApi().catch(() => {});
+      }
+    });
+  }, 2000);
+}
