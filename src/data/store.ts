@@ -960,35 +960,25 @@ export async function syncToApi(): Promise<{ synced: boolean; errors: string[] }
       return { synced: false, errors: ["API not reachable"] };
     }
 
-    // Sync each entity type
-    const entities = [
-      { key: "customers", data: customers, path: "/customers" },
-      { key: "products", data: products, path: "/products" },
-      { key: "invoices", data: invoices, path: "/invoices" },
-      { key: "employees", data: employees, path: "/employees" },
-      { key: "branches", data: branches, path: "/branches" },
-      { key: "receipts", data: receipts, path: "/receipts" },
+    const syncPairs: Array<{ storageKey: string; data: any[]; path: string }> = [
+      { storageKey: "emp_customers", data: customers, path: "/customers" },
+      { storageKey: "emp_products", data: products, path: "/products" },
+      { storageKey: "emp_invoices", data: invoices, path: "/invoices" },
+      { storageKey: "emp_employees", data: employees, path: "/employees" },
+      { storageKey: "emp_branches", data: branches, path: "/branches" },
+      { storageKey: "emp_receipts", data: receipts, path: "/receipts" },
     ];
 
-    for (const entity of entities) {
+    for (const pair of syncPairs) {
       try {
-        const remote = await apiRequest<any[]>(entity.path);
+        const remote = await apiRequest<any[]>(pair.path);
         if (remote && Array.isArray(remote)) {
-          // Merge: API is source of truth when connected
-          entity.data.length = 0;
-          remote.forEach((item: any) => entity.data.push(item));
-          saveToStorage(
-            entity.key === "customers" ? "emp_customers" :
-            entity.key === "products" ? "emp_products" :
-            entity.key === "invoices" ? "emp_invoices" :
-            entity.key === "employees" ? "emp_employees" :
-            entity.key === "branches" ? "emp_branches" :
-            "emp_receipts",
-            entity.data
-          );
+          pair.data.length = 0;
+          remote.forEach((item: any) => pair.data.push(item));
+          saveToStorage(pair.storageKey, pair.data as any[]);
         }
       } catch (e: any) {
-        errors.push(`Failed to sync ${entity.key}: ${e.message}`);
+        errors.push(`Failed to sync ${pair.storageKey}: ${e.message}`);
       }
     }
 
