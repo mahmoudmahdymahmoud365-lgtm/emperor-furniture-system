@@ -551,6 +551,7 @@ export function deleteInvoice(id: string) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
     const inv = invoices[idx];
+    // Restore stock
     for (const item of inv.items) {
       const pIdx = products.findIndex(p => p.name === item.productName);
       if (pIdx >= 0) {
@@ -558,8 +559,19 @@ export function deleteInvoice(id: string) {
         recordStockMovement(item.productName, "in", item.qty, `حذف فاتورة ${id} (استرجاع)`, id);
       }
     }
+    // Cascade delete related receipts (installments)
+    const relatedReceipts = receipts.filter(r => r.invoiceId === id);
+    for (let i = receipts.length - 1; i >= 0; i--) {
+      if (receipts[i].invoiceId === id) {
+        receipts.splice(i, 1);
+      }
+    }
+    if (relatedReceipts.length > 0) {
+      saveReceipts();
+      addAuditLog("delete", "receipt", id, id, `حذف ${relatedReceipts.length} قسط مرتبط بالفاتورة`);
+    }
     invoices.splice(idx, 1); saveInvoices(); saveProducts();
-    notify("invoices", "products", "stockMovements");
+    notify("invoices", "products", "stockMovements", "receipts");
   }
 }
 
