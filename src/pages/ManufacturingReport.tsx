@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Printer, Image, Plus, Trash2, Factory, Share2, MessageCircle,
   Send, Copy, FileImage, Link2, StickyNote, CalendarDays, User, Package,
+  Save, FolderOpen, Clock,
 } from "lucide-react";
-import { useInvoices, useCustomers, useCompanySettings } from "@/data/hooks";
+import { useInvoices, useCustomers, useCompanySettings, useManufacturingOrders } from "@/data/hooks";
 import { MANUFACTURING_STATUS_LABELS, MANUFACTURING_STATUS_COLORS, type ManufacturingStatus } from "@/data/types";
 import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
