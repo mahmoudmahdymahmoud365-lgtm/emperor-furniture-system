@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Printer, Image, Plus, Trash2, Factory, Share2, MessageCircle,
   Send, Copy, FileImage, Link2, StickyNote, CalendarDays, User, Package,
+  Save, FolderOpen, Clock,
 } from "lucide-react";
-import { useInvoices, useCustomers, useCompanySettings } from "@/data/hooks";
+import { useInvoices, useCustomers, useCompanySettings, useManufacturingOrders } from "@/data/hooks";
 import { MANUFACTURING_STATUS_LABELS, MANUFACTURING_STATUS_COLORS, type ManufacturingStatus } from "@/data/types";
 import { useToast } from "@/hooks/use-toast";
 import type { Invoice, StoredImage } from "@/data/types";
@@ -27,6 +28,7 @@ export default function ManufacturingReport() {
   const { invoices, updateManufacturingStatus } = useInvoices();
   const { customers } = useCustomers();
   const { settings } = useCompanySettings();
+  const { orders: savedOrders, addOrder, deleteOrder: deleteSavedOrder } = useManufacturingOrders();
   const { toast } = useToast();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [images, setImages] = useState<StoredImage[]>([]);
@@ -37,6 +39,7 @@ export default function ManufacturingReport() {
   const [uploadRelated, setUploadRelated] = useState("");
   const [notes, setNotes] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [showSavedOrders, setShowSavedOrders] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -219,6 +222,33 @@ export default function ManufacturingReport() {
     toast({ title: "✅ تم التحميل", description: "يمكنك مشاركة الصورة يدوياً" });
   };
 
+  const handleSaveOrder = () => {
+    if (!selectedInvoice) {
+      toast({ title: "اختر فاتورة أولاً", variant: "destructive" });
+      return;
+    }
+    addOrder({
+      invoiceId: selectedInvoice.id,
+      customer: selectedInvoice.customer,
+      items: selectedInvoice.items.map(i => ({ productName: i.productName, qty: i.qty })),
+      notes,
+      selectedImageIds: selectedImages,
+      status: selectedInvoice.manufacturingStatus || "pending",
+    });
+    toast({ title: "✅ تم الحفظ", description: "تم حفظ طلب التصنيع في قاعدة البيانات" });
+  };
+
+  const loadSavedOrder = (order: typeof savedOrders[0]) => {
+    const inv = invoices.find(i => i.id === order.invoiceId);
+    if (inv) {
+      setSelectedInvoice(inv);
+      setNotes(order.notes);
+      setSelectedImages(order.selectedImageIds);
+    } else {
+      toast({ title: "الفاتورة غير موجودة", description: `الفاتورة ${order.invoiceId} ربما تم حذفها`, variant: "destructive" });
+    }
+  };
+
   // ─── Print ───────────────────────────
   const handlePrint = () => {
     if (!selectedInvoice) {
@@ -361,11 +391,57 @@ export default function ManufacturingReport() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button size="sm" variant="outline" onClick={() => setShowSavedOrders(!showSavedOrders)} className="gap-1.5">
+              <FolderOpen className="h-4 w-4" />
+              الطلبات المحفوظة
+              {savedOrders.length > 0 && <Badge variant="secondary" className="text-[10px] h-5 mr-1">{savedOrders.length}</Badge>}
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleSaveOrder} disabled={!selectedInvoice} className="gap-1.5">
+              <Save className="h-4 w-4" />حفظ الطلب
+            </Button>
             <Button size="sm" onClick={handlePrint} disabled={!selectedInvoice} className="gap-1.5">
               <Printer className="h-4 w-4" />طباعة
             </Button>
           </div>
         </div>
+
+        {/* Saved Orders */}
+        {showSavedOrders && savedOrders.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                طلبات التصنيع المحفوظة ({savedOrders.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {savedOrders.map(order => (
+                  <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => loadSavedOrder(order)}>
+                      <div>
+                        <p className="text-sm font-medium">{order.id} — {order.customer}</p>
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {new Date(order.createdAt).toLocaleString("ar-EG")}
+                          <Badge variant="outline" className="text-[10px]">
+                            {MANUFACTURING_STATUS_LABELS[order.status]}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" className="text-destructive h-8 w-8 p-0" onClick={() => {
+                      deleteSavedOrder(order.id);
+                      toast({ title: "تم حذف الطلب المحفوظ" });
+                    }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Invoice Selector */}
         <Card>

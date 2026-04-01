@@ -7,7 +7,7 @@ import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount, RolePermissions,
   Offer, StockMovement, ProductReturn, Shift, AttendanceRecord, SecurityEvent,
-  Expense, ManufacturingStatus, RecurringInterval,
+  Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
 import { loadFromStorage, saveToStorage, nextId, subscribe as coreSub, notifyListeners } from "./store.core";
@@ -172,6 +172,7 @@ const productReturns: ProductReturn[] = loadFromStorage("productReturns", []);
 const shifts: Shift[] = loadFromStorage("shifts", SEED_SHIFTS);
 const attendance: AttendanceRecord[] = loadFromStorage("attendance", []);
 const expensesList: Expense[] = loadFromStorage("expenses", []);
+const manufacturingOrders: ManufacturingOrder[] = loadFromStorage("manufacturingOrders", []);
 
 // ---- Save functions ----
 function saveCustomers() { saveToStorage("emp_customers", customers); }
@@ -186,6 +187,7 @@ function saveReturns() { saveToStorage("productReturns", productReturns); }
 function saveShifts() { saveToStorage("shifts", shifts); }
 function saveAttendance() { saveToStorage("attendance", attendance); }
 function saveExpenses() { saveToStorage("expenses", expensesList); }
+function saveMfgOrders() { saveToStorage("manufacturingOrders", manufacturingOrders); }
 
 // ---- Snapshots ----
 let customersSnap: Customer[] = [...customers];
@@ -200,6 +202,7 @@ let returnsSnap: ProductReturn[] = [...productReturns];
 let shiftsSnap: Shift[] = [...shifts];
 let attendanceSnap: AttendanceRecord[] = [...attendance];
 let expensesSnap: Expense[] = [...expensesList];
+let mfgOrdersSnap: ManufacturingOrder[] = [...manufacturingOrders];
 
 let dirtyFlags = new Set<string>();
 function markDirty(entity: string) { dirtyFlags.add(entity); }
@@ -211,6 +214,7 @@ function rebuildSnapshots() {
     auditLogSnap = [...auditLog]; offersSnap = [...offers];
     stockMovementsSnap = [...stockMovements]; returnsSnap = [...productReturns];
     shiftsSnap = [...shifts]; attendanceSnap = [...attendance]; expensesSnap = [...expensesList];
+    mfgOrdersSnap = [...manufacturingOrders];
     rebuildUsersSnap(); rebuildSecurityLogSnap();
   } else {
     if (dirtyFlags.has("customers")) customersSnap = [...customers];
@@ -228,6 +232,7 @@ function rebuildSnapshots() {
     if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
     if (dirtyFlags.has("securityLog")) rebuildSecurityLogSnap();
     if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
+    if (dirtyFlags.has("mfgOrders")) mfgOrdersSnap = [...manufacturingOrders];
   }
   dirtyFlags = new Set();
 }
@@ -551,6 +556,7 @@ export function deleteInvoice(id: string) {
   const idx = invoices.findIndex((i) => i.id === id);
   if (idx >= 0) {
     const inv = invoices[idx];
+    // Restore stock
     for (const item of inv.items) {
       const pIdx = products.findIndex(p => p.name === item.productName);
       if (pIdx >= 0) {
@@ -558,8 +564,19 @@ export function deleteInvoice(id: string) {
         recordStockMovement(item.productName, "in", item.qty, `حذف فاتورة ${id} (استرجاع)`, id);
       }
     }
+    // Cascade delete related receipts (installments)
+    const relatedReceipts = receipts.filter(r => r.invoiceId === id);
+    for (let i = receipts.length - 1; i >= 0; i--) {
+      if (receipts[i].invoiceId === id) {
+        receipts.splice(i, 1);
+      }
+    }
+    if (relatedReceipts.length > 0) {
+      saveReceipts();
+      addAuditLog("delete", "receipt", id, id, `حذف ${relatedReceipts.length} قسط مرتبط بالفاتورة`);
+    }
     invoices.splice(idx, 1); saveInvoices(); saveProducts();
-    notify("invoices", "products", "stockMovements");
+    notify("invoices", "products", "stockMovements", "receipts");
   }
 }
 
@@ -585,8 +602,43 @@ export function updateManufacturingStatus(invoiceId: string, status: Manufacturi
 }
 
 // ==============================
-// RECURRING INVOICES
+// MANUFACTURING ORDERS
 // ==============================
+export function getManufacturingOrders(): ManufacturingOrder[] { return mfgOrdersSnap; }
+
+export function addManufacturingOrder(data: Omit<ManufacturingOrder, "id" | "createdAt" | "updatedAt">): ManufacturingOrder {
+  const now = new Date().toISOString();
+  const order: ManufacturingOrder = {
+    id: nextId("MFG", manufacturingOrders),
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  };
+  manufacturingOrders.push(order);
+  saveMfgOrders();
+  addAuditLog("create", "invoice", order.id, order.invoiceId, `إنشاء طلب تصنيع للفاتورة ${data.invoiceId}`);
+  notify("mfgOrders");
+  return order;
+}
+
+export function updateManufacturingOrder(id: string, data: Partial<ManufacturingOrder>) {
+  const idx = manufacturingOrders.findIndex(o => o.id === id);
+  if (idx >= 0) {
+    manufacturingOrders[idx] = { ...manufacturingOrders[idx], ...data, updatedAt: new Date().toISOString() };
+    saveMfgOrders();
+    notify("mfgOrders");
+  }
+}
+
+export function deleteManufacturingOrder(id: string) {
+  const idx = manufacturingOrders.findIndex(o => o.id === id);
+  if (idx >= 0) {
+    manufacturingOrders.splice(idx, 1);
+    saveMfgOrders();
+    notify("mfgOrders");
+  }
+}
+
 export function createRecurringTemplate(data: Omit<Invoice, "id">, interval: RecurringInterval): Invoice {
   const nextDate = calculateNextDate(new Date().toISOString().split("T")[0], interval);
   const inv = addInvoice({
