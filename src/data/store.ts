@@ -232,6 +232,7 @@ function rebuildSnapshots() {
     if (dirtyFlags.has("attendance")) attendanceSnap = [...attendance];
     if (dirtyFlags.has("securityLog")) rebuildSecurityLogSnap();
     if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
+    if (dirtyFlags.has("mfgOrders")) mfgOrdersSnap = [...manufacturingOrders];
   }
   dirtyFlags = new Set();
 }
