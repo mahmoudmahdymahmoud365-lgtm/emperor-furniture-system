@@ -202,6 +202,7 @@ let returnsSnap: ProductReturn[] = [...productReturns];
 let shiftsSnap: Shift[] = [...shifts];
 let attendanceSnap: AttendanceRecord[] = [...attendance];
 let expensesSnap: Expense[] = [...expensesList];
+let mfgOrdersSnap: ManufacturingOrder[] = [...manufacturingOrders];
 
 let dirtyFlags = new Set<string>();
 function markDirty(entity: string) { dirtyFlags.add(entity); }
