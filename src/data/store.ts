@@ -263,7 +263,7 @@ async function loadFromApi() {
       apiCustomers, apiProducts, apiInvoices, apiEmployees,
       apiBranches, apiReceipts, apiOffers, apiStockMovements,
       apiReturns, apiShifts, apiAttendance, apiExpenses,
-      apiAuditLog, apiSettings,
+      apiAuditLog, apiSettings, apiUsers,
     ] = await Promise.all([
       api.getCustomers().catch(() => null),
       api.getProducts().catch(() => null),
@@ -279,6 +279,7 @@ async function loadFromApi() {
       api.getExpenses().catch(() => null),
       api.getAuditLog().catch(() => null),
       api.getSettings().catch(() => null),
+      api.getUsers().catch(() => null),
     ]);
 
     if (apiCustomers) { customers = apiCustomers; cacheWrite("emp_customers", customers); }
