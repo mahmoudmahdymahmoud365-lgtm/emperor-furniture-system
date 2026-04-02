@@ -1097,7 +1097,7 @@ export async function login(email: string, password: string): Promise<{ success:
 }
 
 // Sync getter for React hooks — returns cached users list
-let usersCache: UserAccount[] = [];
+// usersCache declared at top with other arrays
 
 export function getUsersSync(): UserAccount[] { return usersCache; }
 
