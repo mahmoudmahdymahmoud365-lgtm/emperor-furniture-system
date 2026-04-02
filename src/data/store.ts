@@ -137,6 +137,7 @@ export async function clearAuditLog() {
 // ==============================
 // IN-MEMORY ARRAYS (populated from API)
 // ==============================
+let usersCache: UserAccount[] = [];
 let customers: Customer[] = [];
 let products: Product[] = [];
 let invoices: Invoice[] = [];
