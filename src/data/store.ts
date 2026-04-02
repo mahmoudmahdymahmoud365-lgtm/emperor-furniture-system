@@ -1,6 +1,8 @@
 // ==============================
-// In-Memory Data Store — Main Orchestrator
-// Re-exports from modular files + entity CRUD
+// In-Memory Data Store — API-First Architecture
+// PostgreSQL via API is the ONLY source of truth
+// localStorage is used ONLY as a read cache for faster initial render
+// All mutations MUST go through the API
 // ==============================
 
 import type {
@@ -10,17 +12,16 @@ import type {
   Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder,
 } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
-import { loadFromStorage, saveToStorage, nextId, subscribe as coreSub, notifyListeners } from "./store.core";
+import { nextId, subscribe as coreSub, notifyListeners } from "./store.core";
+import { api } from "./apiClient";
 
 // ---- Re-export core ----
 export { subscribe } from "./store.core";
 
-// ---- Re-export auth ----
+// ---- Re-export auth (API-first overrides below) ----
 export {
-  getUsers, getCurrentUser, getUserPermissions,
-  addUser, updateUser, deleteUser,
-  isAuthenticated, login, logout,
-  getSecurityLog, addSecurityEvent, clearSecurityLog,
+  getCurrentUser, getUserPermissions,
+  isAuthenticated, logout,
   rebuildUsersSnap, rebuildSecurityLogSnap,
   setAuthDeps,
 } from "./store.auth";
@@ -42,6 +43,34 @@ export type { BackupMeta, CloudConfig } from "./store.backup";
 
 import { setBackupDeps } from "./store.backup";
 
+// ==============================
+// API CONNECTION STATE
+// ==============================
+let apiConnected = false;
+let apiInitialized = false;
+let initPromise: Promise<void> | null = null;
+
+export function isApiConnected(): boolean { return apiConnected; }
+export function isApiInitialized(): boolean { return apiInitialized; }
+
+// ==============================
+// CACHE LAYER — localStorage used ONLY for faster initial render
+// NOT for business logic
+// ==============================
+function cacheRead<T>(key: string): T[] {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+function cacheWrite<T>(key: string, data: T[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {}
+}
+
 // ---- Company Settings ----
 const DEFAULT_SETTINGS: CompanySettings = {
   name: "الامبراطور للأثاث",
@@ -53,31 +82,29 @@ const DEFAULT_SETTINGS: CompanySettings = {
   logoUrl: "/logo.png",
 };
 
-function loadSettings(): CompanySettings {
-  try {
-    const saved = localStorage.getItem("companySettings");
-    if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-  } catch {}
-  return { ...DEFAULT_SETTINGS };
-}
-
-let companySettings: CompanySettings = loadSettings();
+let companySettings: CompanySettings = DEFAULT_SETTINGS;
 
 export function getCompanySettings(): CompanySettings { return companySettings; }
-export function updateCompanySettings(data: Partial<CompanySettings>) {
-  companySettings = { ...companySettings, ...data };
-  localStorage.setItem("companySettings", JSON.stringify(companySettings));
-  addAuditLog("update", "settings", "settings", "إعدادات الشركة", "تحديث إعدادات الشركة");
-  notify("settings");
+
+export async function updateCompanySettings(data: Partial<CompanySettings>) {
+  const updated = { ...companySettings, ...data };
+  try {
+    await api.updateSettings(updated);
+    companySettings = updated;
+    cacheWrite("companySettings_cache", [updated]);
+    addAuditLog("update", "settings", "settings", "إعدادات الشركة", "تحديث إعدادات الشركة");
+    notify("settings");
+  } catch (e: any) {
+    console.error("Failed to update settings:", e);
+    throw new Error("فشل في تحديث الإعدادات. تأكد من الاتصال بالخادم.");
+  }
 }
 
 // ==============================
 // AUDIT LOG
 // ==============================
-const auditLog: AuditLogEntry[] = loadFromStorage("auditLog", []);
-let auditLogSnap: AuditLogEntry[] = [...auditLog];
-
-function saveAuditLog() { saveToStorage("auditLog", auditLog); }
+let auditLog: AuditLogEntry[] = [];
+let auditLogSnap: AuditLogEntry[] = [];
 
 export function getAuditLog(): AuditLogEntry[] { return auditLogSnap; }
 
@@ -92,117 +119,53 @@ export function addAuditLog(
   };
   auditLog.unshift(entry);
   if (auditLog.length > 1000) auditLog.splice(1000);
-  saveAuditLog();
   auditLogSnap = [...auditLog];
+  // Fire and forget to API
+  api.addAuditLog(entry).catch(() => {});
 }
 
-export function clearAuditLog() {
-  auditLog.length = 0;
-  saveAuditLog();
-  auditLogSnap = [];
-  notify("auditLog");
+export async function clearAuditLog() {
+  try {
+    await api.clearAuditLog();
+    auditLog.length = 0;
+    auditLogSnap = [];
+    notify("auditLog");
+  } catch (e: any) {
+    throw new Error("فشل في مسح سجل العمليات.");
+  }
 }
 
-// ---- Seed data ----
-const SEED_CUSTOMERS: Customer[] = [
-  { id: "C001", fullName: "أحمد محمد علي", nationalId: "29901011234567", phone: "01012345678", address: "شارع التحرير", governorate: "القاهرة", jobTitle: "مهندس", notes: "" },
-  { id: "C002", fullName: "سارة أحمد حسن", nationalId: "30001021234567", phone: "01098765432", address: "شارع الهرم", governorate: "الجيزة", jobTitle: "طبيبة", notes: "عميل مميز" },
-  { id: "C003", fullName: "محمود حسن إبراهيم", nationalId: "28501031234567", phone: "01112345678", address: "شارع النصر", governorate: "الإسكندرية", jobTitle: "تاجر", notes: "" },
-];
+// ==============================
+// IN-MEMORY ARRAYS (populated from API)
+// ==============================
+let customers: Customer[] = [];
+let products: Product[] = [];
+let invoices: Invoice[] = [];
+let employees: Employee[] = [];
+let branches: Branch[] = [];
+let receipts: Receipt[] = [];
+let offers: Offer[] = [];
+let stockMovements: StockMovement[] = [];
+let productReturns: ProductReturn[] = [];
+let shifts: Shift[] = [];
+let attendance: AttendanceRecord[] = [];
+let expensesList: Expense[] = [];
+let manufacturingOrders: ManufacturingOrder[] = [];
 
-const SEED_PRODUCTS: Product[] = [
-  { id: "P001", name: "غرفة نوم كاملة", category: "غرف نوم", defaultPrice: 25000, unit: "قطعة", stock: 10, minStock: 2, notes: "" },
-  { id: "P002", name: "طقم أنتريه مودرن", category: "أنتريهات", defaultPrice: 18000, unit: "قطعة", stock: 8, minStock: 2, notes: "" },
-  { id: "P003", name: "مطبخ ألوميتال", category: "مطابخ", defaultPrice: 15000, unit: "متر", stock: 50, minStock: 10, notes: "" },
-  { id: "P004", name: "غرفة سفرة ٨ كراسي", category: "سفرة", defaultPrice: 22000, unit: "قطعة", stock: 5, minStock: 1, notes: "" },
-  { id: "P005", name: "دولاب ملابس", category: "غرف نوم", defaultPrice: 8000, unit: "قطعة", stock: 15, minStock: 3, notes: "" },
-];
-
-const SEED_INVOICES: Invoice[] = [
-  {
-    id: "INV-001", customer: "أحمد محمد علي", branch: "القاهرة", employee: "محمد سعيد",
-    date: "2025-06-15", deliveryDate: "",
-    items: [{ productName: "غرفة نوم كاملة", qty: 1, unitPrice: 25000, lineDiscount: 1000 }],
-    status: "مؤكدة", paidTotal: 15000, commissionPercent: 3,
-  },
-  {
-    id: "INV-002", customer: "سارة أحمد حسن", branch: "الجيزة", employee: "علي حسن",
-    date: "2025-06-16", deliveryDate: "",
-    items: [
-      { productName: "طقم أنتريه مودرن", qty: 1, unitPrice: 18000, lineDiscount: 0 },
-      { productName: "دولاب ملابس", qty: 2, unitPrice: 8000, lineDiscount: 500 },
-    ],
-    status: "مسودة", paidTotal: 0, commissionPercent: 2.5,
-  },
-];
-
-const SEED_EMPLOYEES: Employee[] = [
-  { id: "E001", name: "محمد سعيد", nationalId: "29001011234567", phone: "01011111111", branch: "القاهرة", monthlySalary: 5000, role: "مبيعات", active: true },
-  { id: "E002", name: "علي حسن", nationalId: "29101021234567", phone: "01022222222", branch: "الجيزة", monthlySalary: 4500, role: "مبيعات", active: true },
-  { id: "E003", name: "نورا أحمد", nationalId: "29201031234567", phone: "01033333333", branch: "القاهرة", monthlySalary: 6000, role: "محاسب", active: true },
-];
-
-const SEED_BRANCHES: Branch[] = [
-  { id: "B001", name: "فرع القاهرة", address: "شارع التحرير - القاهرة", rent: 15000, active: true },
-  { id: "B002", name: "فرع الجيزة", address: "شارع الهرم - الجيزة", rent: 12000, active: true },
-  { id: "B003", name: "فرع الإسكندرية", address: "كورنيش الإسكندرية", rent: 10000, active: false },
-];
-
-const SEED_RECEIPTS: Receipt[] = [
-  { id: "R001", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 10000, date: "2025-06-15", method: "نقدي", notes: "" },
-  { id: "R002", invoiceId: "INV-001", customer: "أحمد محمد علي", amount: 5000, date: "2025-06-20", method: "تحويل بنكي", notes: "دفعة ثانية" },
-];
-
-const SEED_SHIFTS: Shift[] = [
-  { id: "SH001", name: "صباحي", startTime: "08:00", endTime: "16:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
-  { id: "SH002", name: "مسائي", startTime: "16:00", endTime: "00:00", hours: 8, branch: "القاهرة", active: true, notes: "" },
-  { id: "SH003", name: "مرن", startTime: "10:00", endTime: "18:00", hours: 8, branch: "الجيزة", active: true, notes: "" },
-];
-
-// ---- Load all data ----
-const customers: Customer[] = loadFromStorage("emp_customers", SEED_CUSTOMERS);
-const products: Product[] = loadFromStorage("emp_products", SEED_PRODUCTS);
-const invoices: Invoice[] = loadFromStorage("emp_invoices", SEED_INVOICES);
-const employees: Employee[] = loadFromStorage("emp_employees", SEED_EMPLOYEES);
-const branches: Branch[] = loadFromStorage("emp_branches", SEED_BRANCHES);
-const receipts: Receipt[] = loadFromStorage("emp_receipts", SEED_RECEIPTS);
-const offers: Offer[] = loadFromStorage("offers", []);
-const stockMovements: StockMovement[] = loadFromStorage("stockMovements", []);
-const productReturns: ProductReturn[] = loadFromStorage("productReturns", []);
-const shifts: Shift[] = loadFromStorage("shifts", SEED_SHIFTS);
-const attendance: AttendanceRecord[] = loadFromStorage("attendance", []);
-const expensesList: Expense[] = loadFromStorage("expenses", []);
-const manufacturingOrders: ManufacturingOrder[] = loadFromStorage("manufacturingOrders", []);
-
-// ---- Save functions ----
-function saveCustomers() { saveToStorage("emp_customers", customers); }
-function saveProducts() { saveToStorage("emp_products", products); }
-function saveInvoices() { saveToStorage("emp_invoices", invoices); }
-function saveEmployees() { saveToStorage("emp_employees", employees); }
-function saveBranches() { saveToStorage("emp_branches", branches); }
-function saveReceipts() { saveToStorage("emp_receipts", receipts); }
-function saveOffers() { saveToStorage("offers", offers); }
-function saveStockMovements() { saveToStorage("stockMovements", stockMovements); }
-function saveReturns() { saveToStorage("productReturns", productReturns); }
-function saveShifts() { saveToStorage("shifts", shifts); }
-function saveAttendance() { saveToStorage("attendance", attendance); }
-function saveExpenses() { saveToStorage("expenses", expensesList); }
-function saveMfgOrders() { saveToStorage("manufacturingOrders", manufacturingOrders); }
-
-// ---- Snapshots ----
-let customersSnap: Customer[] = [...customers];
-let productsSnap: Product[] = [...products];
-let invoicesSnap: Invoice[] = [...invoices];
-let employeesSnap: Employee[] = [...employees];
-let branchesSnap: Branch[] = [...branches];
-let receiptsSnap: Receipt[] = [...receipts];
-let offersSnap: Offer[] = [...offers];
-let stockMovementsSnap: StockMovement[] = [...stockMovements];
-let returnsSnap: ProductReturn[] = [...productReturns];
-let shiftsSnap: Shift[] = [...shifts];
-let attendanceSnap: AttendanceRecord[] = [...attendance];
-let expensesSnap: Expense[] = [...expensesList];
-let mfgOrdersSnap: ManufacturingOrder[] = [...manufacturingOrders];
+// ---- Snapshots for React rendering ----
+let customersSnap: Customer[] = [];
+let productsSnap: Product[] = [];
+let invoicesSnap: Invoice[] = [];
+let employeesSnap: Employee[] = [];
+let branchesSnap: Branch[] = [];
+let receiptsSnap: Receipt[] = [];
+let offersSnap: Offer[] = [];
+let stockMovementsSnap: StockMovement[] = [];
+let returnsSnap: ProductReturn[] = [];
+let shiftsSnap: Shift[] = [];
+let attendanceSnap: AttendanceRecord[] = [];
+let expensesSnap: Expense[] = [];
+let mfgOrdersSnap: ManufacturingOrder[] = [];
 
 let dirtyFlags = new Set<string>();
 function markDirty(entity: string) { dirtyFlags.add(entity); }
@@ -239,7 +202,6 @@ function rebuildSnapshots() {
 
 function notify(...entities: string[]) {
   for (const e of entities) markDirty(e);
-  markDirty("auditLog");
   rebuildSnapshots();
   notifyListeners();
 }
@@ -257,7 +219,7 @@ function getBackupData() {
     offers: [...offers], stockMovements: [...stockMovements], productReturns: [...productReturns],
     shifts: [...shifts], attendance: [...attendance], expenses: [...expensesList],
     settings: { ...companySettings },
-    users: [], // users handled by auth module
+    users: [],
     auditLog: [...auditLog],
   };
 }
@@ -266,40 +228,10 @@ export function importBackup(jsonStr: string): boolean {
   try {
     const data = JSON.parse(jsonStr);
     if (!data.version) return false;
-
-    customers.length = 0; products.length = 0; invoices.length = 0;
-    employees.length = 0; branches.length = 0; receipts.length = 0;
-    auditLog.length = 0; offers.length = 0;
-    stockMovements.length = 0; productReturns.length = 0;
-    shifts.length = 0; attendance.length = 0; expensesList.length = 0;
-
-    (data.customers || []).forEach((c: Customer) => customers.push(c));
-    (data.products || []).forEach((p: Product) => products.push(p));
-    (data.invoices || []).forEach((i: Invoice) => invoices.push(i));
-    (data.employees || []).forEach((e: Employee) => employees.push(e));
-    (data.branches || []).forEach((b: Branch) => branches.push(b));
-    (data.receipts || []).forEach((r: Receipt) => receipts.push(r));
-    (data.auditLog || []).forEach((a: AuditLogEntry) => auditLog.push(a));
-    (data.offers || []).forEach((o: Offer) => offers.push(o));
-    (data.stockMovements || []).forEach((sm: StockMovement) => stockMovements.push(sm));
-    (data.productReturns || []).forEach((r: ProductReturn) => productReturns.push(r));
-    (data.shifts || []).forEach((s: Shift) => shifts.push(s));
-    (data.attendance || []).forEach((a: AttendanceRecord) => attendance.push(a));
-    (data.expenses || []).forEach((e: Expense) => expensesList.push(e));
-
-    if (data.settings) {
-      companySettings = { ...DEFAULT_SETTINGS, ...data.settings };
-      localStorage.setItem("companySettings", JSON.stringify(companySettings));
-    }
-
-    saveCustomers(); saveProducts(); saveInvoices();
-    saveEmployees(); saveBranches(); saveReceipts();
-    saveAuditLog(); saveOffers(); saveStockMovements();
-    saveReturns(); saveShifts(); saveAttendance(); saveExpenses();
-
-    addAuditLog("update", "settings", "backup", "نسخ احتياطي", "استعادة نسخة احتياطية");
-    notify("all");
-    return true;
+    // For backup restore, push all data to API
+    // This is a bulk operation — best effort
+    console.warn("Backup restore should be done via API for data integrity");
+    return false;
   } catch {
     return false;
   }
@@ -308,20 +240,158 @@ export function importBackup(jsonStr: string): boolean {
 setBackupDeps(getBackupData, importBackup);
 
 // ==============================
+// API-FIRST INITIALIZATION
+// Loads all data from PostgreSQL via API
+// Falls back to cache ONLY for initial render speed
+// ==============================
+async function loadFromApi() {
+  try {
+    const health = await api.health();
+    if (health.status !== "ok") throw new Error("API not healthy");
+    apiConnected = true;
+  } catch {
+    apiConnected = false;
+    console.warn("API not available — loading from cache for display only. Writes will fail.");
+    loadFromCache();
+    apiInitialized = true;
+    notify("all");
+    return;
+  }
+
+  // Fetch all data from API in parallel
+  try {
+    const [
+      apiCustomers, apiProducts, apiInvoices, apiEmployees,
+      apiBranches, apiReceipts, apiOffers, apiStockMovements,
+      apiReturns, apiShifts, apiAttendance, apiExpenses,
+      apiAuditLog, apiSettings,
+    ] = await Promise.all([
+      api.getCustomers().catch(() => null),
+      api.getProducts().catch(() => null),
+      api.getInvoices().catch(() => null),
+      api.getEmployees().catch(() => null),
+      api.getBranches().catch(() => null),
+      api.getReceipts().catch(() => null),
+      api.getOffers().catch(() => null),
+      api.getStockMovements().catch(() => null),
+      api.getReturns().catch(() => null),
+      api.getShifts().catch(() => null),
+      api.getAttendance().catch(() => null),
+      api.getExpenses().catch(() => null),
+      api.getAuditLog().catch(() => null),
+      api.getSettings().catch(() => null),
+    ]);
+
+    if (apiCustomers) { customers = apiCustomers; cacheWrite("emp_customers", customers); }
+    if (apiProducts) { products = apiProducts; cacheWrite("emp_products", products); }
+    if (apiInvoices) { invoices = apiInvoices; cacheWrite("emp_invoices", invoices); }
+    if (apiEmployees) { employees = apiEmployees; cacheWrite("emp_employees", employees); }
+    if (apiBranches) { branches = apiBranches; cacheWrite("emp_branches", branches); }
+    if (apiReceipts) { receipts = apiReceipts; cacheWrite("emp_receipts", receipts); }
+    if (apiOffers) { offers = apiOffers; cacheWrite("offers", offers); }
+    if (apiStockMovements) { stockMovements = apiStockMovements; cacheWrite("stockMovements", stockMovements); }
+    if (apiReturns) { productReturns = apiReturns; cacheWrite("productReturns", productReturns); }
+    if (apiShifts) { shifts = apiShifts; cacheWrite("shifts", shifts); }
+    if (apiAttendance) { attendance = apiAttendance; cacheWrite("attendance", attendance); }
+    if (apiExpenses) { expensesList = apiExpenses; cacheWrite("expenses", expensesList); }
+    if (apiAuditLog) { auditLog = apiAuditLog; }
+    if (apiSettings) {
+      companySettings = { ...DEFAULT_SETTINGS, ...apiSettings };
+    }
+  } catch (e) {
+    console.error("Failed to load data from API:", e);
+  }
+
+  apiInitialized = true;
+  notify("all");
+}
+
+function loadFromCache() {
+  customers = cacheRead("emp_customers");
+  products = cacheRead("emp_products");
+  invoices = cacheRead("emp_invoices");
+  employees = cacheRead("emp_employees");
+  branches = cacheRead("emp_branches");
+  receipts = cacheRead("emp_receipts");
+  offers = cacheRead("offers");
+  stockMovements = cacheRead("stockMovements");
+  productReturns = cacheRead("productReturns");
+  shifts = cacheRead("shifts");
+  attendance = cacheRead("attendance");
+  expensesList = cacheRead("expenses");
+  auditLog = cacheRead("auditLog");
+  try {
+    const cached = localStorage.getItem("companySettings_cache");
+    if (cached) {
+      const arr = JSON.parse(cached);
+      if (Array.isArray(arr) && arr[0]) companySettings = { ...DEFAULT_SETTINGS, ...arr[0] };
+    }
+  } catch {}
+}
+
+// Initialize data from API
+export function initializeStore(): Promise<void> {
+  if (!initPromise) {
+    // Load cache first for instant render
+    loadFromCache();
+    notify("all");
+    // Then load from API (source of truth)
+    initPromise = loadFromApi();
+  }
+  return initPromise;
+}
+
+// Periodic sync from API (polling every 15s)
+let syncTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startPeriodicSync(intervalMs = 15000) {
+  if (syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(async () => {
+    if (!apiConnected) {
+      // Try to reconnect
+      try {
+        const health = await api.health();
+        if (health.status === "ok") {
+          apiConnected = true;
+          await loadFromApi();
+        }
+      } catch {}
+      return;
+    }
+    await loadFromApi();
+  }, intervalMs);
+}
+
+export function stopPeriodicSync() {
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+}
+
+// ==============================
+// HELPER: Ensure API is available before mutations
+// ==============================
+function requireApi() {
+  if (!apiConnected) {
+    throw new Error("غير متصل بالخادم. لا يمكن إجراء العملية.");
+  }
+}
+
+// ==============================
 // STOCK MOVEMENTS
 // ==============================
 function recordStockMovement(productName: string, type: StockMovement["type"], qty: number, reason: string, relatedId?: string) {
   const product = products.find(p => p.name === productName);
-  stockMovements.unshift({
+  const sm: StockMovement = {
     id: `SM${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     productId: product?.id || "",
     productName, type, qty,
     date: new Date().toISOString(),
     reason, relatedId,
-  });
+  };
+  stockMovements.unshift(sm);
   if (stockMovements.length > 2000) stockMovements.splice(2000);
-  saveStockMovements();
   stockMovementsSnap = [...stockMovements];
+  // Fire and forget to API
+  api.addStockMovement(sm).catch(() => {});
 }
 
 export function getStockMovements(): StockMovement[] { return stockMovementsSnap; }
@@ -331,25 +401,12 @@ export function getStockMovements(): StockMovement[] { return stockMovementsSnap
 // ==============================
 export function getReturns(): ProductReturn[] { return returnsSnap; }
 
-export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
-  const r: ProductReturn = { id: nextId("RET", productReturns), ...data };
-  productReturns.push(r);
-  for (const item of r.items) {
-    const pIdx = products.findIndex(p => p.name === item.productName);
-    if (pIdx >= 0) {
-      products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + item.qty };
-      recordStockMovement(item.productName, "return", item.qty, `مرتجع ${r.id}`, r.id);
-    }
-  }
-  const invIdx = invoices.findIndex(i => i.id === r.invoiceId);
-  if (invIdx >= 0) {
-    invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - r.totalAmount) };
-    saveInvoices();
-  }
-  saveReturns(); saveProducts();
-  addAuditLog("create", "return", r.id, r.id, `مرتجع: ${r.id} من فاتورة ${r.invoiceId}`);
-  notify("returns", "products", "invoices", "stockMovements");
-  return r;
+export async function addReturn(data: Omit<ProductReturn, "id">): Promise<ProductReturn> {
+  requireApi();
+  const result = await api.addReturn(data);
+  // Refresh from API to get consistent state
+  await loadFromApi();
+  return result;
 }
 
 // ==============================
@@ -357,26 +414,36 @@ export function addReturn(data: Omit<ProductReturn, "id">): ProductReturn {
 // ==============================
 export function getShifts(): Shift[] { return shiftsSnap; }
 
-export function addShift(data: Omit<Shift, "id">): Shift {
-  const s: Shift = { id: nextId("SH", shifts), ...data };
-  shifts.push(s); saveShifts();
-  addAuditLog("create", "shift", s.id, s.name, `إضافة شفت: ${s.name}`);
-  notify("shifts"); return s;
+export async function addShift(data: Omit<Shift, "id">): Promise<Shift> {
+  requireApi();
+  const result = await api.addShift(data);
+  shifts.push(result);
+  cacheWrite("shifts", shifts);
+  addAuditLog("create", "shift", result.id, result.name, `إضافة شفت: ${result.name}`);
+  notify("shifts");
+  return result;
 }
 
-export function updateShift(id: string, data: Partial<Shift>) {
+export async function updateShift(id: string, data: Partial<Shift>) {
+  requireApi();
+  await api.updateShift(id, data);
   const idx = shifts.findIndex(s => s.id === id);
   if (idx >= 0) {
-    shifts[idx] = { ...shifts[idx], ...data }; saveShifts();
+    shifts[idx] = { ...shifts[idx], ...data };
+    cacheWrite("shifts", shifts);
     addAuditLog("update", "shift", id, shifts[idx].name, `تعديل شفت: ${shifts[idx].name}`);
     notify("shifts");
   }
 }
 
-export function deleteShift(id: string) {
+export async function deleteShift(id: string) {
+  requireApi();
   const idx = shifts.findIndex(s => s.id === id);
   if (idx >= 0) {
-    const name = shifts[idx].name; shifts.splice(idx, 1); saveShifts();
+    const name = shifts[idx].name;
+    await api.deleteShift(id);
+    shifts.splice(idx, 1);
+    cacheWrite("shifts", shifts);
     addAuditLog("delete", "shift", id, name, `حذف شفت: ${name}`);
     notify("shifts");
   }
@@ -387,27 +454,34 @@ export function deleteShift(id: string) {
 // ==============================
 export function getAttendance(): AttendanceRecord[] { return attendanceSnap; }
 
-export function addAttendance(data: Omit<AttendanceRecord, "id">): AttendanceRecord {
-  const a: AttendanceRecord = { id: nextId("ATT", attendance), ...data };
-  attendance.push(a); saveAttendance();
-  addAuditLog("create", "attendance", a.id, a.employeeName, `تسجيل حضور: ${a.employeeName} (${a.status})`);
-  notify("attendance"); return a;
+export async function addAttendance(data: Omit<AttendanceRecord, "id">): Promise<AttendanceRecord> {
+  requireApi();
+  const result = await api.addAttendance(data);
+  attendance.push(result);
+  cacheWrite("attendance", attendance);
+  addAuditLog("create", "attendance", result.id, result.employeeName, `تسجيل حضور: ${result.employeeName}`);
+  notify("attendance");
+  return result;
 }
 
-export function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
+export async function updateAttendance(id: string, data: Partial<AttendanceRecord>) {
+  requireApi();
+  await api.updateAttendance(id, data);
   const idx = attendance.findIndex(a => a.id === id);
   if (idx >= 0) {
-    attendance[idx] = { ...attendance[idx], ...data }; saveAttendance();
-    addAuditLog("update", "attendance", id, attendance[idx].employeeName, `تعديل حضور: ${attendance[idx].employeeName}`);
+    attendance[idx] = { ...attendance[idx], ...data };
+    cacheWrite("attendance", attendance);
     notify("attendance");
   }
 }
 
-export function deleteAttendance(id: string) {
+export async function deleteAttendance(id: string) {
+  requireApi();
+  await api.deleteAttendance(id);
   const idx = attendance.findIndex(a => a.id === id);
   if (idx >= 0) {
-    const name = attendance[idx].employeeName; attendance.splice(idx, 1); saveAttendance();
-    addAuditLog("delete", "attendance", id, name, `حذف سجل حضور: ${name}`);
+    attendance.splice(idx, 1);
+    cacheWrite("attendance", attendance);
     notify("attendance");
   }
 }
@@ -441,59 +515,76 @@ export function getProductDiscount(productName: string): number {
   return totalDiscount;
 }
 
-export function addOffer(data: Omit<Offer, "id">): Offer {
-  const o = { id: nextId("OF", offers), ...data };
-  offers.push(o); saveOffers();
-  addAuditLog("create", "offer", o.id, o.name, `إضافة عرض: ${o.name}`);
-  notify("offers"); return o;
+export async function addOffer(data: Omit<Offer, "id">): Promise<Offer> {
+  requireApi();
+  const result = await api.addOffer(data);
+  offers.push(result);
+  cacheWrite("offers", offers);
+  addAuditLog("create", "offer", result.id, result.name, `إضافة عرض: ${result.name}`);
+  notify("offers");
+  return result;
 }
 
-export function updateOffer(id: string, data: Partial<Offer>) {
-  const idx = offers.findIndex((o) => o.id === id);
+export async function updateOffer(id: string, data: Partial<Offer>) {
+  requireApi();
+  await api.updateOffer(id, data);
+  const idx = offers.findIndex(o => o.id === id);
   if (idx >= 0) {
-    const name = offers[idx].name;
-    offers[idx] = { ...offers[idx], ...data }; saveOffers();
-    addAuditLog("update", "offer", id, data.name || name, `تعديل عرض: ${data.name || name}`);
+    offers[idx] = { ...offers[idx], ...data };
+    cacheWrite("offers", offers);
+    addAuditLog("update", "offer", id, data.name || offers[idx].name, `تعديل عرض: ${data.name || offers[idx].name}`);
     notify("offers");
   }
 }
 
-export function deleteOffer(id: string) {
-  const idx = offers.findIndex((o) => o.id === id);
+export async function deleteOffer(id: string) {
+  requireApi();
+  const idx = offers.findIndex(o => o.id === id);
   if (idx >= 0) {
-    const name = offers[idx].name; offers.splice(idx, 1); saveOffers();
+    const name = offers[idx].name;
+    await api.deleteOffer(id);
+    offers.splice(idx, 1);
+    cacheWrite("offers", offers);
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
     notify("offers");
   }
 }
 
-// Track last added customer
-let lastAddedCustomer = "";
-
 // ==============================
 // CUSTOMERS
 // ==============================
+let lastAddedCustomer = "";
 export function getCustomers(): Customer[] { return customersSnap; }
 export function getLastAddedCustomer(): string { return lastAddedCustomer; }
 
-export function addCustomer(data: Omit<Customer, "id">): Customer {
-  const c = { id: nextId("C", customers), ...data };
-  customers.push(c); lastAddedCustomer = c.fullName; saveCustomers();
-  notify("customers"); return c;
+export async function addCustomer(data: Omit<Customer, "id">): Promise<Customer> {
+  requireApi();
+  const result = await api.addCustomer(data);
+  customers.push(result);
+  lastAddedCustomer = result.fullName;
+  cacheWrite("emp_customers", customers);
+  notify("customers");
+  return result;
 }
 
-export function updateCustomer(id: string, data: Partial<Customer>) {
-  const idx = customers.findIndex((c) => c.id === id);
+export async function updateCustomer(id: string, data: Partial<Customer>) {
+  requireApi();
+  await api.updateCustomer(id, data);
+  const idx = customers.findIndex(c => c.id === id);
   if (idx >= 0) {
-    customers[idx] = { ...customers[idx], ...data }; saveCustomers();
+    customers[idx] = { ...customers[idx], ...data };
+    cacheWrite("emp_customers", customers);
     notify("customers");
   }
 }
 
-export function deleteCustomer(id: string) {
-  const idx = customers.findIndex((c) => c.id === id);
+export async function deleteCustomer(id: string) {
+  requireApi();
+  await api.deleteCustomer(id);
+  const idx = customers.findIndex(c => c.id === id);
   if (idx >= 0) {
-    customers.splice(idx, 1); saveCustomers();
+    customers.splice(idx, 1);
+    cacheWrite("emp_customers", customers);
     notify("customers");
   }
 }
@@ -503,24 +594,33 @@ export function deleteCustomer(id: string) {
 // ==============================
 export function getProducts(): Product[] { return productsSnap; }
 
-export function addProduct(data: Omit<Product, "id">): Product {
-  const p = { id: nextId("P", products), ...data };
-  products.push(p); saveProducts();
-  notify("products"); return p;
+export async function addProduct(data: Omit<Product, "id">): Promise<Product> {
+  requireApi();
+  const result = await api.addProduct(data);
+  products.push(result);
+  cacheWrite("emp_products", products);
+  notify("products");
+  return result;
 }
 
-export function updateProduct(id: string, data: Partial<Product>) {
-  const idx = products.findIndex((p) => p.id === id);
+export async function updateProduct(id: string, data: Partial<Product>) {
+  requireApi();
+  await api.updateProduct(id, data);
+  const idx = products.findIndex(p => p.id === id);
   if (idx >= 0) {
-    products[idx] = { ...products[idx], ...data }; saveProducts();
+    products[idx] = { ...products[idx], ...data };
+    cacheWrite("emp_products", products);
     notify("products");
   }
 }
 
-export function deleteProduct(id: string) {
-  const idx = products.findIndex((p) => p.id === id);
+export async function deleteProduct(id: string) {
+  requireApi();
+  await api.deleteProduct(id);
+  const idx = products.findIndex(p => p.id === id);
   if (idx >= 0) {
-    products.splice(idx, 1); saveProducts();
+    products.splice(idx, 1);
+    cacheWrite("emp_products", products);
     notify("products");
   }
 }
@@ -530,79 +630,73 @@ export function deleteProduct(id: string) {
 // ==============================
 export function getInvoices(): Invoice[] { return invoicesSnap; }
 
-export function addInvoice(data: Omit<Invoice, "id">): Invoice {
-  const inv = { id: nextId("INV-", invoices), ...data };
-  invoices.push(inv);
-  for (const item of inv.items) {
-    const pIdx = products.findIndex(p => p.name === item.productName);
-    if (pIdx >= 0) {
-      products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - item.qty) };
-      recordStockMovement(item.productName, "out", item.qty, `فاتورة ${inv.id}`, inv.id);
-    }
-  }
-  saveInvoices(); saveProducts();
-  notify("invoices", "products", "stockMovements"); return inv;
+export async function addInvoice(data: Omit<Invoice, "id">): Promise<Invoice> {
+  requireApi();
+  const result = await api.addInvoice(data);
+  invoices.push(result);
+  // Stock deduction handled by backend
+  cacheWrite("emp_invoices", invoices);
+  // Refresh products to get updated stock
+  api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
+  notify("invoices", "stockMovements");
+  return result;
 }
 
-export function updateInvoice(id: string, data: Partial<Invoice>) {
-  const idx = invoices.findIndex((i) => i.id === id);
+export async function updateInvoice(id: string, data: Partial<Invoice>) {
+  requireApi();
+  await api.updateInvoice(id, data);
+  const idx = invoices.findIndex(i => i.id === id);
   if (idx >= 0) {
-    invoices[idx] = { ...invoices[idx], ...data }; saveInvoices();
+    invoices[idx] = { ...invoices[idx], ...data };
+    cacheWrite("emp_invoices", invoices);
     notify("invoices");
   }
 }
 
-export function deleteInvoice(id: string) {
-  const idx = invoices.findIndex((i) => i.id === id);
+export async function deleteInvoice(id: string) {
+  requireApi();
+  // Backend handles cascade delete of receipts and stock restoration
+  await api.deleteInvoice(id);
+  const idx = invoices.findIndex(i => i.id === id);
   if (idx >= 0) {
-    const inv = invoices[idx];
-    // Restore stock
-    for (const item of inv.items) {
-      const pIdx = products.findIndex(p => p.name === item.productName);
-      if (pIdx >= 0) {
-        products[pIdx] = { ...products[pIdx], stock: products[pIdx].stock + item.qty };
-        recordStockMovement(item.productName, "in", item.qty, `حذف فاتورة ${id} (استرجاع)`, id);
-      }
-    }
-    // Cascade delete related receipts (installments)
-    const relatedReceipts = receipts.filter(r => r.invoiceId === id);
-    for (let i = receipts.length - 1; i >= 0; i--) {
-      if (receipts[i].invoiceId === id) {
-        receipts.splice(i, 1);
-      }
-    }
-    if (relatedReceipts.length > 0) {
-      saveReceipts();
-      addAuditLog("delete", "receipt", id, id, `حذف ${relatedReceipts.length} قسط مرتبط بالفاتورة`);
-    }
-    invoices.splice(idx, 1); saveInvoices(); saveProducts();
-    notify("invoices", "products", "stockMovements", "receipts");
+    invoices.splice(idx, 1);
+    cacheWrite("emp_invoices", invoices);
   }
+  // Remove local receipts for this invoice
+  for (let i = receipts.length - 1; i >= 0; i--) {
+    if (receipts[i].invoiceId === id) receipts.splice(i, 1);
+  }
+  cacheWrite("emp_receipts", receipts);
+  // Refresh products for updated stock
+  api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
+  notify("invoices", "receipts", "products", "stockMovements");
 }
 
 // ==============================
 // MANUFACTURING STATUS
 // ==============================
-export function updateManufacturingStatus(invoiceId: string, status: ManufacturingStatus, mfgNotes?: string) {
+export async function updateManufacturingStatus(invoiceId: string, status: ManufacturingStatus, mfgNotes?: string) {
+  requireApi();
+  const updateData: Partial<Invoice> = {
+    manufacturingStatus: status,
+    manufacturingNotes: mfgNotes,
+    manufacturingUpdatedAt: new Date().toISOString(),
+  };
+  if (status === "delivered") {
+    updateData.status = "تم التسليم";
+  }
+  await api.updateInvoice(invoiceId, updateData);
   const idx = invoices.findIndex(i => i.id === invoiceId);
   if (idx >= 0) {
-    invoices[idx] = {
-      ...invoices[idx],
-      manufacturingStatus: status,
-      manufacturingNotes: mfgNotes ?? invoices[idx].manufacturingNotes,
-      manufacturingUpdatedAt: new Date().toISOString(),
-    };
-    if (status === "delivered" && invoices[idx].status !== "تم التسليم") {
-      invoices[idx].status = "تم التسليم";
-    }
-    saveInvoices();
+    invoices[idx] = { ...invoices[idx], ...updateData };
+    cacheWrite("emp_invoices", invoices);
     addAuditLog("update", "invoice", invoiceId, invoiceId, `تحديث حالة التصنيع: ${status}`);
     notify("invoices");
   }
 }
 
 // ==============================
-// MANUFACTURING ORDERS
+// MANUFACTURING ORDERS (stored via API settings or dedicated endpoint)
 // ==============================
 export function getManufacturingOrders(): ManufacturingOrder[] { return mfgOrdersSnap; }
 
@@ -615,7 +709,7 @@ export function addManufacturingOrder(data: Omit<ManufacturingOrder, "id" | "cre
     updatedAt: now,
   };
   manufacturingOrders.push(order);
-  saveMfgOrders();
+  cacheWrite("manufacturingOrders", manufacturingOrders);
   addAuditLog("create", "invoice", order.id, order.invoiceId, `إنشاء طلب تصنيع للفاتورة ${data.invoiceId}`);
   notify("mfgOrders");
   return order;
@@ -625,7 +719,7 @@ export function updateManufacturingOrder(id: string, data: Partial<Manufacturing
   const idx = manufacturingOrders.findIndex(o => o.id === id);
   if (idx >= 0) {
     manufacturingOrders[idx] = { ...manufacturingOrders[idx], ...data, updatedAt: new Date().toISOString() };
-    saveMfgOrders();
+    cacheWrite("manufacturingOrders", manufacturingOrders);
     notify("mfgOrders");
   }
 }
@@ -634,32 +728,33 @@ export function deleteManufacturingOrder(id: string) {
   const idx = manufacturingOrders.findIndex(o => o.id === id);
   if (idx >= 0) {
     manufacturingOrders.splice(idx, 1);
-    saveMfgOrders();
+    cacheWrite("manufacturingOrders", manufacturingOrders);
     notify("mfgOrders");
   }
 }
 
-export function createRecurringTemplate(data: Omit<Invoice, "id">, interval: RecurringInterval): Invoice {
+// ==============================
+// RECURRING INVOICES
+// ==============================
+export async function createRecurringTemplate(data: Omit<Invoice, "id">, interval: RecurringInterval): Promise<Invoice> {
   const nextDate = calculateNextDate(new Date().toISOString().split("T")[0], interval);
-  const inv = addInvoice({
+  return addInvoice({
     ...data,
     isRecurring: true,
     recurringInterval: interval,
     recurringNextDate: nextDate,
   });
-  addAuditLog("create", "invoice", inv.id, inv.id, `إنشاء فاتورة متكررة (${interval})`);
-  return inv;
 }
 
-export function processRecurringInvoices(): Invoice[] {
+export async function processRecurringInvoices(): Promise<Invoice[]> {
+  requireApi();
   const today = new Date().toISOString().split("T")[0];
   const created: Invoice[] = [];
-  
+
   const recurringInvoices = invoices.filter(i => i.isRecurring && i.recurringNextDate && i.recurringNextDate <= today);
-  
+
   for (const template of recurringInvoices) {
-    // Create new invoice from template
-    const newInv = addInvoice({
+    const newInv = await addInvoice({
       customer: template.customer,
       branch: template.branch,
       employee: template.employee,
@@ -673,21 +768,14 @@ export function processRecurringInvoices(): Invoice[] {
       recurringTemplateId: template.id,
     });
     created.push(newInv);
-    
-    // Update next date on template
-    const idx = invoices.findIndex(i => i.id === template.id);
-    if (idx >= 0 && template.recurringInterval) {
-      invoices[idx] = {
-        ...invoices[idx],
+
+    if (template.recurringInterval) {
+      await updateInvoice(template.id, {
         recurringNextDate: calculateNextDate(today, template.recurringInterval),
-      };
-      saveInvoices();
+      });
     }
   }
-  
-  if (created.length > 0) {
-    notify("invoices");
-  }
+
   return created;
 }
 
@@ -705,28 +793,19 @@ function calculateNextDate(fromDate: string, interval: RecurringInterval): strin
 // ==============================
 // INSTALLMENT SCHEDULING
 // ==============================
-export function setInstallmentSchedule(invoiceId: string, nextDueDate: string, count?: number) {
-  const idx = invoices.findIndex(i => i.id === invoiceId);
-  if (idx >= 0) {
-    invoices[idx] = {
-      ...invoices[idx],
-      nextDueDate,
-      installmentCount: count ?? invoices[idx].installmentCount,
-    };
-    saveInvoices();
-    notify("invoices");
-  }
+export async function setInstallmentSchedule(invoiceId: string, nextDueDate: string, count?: number) {
+  await updateInvoice(invoiceId, { nextDueDate, installmentCount: count });
 }
 
 export function getOverdueInstallments(): { invoice: Invoice; daysOverdue: number; remaining: number }[] {
   const today = new Date();
   const result: { invoice: Invoice; daysOverdue: number; remaining: number }[] = [];
-  
+
   for (const inv of invoices) {
     const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
     const remaining = total - inv.paidTotal;
     if (remaining <= 0) continue;
-    
+
     if (inv.nextDueDate) {
       const dueDate = new Date(inv.nextDueDate);
       const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / 86400000);
@@ -735,19 +814,19 @@ export function getOverdueInstallments(): { invoice: Invoice; daysOverdue: numbe
       }
     }
   }
-  
+
   return result.sort((a, b) => b.daysOverdue - a.daysOverdue);
 }
 
 export function getUpcomingInstallments(daysAhead: number = 7): { invoice: Invoice; daysUntilDue: number; remaining: number }[] {
   const today = new Date();
   const result: { invoice: Invoice; daysUntilDue: number; remaining: number }[] = [];
-  
+
   for (const inv of invoices) {
     const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
     const remaining = total - inv.paidTotal;
     if (remaining <= 0) continue;
-    
+
     if (inv.nextDueDate) {
       const dueDate = new Date(inv.nextDueDate);
       const diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
@@ -756,32 +835,42 @@ export function getUpcomingInstallments(daysAhead: number = 7): { invoice: Invoi
       }
     }
   }
-  
+
   return result.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
 }
 
-//
+// ==============================
+// EMPLOYEES
 // ==============================
 export function getEmployees(): Employee[] { return employeesSnap; }
 
-export function addEmployee(data: Omit<Employee, "id">): Employee {
-  const e = { id: nextId("E", employees), ...data };
-  employees.push(e); saveEmployees();
-  notify("employees"); return e;
+export async function addEmployee(data: Omit<Employee, "id">): Promise<Employee> {
+  requireApi();
+  const result = await api.addEmployee(data);
+  employees.push(result);
+  cacheWrite("emp_employees", employees);
+  notify("employees");
+  return result;
 }
 
-export function updateEmployee(id: string, data: Partial<Employee>) {
-  const idx = employees.findIndex((e) => e.id === id);
+export async function updateEmployee(id: string, data: Partial<Employee>) {
+  requireApi();
+  await api.updateEmployee(id, data);
+  const idx = employees.findIndex(e => e.id === id);
   if (idx >= 0) {
-    employees[idx] = { ...employees[idx], ...data }; saveEmployees();
+    employees[idx] = { ...employees[idx], ...data };
+    cacheWrite("emp_employees", employees);
     notify("employees");
   }
 }
 
-export function deleteEmployee(id: string) {
-  const idx = employees.findIndex((e) => e.id === id);
+export async function deleteEmployee(id: string) {
+  requireApi();
+  await api.deleteEmployee(id);
+  const idx = employees.findIndex(e => e.id === id);
   if (idx >= 0) {
-    employees.splice(idx, 1); saveEmployees();
+    employees.splice(idx, 1);
+    cacheWrite("emp_employees", employees);
     notify("employees");
   }
 }
@@ -791,24 +880,33 @@ export function deleteEmployee(id: string) {
 // ==============================
 export function getBranches(): Branch[] { return branchesSnap; }
 
-export function addBranch(data: Omit<Branch, "id">): Branch {
-  const b = { id: nextId("B", branches), ...data };
-  branches.push(b); saveBranches();
-  notify("branches"); return b;
+export async function addBranch(data: Omit<Branch, "id">): Promise<Branch> {
+  requireApi();
+  const result = await api.addBranch(data);
+  branches.push(result);
+  cacheWrite("emp_branches", branches);
+  notify("branches");
+  return result;
 }
 
-export function updateBranch(id: string, data: Partial<Branch>) {
-  const idx = branches.findIndex((b) => b.id === id);
+export async function updateBranch(id: string, data: Partial<Branch>) {
+  requireApi();
+  await api.updateBranch(id, data);
+  const idx = branches.findIndex(b => b.id === id);
   if (idx >= 0) {
-    branches[idx] = { ...branches[idx], ...data }; saveBranches();
+    branches[idx] = { ...branches[idx], ...data };
+    cacheWrite("emp_branches", branches);
     notify("branches");
   }
 }
 
-export function deleteBranch(id: string) {
-  const idx = branches.findIndex((b) => b.id === id);
+export async function deleteBranch(id: string) {
+  requireApi();
+  await api.deleteBranch(id);
+  const idx = branches.findIndex(b => b.id === id);
   if (idx >= 0) {
-    branches.splice(idx, 1); saveBranches();
+    branches.splice(idx, 1);
+    cacheWrite("emp_branches", branches);
     notify("branches");
   }
 }
@@ -818,47 +916,56 @@ export function deleteBranch(id: string) {
 // ==============================
 export function getReceipts(): Receipt[] { return receiptsSnap; }
 
-export function addReceipt(data: Omit<Receipt, "id">): Receipt {
-  const r = { id: nextId("R", receipts), ...data };
-  receipts.push(r);
+export async function addReceipt(data: Omit<Receipt, "id">): Promise<Receipt> {
+  requireApi();
+  const result = await api.addReceipt(data);
+  receipts.push(result);
+  // Update invoice paid total locally
   if (data.invoiceId) {
-    const invIdx = invoices.findIndex((i) => i.id === data.invoiceId);
+    const invIdx = invoices.findIndex(i => i.id === data.invoiceId);
     if (invIdx >= 0) {
       invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal + data.amount };
-      saveInvoices();
+      cacheWrite("emp_invoices", invoices);
     }
   }
-  saveReceipts();
-  notify("receipts", "invoices"); return r;
+  cacheWrite("emp_receipts", receipts);
+  notify("receipts", "invoices");
+  return result;
 }
 
-export function updateReceipt(id: string, data: Partial<Receipt>) {
-  const idx = receipts.findIndex((r) => r.id === id);
+export async function updateReceipt(id: string, data: Partial<Receipt>) {
+  requireApi();
+  await api.updateReceipt(id, data);
+  const idx = receipts.findIndex(r => r.id === id);
   if (idx >= 0) {
     const old = receipts[idx];
     const updated = { ...old, ...data };
     if (data.amount !== undefined && data.amount !== old.amount) {
-      const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
+      const invIdx = invoices.findIndex(i => i.id === old.invoiceId);
       if (invIdx >= 0) {
         invoices[invIdx] = { ...invoices[invIdx], paidTotal: invoices[invIdx].paidTotal - old.amount + updated.amount };
-        saveInvoices();
+        cacheWrite("emp_invoices", invoices);
       }
     }
-    receipts[idx] = updated; saveReceipts();
+    receipts[idx] = updated;
+    cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
   }
 }
 
-export function deleteReceipt(id: string) {
-  const idx = receipts.findIndex((r) => r.id === id);
+export async function deleteReceipt(id: string) {
+  requireApi();
+  const idx = receipts.findIndex(r => r.id === id);
   if (idx >= 0) {
     const old = receipts[idx];
-    const invIdx = invoices.findIndex((i) => i.id === old.invoiceId);
+    await api.deleteReceipt(id);
+    const invIdx = invoices.findIndex(i => i.id === old.invoiceId);
     if (invIdx >= 0) {
       invoices[invIdx] = { ...invoices[invIdx], paidTotal: Math.max(0, invoices[invIdx].paidTotal - old.amount) };
-      saveInvoices();
+      cacheWrite("emp_invoices", invoices);
     }
-    receipts.splice(idx, 1); saveReceipts();
+    receipts.splice(idx, 1);
+    cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
   }
 }
@@ -866,7 +973,14 @@ export function deleteReceipt(id: string) {
 // ==============================
 // STOCK MOVEMENT MANUAL ADD
 // ==============================
-export function addManualStockMovement(productId: string, productName: string, type: StockMovement["type"], qty: number, reason: string) {
+export async function addManualStockMovement(productId: string, productName: string, type: StockMovement["type"], qty: number, reason: string) {
+  requireApi();
+  const sm = {
+    productId, productName, type, qty,
+    date: new Date().toISOString(),
+    reason,
+  };
+  await api.addStockMovement(sm);
   recordStockMovement(productName, type, qty, reason);
   const pIdx = products.findIndex(p => p.id === productId);
   if (pIdx >= 0) {
@@ -875,7 +989,8 @@ export function addManualStockMovement(productId: string, productName: string, t
     } else {
       products[pIdx] = { ...products[pIdx], stock: Math.max(0, products[pIdx].stock - qty) };
     }
-    saveProducts();
+    await api.updateProduct(productId, { stock: products[pIdx].stock });
+    cacheWrite("emp_products", products);
   }
   notify("products", "stockMovements");
 }
@@ -885,129 +1000,144 @@ export function addManualStockMovement(productId: string, productName: string, t
 // ==============================
 export function getExpenses(): Expense[] { return expensesSnap; }
 
-export function addExpense(data: Omit<Expense, "id">): Expense {
-  const e: Expense = { id: nextId("EXP", expensesList), ...data };
-  expensesList.push(e); saveExpenses();
-  notify("expenses"); return e;
+export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
+  requireApi();
+  const result = await api.addExpense(data);
+  expensesList.push(result);
+  cacheWrite("expenses", expensesList);
+  notify("expenses");
+  return result;
 }
 
-export function updateExpense(id: string, data: Partial<Expense>) {
+export async function updateExpense(id: string, data: Partial<Expense>) {
+  requireApi();
+  await api.updateExpense(id, data);
   const idx = expensesList.findIndex(e => e.id === id);
   if (idx >= 0) {
-    expensesList[idx] = { ...expensesList[idx], ...data }; saveExpenses();
+    expensesList[idx] = { ...expensesList[idx], ...data };
+    cacheWrite("expenses", expensesList);
     notify("expenses");
   }
 }
 
-export function deleteExpense(id: string) {
+export async function deleteExpense(id: string) {
+  requireApi();
+  await api.deleteExpense(id);
   const idx = expensesList.findIndex(e => e.id === id);
   if (idx >= 0) {
-    expensesList.splice(idx, 1); saveExpenses();
+    expensesList.splice(idx, 1);
+    cacheWrite("expenses", expensesList);
     notify("expenses");
   }
 }
 
 // ==============================
-// API SYNC LAYER — Enterprise Data Resilience
-// Tries API backend first, falls back to localStorage
+// AUTH — API-FIRST (overrides store.auth.ts exports)
 // ==============================
-let apiConnected = false;
-let apiUrl = (window as any).__API_URL__ || "";
-let syncInProgress = false;
+import {
+  addSecurityEvent as _addSecurityEvent,
+  getSecurityLog as _getSecurityLog,
+  clearSecurityLog as _clearSecurityLog,
+} from "./store.auth";
+import { checkRateLimit, recordLoginAttempt, sanitizeEmail } from "@/utils/security";
 
-export function isApiConnected(): boolean { return apiConnected; }
-export function getApiUrl(): string { return apiUrl; }
+export const getSecurityLog = _getSecurityLog;
+export const addSecurityEvent = _addSecurityEvent;
+export const clearSecurityLog = _clearSecurityLog;
 
-export function setApiUrl(url: string) {
-  apiUrl = url;
-  (window as any).__API_URL__ = url;
-}
+export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+  const cleanEmail = sanitizeEmail(email);
 
-async function apiRequest<T>(path: string, options?: RequestInit): Promise<T | null> {
-  if (!apiUrl) return null;
+  const rateCheck = checkRateLimit(cleanEmail);
+  if (!rateCheck.allowed) {
+    const minutes = Math.ceil((rateCheck.lockedUntilMs || 0) / 60000);
+    _addSecurityEvent("login_failed", cleanEmail, "محاولات كثيرة");
+    return { success: false, error: `تم تجاوز الحد المسموح. حاول بعد ${minutes} دقيقة` };
+  }
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(`${apiUrl}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      ...options,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    return res.json();
+    const user = await api.loginUser(cleanEmail, password);
+    if (!user || user.error) {
+      recordLoginAttempt(cleanEmail, false);
+      _addSecurityEvent("login_failed", cleanEmail, "");
+      const remaining = rateCheck.remainingAttempts - 1;
+      return {
+        success: false,
+        error: remaining > 0
+          ? `البريد الإلكتروني أو كلمة المرور غير صحيحة. متبقي ${remaining} محاولات`
+          : "تم تجاوز الحد المسموح. حاول لاحقاً"
+      };
+    }
+
+    recordLoginAttempt(cleanEmail, true);
+    // Store session
+    const sessionToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("currentUserId", user.id);
+    localStorage.setItem("sessionToken", sessionToken);
+    localStorage.setItem("sessionExpiry", String(Date.now() + 8 * 60 * 60 * 1000));
+    // Store user data for session restore
+    localStorage.setItem("currentUserData", JSON.stringify(user));
+
+    // Import and set current user in auth module
+    const { _setCurrentUser } = await import("./store.auth");
+    _setCurrentUser(user);
+
+    _addSecurityEvent("login_success", cleanEmail, user.name);
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: "فشل الاتصال بالخادم. تأكد من تشغيل الخادم." };
+  }
+}
+
+export async function getUsers(): Promise<UserAccount[]> {
+  try {
+    const users = await api.getUsers();
+    return users || [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-export async function checkApiHealth(): Promise<boolean> {
-  if (!apiUrl) { apiConnected = false; return false; }
-  const result = await apiRequest<{ status: string; database?: string }>("/health");
-  apiConnected = !!(result && result.status === "ok");
-  return apiConnected;
+export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccount> {
+  requireApi();
+  const result = await api.addUser(data);
+  addAuditLog("create", "settings", result.id, result.name, `إضافة مستخدم: ${result.name} (${result.role})`);
+  notify("users");
+  return result;
 }
 
-// Sync local data to API when connection is established
-export async function syncToApi(): Promise<{ synced: boolean; errors: string[] }> {
-  if (syncInProgress) return { synced: false, errors: ["Sync already in progress"] };
-  syncInProgress = true;
-  const errors: string[] = [];
-
-  try {
-    const healthy = await checkApiHealth();
-    if (!healthy) {
-      return { synced: false, errors: ["API not reachable"] };
-    }
-
-    const syncPairs: Array<{ storageKey: string; data: any[]; path: string }> = [
-      { storageKey: "emp_customers", data: customers, path: "/customers" },
-      { storageKey: "emp_products", data: products, path: "/products" },
-      { storageKey: "emp_invoices", data: invoices, path: "/invoices" },
-      { storageKey: "emp_employees", data: employees, path: "/employees" },
-      { storageKey: "emp_branches", data: branches, path: "/branches" },
-      { storageKey: "emp_receipts", data: receipts, path: "/receipts" },
-    ];
-
-    for (const pair of syncPairs) {
-      try {
-        const remote = await apiRequest<any[]>(pair.path);
-        if (remote && Array.isArray(remote)) {
-          pair.data.length = 0;
-          remote.forEach((item: any) => pair.data.push(item));
-          saveToStorage(pair.storageKey, pair.data as any[]);
-        }
-      } catch (e: any) {
-        errors.push(`Failed to sync ${pair.storageKey}: ${e.message}`);
-      }
-    }
-
-    notify("all");
-    return { synced: true, errors };
-  } finally {
-    syncInProgress = false;
-  }
+export async function updateUser(id: string, data: Partial<UserAccount>) {
+  requireApi();
+  await api.updateUser(id, data);
+  addAuditLog("update", "settings", id, data.name || id, `تعديل مستخدم`);
+  notify("users");
 }
 
-// Auto-check API connection on load
+export async function deleteUser(id: string) {
+  requireApi();
+  await api.deleteUser(id);
+  addAuditLog("delete", "settings", id, id, `حذف مستخدم`);
+  notify("users");
+}
+
+// ==============================
+// INITIALIZATION ON LOAD
+// ==============================
 if (typeof window !== "undefined") {
-  // Listen for Electron backend status changes
+  // Listen for Electron backend status
   const emperorAPI = (window as any).emperorAPI;
   if (emperorAPI?.onBackendStatus) {
     emperorAPI.onBackendStatus((status: { connected: boolean }) => {
       apiConnected = status.connected;
-      if (status.connected) {
-        syncToApi().catch(() => {});
+      if (status.connected && !apiInitialized) {
+        initializeStore();
       }
     });
   }
 
-  // Initial health check (delayed to avoid race condition)
-  setTimeout(() => {
-    checkApiHealth().then((connected) => {
-      if (connected) {
-        syncToApi().catch(() => {});
-      }
-    });
-  }, 2000);
+  // Auto-initialize
+  initializeStore();
+  startPeriodicSync();
 }

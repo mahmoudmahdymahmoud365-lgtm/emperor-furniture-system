@@ -1,24 +1,9 @@
 // ==============================
 // Emperor ERP — Enterprise Preload Script
-// Secure bridge between renderer and main process
+// Secure IPC bridge between renderer and main process
 // ==============================
 
 const { contextBridge, ipcRenderer } = require("electron");
-
-// Allowed IPC channels for security
-const ALLOWED_INVOKE = [
-  "app:getConfig",
-  "app:setConfig",
-  "app:getBackendStatus",
-  "app:restartBackend",
-  "app:getLogs",
-  "app:selectRole",
-  "app:discoverServer",
-];
-
-const ALLOWED_RECEIVE = [
-  "backend-status",
-];
 
 contextBridge.exposeInMainWorld("emperorAPI", {
   // ---- App Configuration ----
@@ -32,6 +17,7 @@ contextBridge.exposeInMainWorld("emperorAPI", {
   // ---- Role Selection ----
   selectRole: (role) => ipcRenderer.invoke("app:selectRole", role),
   discoverServer: (host) => ipcRenderer.invoke("app:discoverServer", host),
+  autoDiscover: () => ipcRenderer.invoke("app:autoDiscover"),
 
   // ---- Logs ----
   getLogs: () => ipcRenderer.invoke("app:getLogs"),

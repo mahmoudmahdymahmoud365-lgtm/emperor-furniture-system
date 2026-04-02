@@ -1,10 +1,11 @@
 // ==============================
 // Emperor ERP — Enterprise Express API Server
-// Production-grade with health checks, graceful shutdown, logging
+// Fixed port 3001, no random switching
 // ==============================
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
@@ -31,7 +32,7 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Request logging
+// Request logging (skip health checks to reduce noise)
 app.use((req, _res, next) => {
   if (req.path !== "/api/health") {
     log("info", `${req.method} ${req.path}`);
@@ -46,7 +47,12 @@ let startedAt = null;
 const pool = require("./db");
 
 app.get("/api/health", async (_req, res) => {
-  const status = { status: "ok", timestamp: new Date().toISOString(), uptime: startedAt ? Date.now() - startedAt : 0 };
+  const status = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: startedAt ? Date.now() - startedAt : 0,
+    port: PORT,
+  };
   try {
     await pool.query("SELECT 1");
     status.database = "connected";
@@ -110,38 +116,69 @@ app.use((_req, res) => {
 });
 
 // ==============================
-// SERVER STARTUP WITH PORT CONFLICT DETECTION
+// SERVER STARTUP — FIXED PORT, NO RANDOM SWITCHING
+// Kills existing process on port if needed (server mode only)
 // ==============================
 const server = http.createServer(app);
 
-function startServer(port, retries = 3) {
-  server.listen(port, "0.0.0.0", () => {
-    startedAt = Date.now();
-    log("info", `Emperor API running on http://0.0.0.0:${port}`, {
-      env: process.env.NODE_ENV || "development",
-      pid: process.pid,
-    });
-  });
-
-  server.on("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      log("warn", `Port ${port} in use`, { retries });
-      if (retries > 0) {
-        const nextPort = port + 1;
-        log("info", `Trying port ${nextPort}...`);
-        startServer(nextPort, retries - 1);
-      } else {
-        log("error", "All ports exhausted. Cannot start server.");
-        process.exit(1);
+function killProcessOnPort(port) {
+  try {
+    if (process.platform === "win32") {
+      const { execSync } = require("child_process");
+      const output = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, { encoding: "utf8" });
+      const lines = output.trim().split("\n");
+      for (const line of lines) {
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && pid !== String(process.pid)) {
+          try { execSync(`taskkill /PID ${pid} /F`); log("info", `Killed stale process on port ${port}`, { pid }); } catch {}
+        }
       }
     } else {
-      log("error", "Server error", { error: err.message });
-      process.exit(1);
+      const { execSync } = require("child_process");
+      try {
+        const output = execSync(`lsof -ti:${port}`, { encoding: "utf8" });
+        const pids = output.trim().split("\n").filter(Boolean);
+        for (const pid of pids) {
+          if (pid !== String(process.pid)) {
+            try { execSync(`kill -9 ${pid}`); log("info", `Killed stale process on port ${port}`, { pid }); } catch {}
+          }
+        }
+      } catch {}
     }
-  });
+  } catch {}
 }
 
-startServer(PORT);
+function startServer() {
+  killProcessOnPort(PORT);
+
+  // Small delay after killing to let OS release port
+  setTimeout(() => {
+    server.listen(PORT, "0.0.0.0", () => {
+      startedAt = Date.now();
+      log("info", `Emperor API running on http://0.0.0.0:${PORT}`, {
+        env: process.env.NODE_ENV || "development",
+        pid: process.pid,
+      });
+    });
+
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        log("error", `Port ${PORT} still in use after cleanup. Retrying in 3s...`);
+        setTimeout(() => {
+          killProcessOnPort(PORT);
+          setTimeout(() => {
+            server.listen(PORT, "0.0.0.0");
+          }, 1000);
+        }, 3000);
+      } else {
+        log("error", "Server error", { error: err.message });
+        process.exit(1);
+      }
+    });
+  }, 500);
+}
+
+startServer();
 
 // ==============================
 // GRACEFUL SHUTDOWN
@@ -153,12 +190,10 @@ async function gracefulShutdown(signal) {
   isShuttingDown = true;
   log("info", `Received ${signal}. Shutting down gracefully...`);
 
-  // Stop accepting new connections
   server.close(() => {
     log("info", "HTTP server closed");
   });
 
-  // Close database pool
   try {
     await pool.end();
     log("info", "Database pool closed");
@@ -166,7 +201,6 @@ async function gracefulShutdown(signal) {
     log("error", "Error closing database pool", { error: e.message });
   }
 
-  // Force exit after 10s
   setTimeout(() => {
     log("warn", "Forced shutdown after timeout");
     process.exit(1);
@@ -178,7 +212,6 @@ async function gracefulShutdown(signal) {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Uncaught error handlers
 process.on("uncaughtException", (err) => {
   log("error", "Uncaught exception", { error: err.message, stack: err.stack });
 });

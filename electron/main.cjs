@@ -1,6 +1,6 @@
 // ==============================
 // Emperor ERP — Enterprise Electron Main Process
-// Self-contained: manages backend lifecycle, single instance, health checks
+// Fixed port 3001, backend readiness before UI, single instance
 // ==============================
 
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
@@ -14,11 +14,11 @@ const net = require("net");
 // CONFIGURATION
 // ==============================
 const IS_DEV = process.env.NODE_ENV === "development";
-const DEFAULT_API_PORT = 3001;
+const API_PORT = 3001; // FIXED — never changes
 const VITE_DEV_URL = "http://localhost:5173";
 const HEALTH_CHECK_INTERVAL = 5000;
 const HEALTH_CHECK_TIMEOUT = 3000;
-const MAX_STARTUP_WAIT = 30000; // 30s max wait for backend
+const MAX_STARTUP_WAIT = 30000;
 const CONFIG_FILE = path.join(app.getPath("userData"), "emperor-config.json");
 const LOG_DIR = path.join(app.getPath("userData"), "logs");
 
@@ -45,16 +45,17 @@ function log(level, msg, meta) {
 // ==============================
 function loadConfig() {
   const defaults = {
-    role: "server", // "server" or "client"
+    role: "server",
     apiHost: "localhost",
-    apiPort: DEFAULT_API_PORT,
+    apiPort: API_PORT,
     dbUrl: "",
     autoStartBackend: true,
-    vpnMode: false,
   };
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      return { ...defaults, ...JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) };
+      const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+      // Force port to API_PORT — no random switching
+      return { ...defaults, ...saved, apiPort: API_PORT };
     }
   } catch (e) {
     log("warn", "Failed to load config, using defaults", { error: e.message });
@@ -74,7 +75,7 @@ function saveConfig(cfg) {
 let config = loadConfig();
 
 function getApiUrl() {
-  return `http://${config.apiHost}:${config.apiPort}/api`;
+  return `http://${config.apiHost}:${API_PORT}/api`;
 }
 
 // ==============================
@@ -93,18 +94,29 @@ let backendProcess = null;
 let backendReady = false;
 let healthCheckTimer = null;
 
-function isPortInUse(port) {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once("error", (err) => {
-      resolve(err.code === "EADDRINUSE");
-    });
-    server.once("listening", () => {
-      server.close();
-      resolve(false);
-    });
-    server.listen(port, "0.0.0.0");
-  });
+function killExistingBackend() {
+  try {
+    if (process.platform === "win32") {
+      const output = execSync(`netstat -ano | findstr :${API_PORT} | findstr LISTENING`, { encoding: "utf8" });
+      const lines = output.trim().split("\n");
+      for (const line of lines) {
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && pid !== String(process.pid)) {
+          try { execSync(`taskkill /PID ${pid} /F`); log("info", `Killed stale backend on port ${API_PORT}`, { pid }); } catch {}
+        }
+      }
+    } else {
+      try {
+        const output = execSync(`lsof -ti:${API_PORT}`, { encoding: "utf8" });
+        const pids = output.trim().split("\n").filter(Boolean);
+        for (const pid of pids) {
+          if (pid !== String(process.pid)) {
+            try { execSync(`kill -9 ${pid}`); } catch {}
+          }
+        }
+      } catch {}
+    }
+  } catch {}
 }
 
 function checkHealth(host, port) {
@@ -132,22 +144,17 @@ async function startBackend() {
     return;
   }
 
-  // Check if backend already running on this port
-  const portUsed = await isPortInUse(config.apiPort);
-  if (portUsed) {
-    const healthy = await checkHealth(config.apiHost, config.apiPort);
-    if (healthy) {
-      log("info", "Backend already running and healthy on port " + config.apiPort);
-      backendReady = true;
-      return;
-    }
-    log("warn", "Port in use but not healthy. Attempting to kill stale process.");
-    try {
-      if (process.platform === "win32") {
-        execSync(`netstat -ano | findstr :${config.apiPort} | findstr LISTENING`, { encoding: "utf8" });
-      }
-    } catch {}
+  // Check if backend already healthy on our fixed port
+  const healthy = await checkHealth("localhost", API_PORT);
+  if (healthy) {
+    log("info", "Backend already running and healthy on port " + API_PORT);
+    backendReady = true;
+    return;
   }
+
+  // Kill any stale process on our port
+  killExistingBackend();
+  await new Promise(r => setTimeout(r, 1000));
 
   const serverPath = IS_DEV
     ? path.join(__dirname, "..", "backend", "src", "server.js")
@@ -155,7 +162,7 @@ async function startBackend() {
 
   const env = {
     ...process.env,
-    PORT: String(config.apiPort),
+    PORT: String(API_PORT),
     NODE_ENV: IS_DEV ? "development" : "production",
     CORS_ORIGIN: IS_DEV ? VITE_DEV_URL : "*",
   };
@@ -164,13 +171,17 @@ async function startBackend() {
     env.DATABASE_URL = config.dbUrl;
   }
 
-  log("info", "Starting backend server", { path: serverPath, port: config.apiPort });
+  log("info", "Starting backend server", { path: serverPath, port: API_PORT });
 
-  backendProcess = spawn(process.execPath.includes("electron") ? "node" : process.execPath, [serverPath], {
-    env,
-    stdio: ["pipe", "pipe", "pipe"],
-    cwd: IS_DEV ? path.join(__dirname, "..") : process.resourcesPath,
-  });
+  backendProcess = spawn(
+    process.execPath.includes("electron") ? "node" : process.execPath,
+    [serverPath],
+    {
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: IS_DEV ? path.join(__dirname, "..") : process.resourcesPath,
+    }
+  );
 
   backendProcess.stdout.on("data", (data) => {
     const msg = data.toString().trim();
@@ -187,7 +198,7 @@ async function startBackend() {
     backendProcess = null;
     backendReady = false;
 
-    // Auto-restart in production
+    // Auto-restart in production if crashed
     if (!IS_DEV && code !== 0 && code !== null) {
       log("info", "Auto-restarting backend in 3s...");
       setTimeout(() => startBackend(), 3000);
@@ -202,11 +213,9 @@ async function startBackend() {
 
 async function waitForBackend() {
   const start = Date.now();
-  const host = config.apiHost;
-  const port = config.apiPort;
 
   while (Date.now() - start < MAX_STARTUP_WAIT) {
-    const healthy = await checkHealth(host, port);
+    const healthy = await checkHealth(config.role === "client" ? config.apiHost : "localhost", API_PORT);
     if (healthy) {
       backendReady = true;
       log("info", "Backend is ready", { elapsed: Date.now() - start });
@@ -222,14 +231,14 @@ async function waitForBackend() {
 function startHealthMonitor() {
   if (healthCheckTimer) clearInterval(healthCheckTimer);
   healthCheckTimer = setInterval(async () => {
-    const healthy = await checkHealth(config.apiHost, config.apiPort);
+    const host = config.role === "client" ? config.apiHost : "localhost";
+    const healthy = await checkHealth(host, API_PORT);
     if (!healthy && backendReady) {
       log("warn", "Backend health check failed");
       backendReady = false;
       if (mainWindow) {
         mainWindow.webContents.send("backend-status", { connected: false });
       }
-      // Auto-restart if we're the server
       if (config.role === "server" && !backendProcess) {
         await startBackend();
         const ok = await waitForBackend();
@@ -275,7 +284,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     icon: path.join(__dirname, "..", "public", "logo.png"),
-    show: false, // Show after ready
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -284,7 +293,6 @@ function createWindow() {
     },
   });
 
-  // Show when ready to prevent white flash
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     log("info", "Main window shown");
@@ -301,7 +309,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Inject config after page loads
+  // Inject API URL after page loads — single source of truth
   mainWindow.webContents.on("did-finish-load", () => {
     const apiUrl = getApiUrl();
     mainWindow.webContents.executeJavaScript(`
@@ -320,13 +328,15 @@ function registerIpcHandlers() {
   ipcMain.handle("app:getConfig", () => ({
     role: config.role,
     apiHost: config.apiHost,
-    apiPort: config.apiPort,
+    apiPort: API_PORT,
     apiUrl: getApiUrl(),
     backendReady,
     isElectron: true,
   }));
 
   ipcMain.handle("app:setConfig", async (_e, newConfig) => {
+    // Never allow port changes
+    delete newConfig.apiPort;
     config = { ...config, ...newConfig };
     saveConfig(config);
     log("info", "Config updated via IPC", newConfig);
@@ -336,7 +346,7 @@ function registerIpcHandlers() {
   ipcMain.handle("app:getBackendStatus", () => ({
     running: !!backendProcess || config.role === "client",
     healthy: backendReady,
-    port: config.apiPort,
+    port: API_PORT,
     role: config.role,
   }));
 
@@ -345,7 +355,7 @@ function registerIpcHandlers() {
     await new Promise((r) => setTimeout(r, 1000));
     await startBackend();
     const ok = await waitForBackend();
-    return { ok, port: config.apiPort };
+    return { ok, port: API_PORT };
   });
 
   ipcMain.handle("app:getLogs", () => {
@@ -353,8 +363,7 @@ function registerIpcHandlers() {
       const logFile = path.join(LOG_DIR, `emperor-${new Date().toISOString().slice(0, 10)}.log`);
       if (fs.existsSync(logFile)) {
         const content = fs.readFileSync(logFile, "utf8");
-        const lines = content.split("\n").slice(-200);
-        return lines;
+        return content.split("\n").slice(-200);
       }
     } catch {}
     return [];
@@ -372,7 +381,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle("app:discoverServer", async (_e, host) => {
     try {
-      const healthy = await checkHealth(host, config.apiPort);
+      const healthy = await checkHealth(host, API_PORT);
       if (healthy) {
         config.apiHost = host;
         saveConfig(config);
@@ -381,6 +390,47 @@ function registerIpcHandlers() {
     } catch {}
     return { found: false };
   });
+
+  // Auto-discover server on LAN (broadcast-based)
+  ipcMain.handle("app:autoDiscover", async () => {
+    if (config.role !== "client") return { found: false };
+
+    // Try common LAN patterns
+    const localIPs = getLocalIPs();
+    for (const ip of localIPs) {
+      const subnet = ip.split(".").slice(0, 3).join(".");
+      // Check gateway and common server IPs
+      const candidates = [
+        `${subnet}.1`, `${subnet}.2`, `${subnet}.100`,
+        `${subnet}.10`, `${subnet}.50`, `${subnet}.200`,
+      ];
+      for (const candidate of candidates) {
+        if (candidate === ip) continue;
+        const healthy = await checkHealth(candidate, API_PORT);
+        if (healthy) {
+          config.apiHost = candidate;
+          saveConfig(config);
+          log("info", "Auto-discovered server", { host: candidate });
+          return { found: true, host: candidate };
+        }
+      }
+    }
+    return { found: false };
+  });
+}
+
+function getLocalIPs() {
+  const os = require("os");
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return ips;
 }
 
 // ==============================
@@ -398,11 +448,11 @@ app.whenReady().then(async () => {
     version: app.getVersion(),
     role: config.role,
     isDev: IS_DEV,
+    fixedPort: API_PORT,
   });
 
   registerIpcHandlers();
 
-  // Start backend if server mode
   if (config.role === "server" && config.autoStartBackend) {
     await startBackend();
     const ready = await waitForBackend();
@@ -420,13 +470,15 @@ app.whenReady().then(async () => {
       }
     }
   } else if (config.role === "client") {
-    // Client mode: check if server is reachable
-    const healthy = await checkHealth(config.apiHost, config.apiPort);
+    const healthy = await checkHealth(config.apiHost, API_PORT);
     if (!healthy) {
-      log("warn", "Server not reachable in client mode", { host: config.apiHost, port: config.apiPort });
+      log("warn", "Server not reachable in client mode", { host: config.apiHost, port: API_PORT });
+    } else {
+      backendReady = true;
     }
   }
 
+  // CRITICAL: Only create window AFTER backend is confirmed ready (or timeout)
   createWindow();
   startHealthMonitor();
 });
@@ -444,6 +496,5 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-// Graceful shutdown
 process.on("SIGINT", () => { stopBackend(); app.quit(); });
 process.on("SIGTERM", () => { stopBackend(); app.quit(); });
