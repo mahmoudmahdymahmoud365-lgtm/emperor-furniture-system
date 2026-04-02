@@ -82,12 +82,15 @@ export function useAuditLog() {
 }
 
 export function useUsers() {
-  const users = useStoreData(store.getUsers);
+  const users = useStoreData(store.getUsersSync);
+  // Trigger async refresh on mount
+  const refreshUsers = useCallback(() => { store.getUsers(); }, []);
   return {
     users, currentUser: store.getCurrentUser(), permissions: store.getUserPermissions(),
     addUser: useCallback(store.addUser, []),
     updateUser: useCallback(store.updateUser, []),
     deleteUser: useCallback(store.deleteUser, []),
+    refreshUsers,
   };
 }
 

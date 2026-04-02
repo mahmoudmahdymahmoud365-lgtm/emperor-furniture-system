@@ -56,6 +56,7 @@ let currentUser: UserAccount | null = null;
 
 export function getUsers(): UserAccount[] { return usersSnap; }
 export function getCurrentUser(): UserAccount | null { return currentUser; }
+export function _setCurrentUser(user: UserAccount | null) { currentUser = user; }
 
 export function getUserPermissions(): RolePermissions {
   if (!currentUser) return DEFAULT_PERMISSIONS.sales;
