@@ -1090,12 +1090,19 @@ export async function login(email: string, password: string): Promise<{ success:
   }
 }
 
+// Sync getter for React hooks — returns cached users list
+let usersCache: UserAccount[] = [];
+
+export function getUsersSync(): UserAccount[] { return usersCache; }
+
 export async function getUsers(): Promise<UserAccount[]> {
   try {
     const users = await api.getUsers();
-    return users || [];
+    usersCache = users || [];
+    notify("users");
+    return usersCache;
   } catch {
-    return [];
+    return usersCache;
   }
 }
 
