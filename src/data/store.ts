@@ -298,6 +298,10 @@ async function loadFromApi() {
     if (apiSettings) {
       companySettings = { ...DEFAULT_SETTINGS, ...apiSettings };
     }
+    // Update users cache (declared later but hoisted)
+    if (apiUsers && Array.isArray(apiUsers)) {
+      usersCache = apiUsers;
+    }
   } catch (e) {
     console.error("Failed to load data from API:", e);
   }
