@@ -285,6 +285,9 @@ async function loadFromApi() {
       api.getUsers().catch(() => null),
     ]);
 
+    // Also load security log from API
+    loadSecurityLogFromApi().catch(() => {});
+
     if (apiCustomers) { customers = apiCustomers; cacheWrite("emp_customers", customers); }
     if (apiProducts) { products = apiProducts; cacheWrite("emp_products", products); }
     if (apiInvoices) { invoices = apiInvoices; cacheWrite("emp_invoices", invoices); }
