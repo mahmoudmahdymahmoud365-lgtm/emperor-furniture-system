@@ -23,10 +23,12 @@ export {
   isAuthenticated, logout,
   rebuildUsersSnap, rebuildSecurityLogSnap,
   setAuthDeps, _setCurrentUser,
+  loadSecurityLogFromApi,
 } from "./store.auth";
 
 import {
   getCurrentUser, rebuildUsersSnap, rebuildSecurityLogSnap, setAuthDeps, _setCurrentUser,
+  loadSecurityLogFromApi,
 } from "./store.auth";
 
 // ---- Re-export backup ----
