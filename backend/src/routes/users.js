@@ -1,9 +1,11 @@
 // ==============================
-// Users Route — API-first auth with password hashing support
+// Users Route — API-first auth with bcrypt password hashing
 // ==============================
 const router = require("express").Router();
 const pool = require("../db");
-const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+
+const BCRYPT_ROUNDS = 12;
 
 const toApi = r => ({
   id: r.id, name: r.name, email: r.email, role: r.role,
@@ -12,22 +14,27 @@ const toApi = r => ({
 });
 
 // ==============================
-// Password hashing (mirrors client-side SHA-256 + salt)
+// Password hashing — bcrypt (industry standard)
 // ==============================
-async function hashPassword(password, salt) {
-  const usedSalt = salt || crypto.randomBytes(16).toString("hex");
-  const hash = crypto.createHash("sha256").update(usedSalt + password).digest("hex");
-  return `${usedSalt}:${hash}`;
+async function hashPassword(password) {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
 
 async function verifyPassword(plainPassword, storedHash) {
-  // Legacy plain-text support (migration)
-  if (!storedHash.includes(":") || storedHash.length < 40) {
-    return plainPassword === storedHash;
+  // Legacy: plain-text or old SHA-256 format (salt:hash)
+  if (!storedHash.startsWith("$2")) {
+    // Legacy plain-text check
+    if (!storedHash.includes(":") || storedHash.length < 40) {
+      return plainPassword === storedHash;
+    }
+    // Legacy SHA-256 check (salt:hash format)
+    const crypto = require("crypto");
+    const [salt] = storedHash.split(":");
+    const computed = crypto.createHash("sha256").update(salt + plainPassword).digest("hex");
+    return `${salt}:${computed}` === storedHash;
   }
-  const [salt] = storedHash.split(":");
-  const computed = await hashPassword(plainPassword, salt);
-  return computed === storedHash;
+  // bcrypt verification
+  return bcrypt.compare(plainPassword, storedHash);
 }
 
 // ==============================
@@ -50,7 +57,6 @@ router.post("/login", async (req, res, next) => {
       return res.status(400).json({ error: "Email and password required" });
     }
 
-    // Fetch user by email only (password verified in JS, not SQL)
     const { rows } = await pool.query(
       "SELECT * FROM user_accounts WHERE LOWER(email)=LOWER($1) AND active=true",
       [email.trim()]
@@ -67,8 +73,8 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
     }
 
-    // Auto-migrate plain-text passwords to hashed
-    if (!user.password.includes(":") || user.password.length < 40) {
+    // Auto-migrate legacy passwords (plain-text or SHA-256) to bcrypt
+    if (!user.password.startsWith("$2")) {
       const hashed = await hashPassword(password);
       await pool.query("UPDATE user_accounts SET password=$1 WHERE id=$2", [hashed, user.id]);
     }
@@ -78,7 +84,7 @@ router.post("/login", async (req, res, next) => {
 });
 
 // ==============================
-// POST /users — Create user (hash password)
+// POST /users — Create user (bcrypt hash password)
 // ==============================
 router.post("/", async (req, res, next) => {
   try {
@@ -94,7 +100,7 @@ router.post("/", async (req, res, next) => {
 });
 
 // ==============================
-// PUT /users/:id — Update user (hash password if changed)
+// PUT /users/:id — Update user (bcrypt hash password if changed)
 // ==============================
 router.put("/:id", async (req, res, next) => {
   try {
@@ -103,9 +109,9 @@ router.put("/:id", async (req, res, next) => {
     if (d.name !== undefined) { sets.push(`name=$${i++}`); vals.push(d.name); }
     if (d.email !== undefined) { sets.push(`email=$${i++}`); vals.push(d.email); }
     if (d.password !== undefined) {
-      // Hash new password if it's not already hashed
+      // Hash new password if it's not already bcrypt-hashed
       let pw = d.password;
-      if (!pw.includes(":") || pw.length < 40) {
+      if (!pw.startsWith("$2")) {
         pw = await hashPassword(pw);
       }
       sets.push(`password=$${i++}`); vals.push(pw);

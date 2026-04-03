@@ -23,10 +23,12 @@ export {
   isAuthenticated, logout,
   rebuildUsersSnap, rebuildSecurityLogSnap,
   setAuthDeps, _setCurrentUser,
+  loadSecurityLogFromApi,
 } from "./store.auth";
 
 import {
   getCurrentUser, rebuildUsersSnap, rebuildSecurityLogSnap, setAuthDeps, _setCurrentUser,
+  loadSecurityLogFromApi,
 } from "./store.auth";
 
 // ---- Re-export backup ----
@@ -282,6 +284,9 @@ async function loadFromApi() {
       api.getSettings().catch(() => null),
       api.getUsers().catch(() => null),
     ]);
+
+    // Also load security log from API
+    loadSecurityLogFromApi().catch(() => {});
 
     if (apiCustomers) { customers = apiCustomers; cacheWrite("emp_customers", customers); }
     if (apiProducts) { products = apiProducts; cacheWrite("emp_products", products); }
