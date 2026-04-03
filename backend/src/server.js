@@ -1,11 +1,10 @@
 // ==============================
 // Emperor ERP — Enterprise Express API Server
-// Fixed port 3001, no random switching
+// Fixed port 3001 — NEVER changes
 // ==============================
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
@@ -32,7 +31,6 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Request logging (skip health checks to reduce noise)
 app.use((req, _res, next) => {
   if (req.path !== "/api/health") {
     log("info", `${req.method} ${req.path}`);
@@ -52,6 +50,7 @@ app.get("/api/health", async (_req, res) => {
     timestamp: new Date().toISOString(),
     uptime: startedAt ? Date.now() - startedAt : 0,
     port: PORT,
+    pid: process.pid,
   };
   try {
     await pool.query("SELECT 1");
@@ -62,6 +61,34 @@ app.get("/api/health", async (_req, res) => {
   }
   res.json(status);
 });
+
+// ==============================
+// AUTO-INIT DATABASE SCHEMA ON FIRST START
+// ==============================
+async function ensureSchema() {
+  try {
+    // Check if tables exist
+    const { rows } = await pool.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename='user_accounts'"
+    );
+    if (rows.length === 0) {
+      log("info", "Database tables not found — running schema initialization...");
+      const initDb = require("./initDb");
+      if (typeof initDb === "function") await initDb(pool);
+      else {
+        // initDb.js runs itself, but we can also run the SQL inline
+        const path = require("path");
+        const { execSync } = require("child_process");
+        execSync(`node ${path.join(__dirname, "initDb.js")}`, { stdio: "inherit" });
+      }
+      log("info", "Database schema initialized successfully");
+    } else {
+      log("info", "Database schema already exists");
+    }
+  } catch (e) {
+    log("error", "Schema check/init failed", { error: e.message });
+  }
+}
 
 // ==============================
 // ROUTES
@@ -110,37 +137,54 @@ app.use((err, req, res, _next) => {
   });
 });
 
-// 404 handler
 app.use((_req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
 });
 
 // ==============================
-// SERVER STARTUP — FIXED PORT, NO RANDOM SWITCHING
-// Kills existing process on port if needed (server mode only)
+// SERVER STARTUP — SAFE PORT MANAGEMENT
+// No blind kill. Check health first, only kill OUR stale processes.
 // ==============================
 const server = http.createServer(app);
 
+async function isOurProcessOnPort(port) {
+  // Check if the process on our port responds to OUR health endpoint
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/api/health`, { timeout: 2000 }, (res) => {
+      let data = "";
+      res.on("data", d => data += d);
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          // It's our Emperor API if it has status:"ok" and the port field
+          resolve(json.status === "ok" && json.port === port);
+        } catch { resolve(false); }
+      });
+    });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+  });
+}
+
 function killProcessOnPort(port) {
   try {
+    const { execSync } = require("child_process");
     if (process.platform === "win32") {
-      const { execSync } = require("child_process");
       const output = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, { encoding: "utf8" });
       const lines = output.trim().split("\n");
       for (const line of lines) {
         const pid = line.trim().split(/\s+/).pop();
         if (pid && pid !== String(process.pid)) {
-          try { execSync(`taskkill /PID ${pid} /F`); log("info", `Killed stale process on port ${port}`, { pid }); } catch {}
+          try { execSync(`taskkill /PID ${pid} /F`); log("info", `Killed stale Emperor process on port ${port}`, { pid }); } catch {}
         }
       }
     } else {
-      const { execSync } = require("child_process");
       try {
         const output = execSync(`lsof -ti:${port}`, { encoding: "utf8" });
         const pids = output.trim().split("\n").filter(Boolean);
         for (const pid of pids) {
           if (pid !== String(process.pid)) {
-            try { execSync(`kill -9 ${pid}`); log("info", `Killed stale process on port ${port}`, { pid }); } catch {}
+            try { execSync(`kill -9 ${pid}`); log("info", `Killed stale Emperor process on port ${port}`, { pid }); } catch {}
           }
         }
       } catch {}
@@ -148,34 +192,38 @@ function killProcessOnPort(port) {
   } catch {}
 }
 
-function startServer() {
-  killProcessOnPort(PORT);
+async function startServer() {
+  // First: ensure DB schema exists
+  await ensureSchema();
 
-  // Small delay after killing to let OS release port
-  setTimeout(() => {
-    server.listen(PORT, "0.0.0.0", () => {
-      startedAt = Date.now();
-      log("info", `Emperor API running on http://0.0.0.0:${PORT}`, {
-        env: process.env.NODE_ENV || "development",
-        pid: process.pid,
-      });
-    });
+  // Check if port is in use by our own stale process
+  const isOurs = await isOurProcessOnPort(PORT);
+  if (isOurs) {
+    log("info", "Stale Emperor instance detected on port " + PORT + " — killing it");
+    killProcessOnPort(PORT);
+    await new Promise(r => setTimeout(r, 1500));
+  }
 
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        log("error", `Port ${PORT} still in use after cleanup. Retrying in 3s...`);
-        setTimeout(() => {
-          killProcessOnPort(PORT);
-          setTimeout(() => {
-            server.listen(PORT, "0.0.0.0");
-          }, 1000);
-        }, 3000);
-      } else {
-        log("error", "Server error", { error: err.message });
-        process.exit(1);
-      }
+  server.listen(PORT, "0.0.0.0", () => {
+    startedAt = Date.now();
+    log("info", `Emperor API running on http://0.0.0.0:${PORT}`, {
+      env: process.env.NODE_ENV || "development",
+      pid: process.pid,
     });
-  }, 500);
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      log("warn", `Port ${PORT} in use. Attempting cleanup...`);
+      killProcessOnPort(PORT);
+      setTimeout(() => {
+        server.listen(PORT, "0.0.0.0");
+      }, 2000);
+    } else {
+      log("error", "Server error", { error: err.message });
+      process.exit(1);
+    }
+  });
 }
 
 startServer();

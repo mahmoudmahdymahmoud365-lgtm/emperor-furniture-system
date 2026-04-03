@@ -8,7 +8,7 @@ const path = require("path");
 const { spawn, execSync } = require("child_process");
 const fs = require("fs");
 const http = require("http");
-const net = require("net");
+const os = require("os");
 
 // ==============================
 // CONFIGURATION
@@ -23,7 +23,7 @@ const CONFIG_FILE = path.join(app.getPath("userData"), "emperor-config.json");
 const LOG_DIR = path.join(app.getPath("userData"), "logs");
 
 // ==============================
-// LOGGING
+// LOGGING — File-based, daily rotation
 // ==============================
 function ensureLogDir() {
   try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
@@ -31,11 +31,11 @@ function ensureLogDir() {
 
 function log(level, msg, meta) {
   const ts = new Date().toISOString();
-  const line = `[${ts}] [${level.toUpperCase()}] ${msg}${meta ? " " + JSON.stringify(meta) : ""}`;
+  const line = `[${ts}] [ELECTRON:${level.toUpperCase()}] ${msg}${meta ? " " + JSON.stringify(meta) : ""}`;
   console.log(line);
   try {
     ensureLogDir();
-    const logFile = path.join(LOG_DIR, `emperor-${new Date().toISOString().slice(0, 10)}.log`);
+    const logFile = path.join(LOG_DIR, `emperor-${ts.slice(0, 10)}.log`);
     fs.appendFileSync(logFile, line + "\n");
   } catch {}
 }
@@ -54,8 +54,7 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-      // Force port to API_PORT — no random switching
-      return { ...defaults, ...saved, apiPort: API_PORT };
+      return { ...defaults, ...saved, apiPort: API_PORT }; // Force port
     }
   } catch (e) {
     log("warn", "Failed to load config, using defaults", { error: e.message });
@@ -79,7 +78,7 @@ function getApiUrl() {
 }
 
 // ==============================
-// SINGLE INSTANCE LOCK
+// SINGLE INSTANCE LOCK — prevents duplicate launches
 // ==============================
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -93,31 +92,7 @@ if (!gotLock) {
 let backendProcess = null;
 let backendReady = false;
 let healthCheckTimer = null;
-
-function killExistingBackend() {
-  try {
-    if (process.platform === "win32") {
-      const output = execSync(`netstat -ano | findstr :${API_PORT} | findstr LISTENING`, { encoding: "utf8" });
-      const lines = output.trim().split("\n");
-      for (const line of lines) {
-        const pid = line.trim().split(/\s+/).pop();
-        if (pid && pid !== String(process.pid)) {
-          try { execSync(`taskkill /PID ${pid} /F`); log("info", `Killed stale backend on port ${API_PORT}`, { pid }); } catch {}
-        }
-      }
-    } else {
-      try {
-        const output = execSync(`lsof -ti:${API_PORT}`, { encoding: "utf8" });
-        const pids = output.trim().split("\n").filter(Boolean);
-        for (const pid of pids) {
-          if (pid !== String(process.pid)) {
-            try { execSync(`kill -9 ${pid}`); } catch {}
-          }
-        }
-      } catch {}
-    }
-  } catch {}
-}
+let backendPid = null; // Track OUR backend PID for safe port management
 
 function checkHealth(host, port) {
   return new Promise((resolve) => {
@@ -127,15 +102,42 @@ function checkHealth(host, port) {
       res.on("end", () => {
         try {
           const json = JSON.parse(data);
-          resolve(json.status === "ok");
-        } catch {
-          resolve(false);
-        }
+          resolve(json.status === "ok" ? json : false);
+        } catch { resolve(false); }
       });
     });
     req.on("error", () => resolve(false));
     req.on("timeout", () => { req.destroy(); resolve(false); });
   });
+}
+
+/**
+ * SAFE port cleanup:
+ * Only kills a process on port 3001 if it's verified to be
+ * a stale Emperor backend (responds to /api/health with our format)
+ * or if it matches our tracked PID.
+ */
+async function safeKillStaleBackend() {
+  const health = await checkHealth("localhost", API_PORT);
+  if (!health) {
+    // Port might be held by a dead process — try to kill by PID
+    if (backendPid) {
+      try {
+        process.kill(backendPid, "SIGKILL");
+        log("info", "Killed tracked backend PID", { pid: backendPid });
+      } catch {}
+      backendPid = null;
+    }
+    return;
+  }
+  // If healthy but it's a stale instance (different PID than what we spawned)
+  if (health.pid && health.pid !== backendPid) {
+    log("info", "Stale Emperor backend detected", { stalePid: health.pid });
+    try {
+      process.kill(health.pid, "SIGKILL");
+    } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
 }
 
 async function startBackend() {
@@ -144,17 +146,18 @@ async function startBackend() {
     return;
   }
 
-  // Check if backend already healthy on our fixed port
-  const healthy = await checkHealth("localhost", API_PORT);
-  if (healthy) {
-    log("info", "Backend already running and healthy on port " + API_PORT);
+  // Check if backend already healthy
+  const health = await checkHealth("localhost", API_PORT);
+  if (health) {
+    log("info", "Backend already running and healthy on port " + API_PORT, { pid: health.pid });
     backendReady = true;
+    backendPid = health.pid || null;
     return;
   }
 
-  // Kill any stale process on our port
-  killExistingBackend();
-  await new Promise(r => setTimeout(r, 1000));
+  // Safe cleanup of stale processes
+  await safeKillStaleBackend();
+  await new Promise(r => setTimeout(r, 500));
 
   const serverPath = IS_DEV
     ? path.join(__dirname, "..", "backend", "src", "server.js")
@@ -183,6 +186,9 @@ async function startBackend() {
     }
   );
 
+  backendPid = backendProcess.pid;
+  log("info", "Backend spawned", { pid: backendPid });
+
   backendProcess.stdout.on("data", (data) => {
     const msg = data.toString().trim();
     if (msg) log("info", `[backend] ${msg}`);
@@ -194,11 +200,11 @@ async function startBackend() {
   });
 
   backendProcess.on("exit", (code, signal) => {
-    log("warn", "Backend process exited", { code, signal });
+    log("warn", "Backend process exited", { code, signal, pid: backendPid });
     backendProcess = null;
     backendReady = false;
 
-    // Auto-restart in production if crashed
+    // Auto-restart in production if crashed (not intentional shutdown)
     if (!IS_DEV && code !== 0 && code !== null) {
       log("info", "Auto-restarting backend in 3s...");
       setTimeout(() => startBackend(), 3000);
@@ -213,17 +219,16 @@ async function startBackend() {
 
 async function waitForBackend() {
   const start = Date.now();
-
   while (Date.now() - start < MAX_STARTUP_WAIT) {
-    const healthy = await checkHealth(config.role === "client" ? config.apiHost : "localhost", API_PORT);
-    if (healthy) {
+    const host = config.role === "client" ? config.apiHost : "localhost";
+    const health = await checkHealth(host, API_PORT);
+    if (health) {
       backendReady = true;
       log("info", "Backend is ready", { elapsed: Date.now() - start });
       return true;
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-
   log("error", "Backend failed to start within timeout", { timeout: MAX_STARTUP_WAIT });
   return false;
 }
@@ -232,13 +237,14 @@ function startHealthMonitor() {
   if (healthCheckTimer) clearInterval(healthCheckTimer);
   healthCheckTimer = setInterval(async () => {
     const host = config.role === "client" ? config.apiHost : "localhost";
-    const healthy = await checkHealth(host, API_PORT);
-    if (!healthy && backendReady) {
+    const health = await checkHealth(host, API_PORT);
+    if (!health && backendReady) {
       log("warn", "Backend health check failed");
       backendReady = false;
       if (mainWindow) {
         mainWindow.webContents.send("backend-status", { connected: false });
       }
+      // Auto-recover: restart backend if we're the server
       if (config.role === "server" && !backendProcess) {
         await startBackend();
         const ok = await waitForBackend();
@@ -246,7 +252,7 @@ function startHealthMonitor() {
           mainWindow.webContents.send("backend-status", { connected: true });
         }
       }
-    } else if (healthy && !backendReady) {
+    } else if (health && !backendReady) {
       backendReady = true;
       if (mainWindow) {
         mainWindow.webContents.send("backend-status", { connected: true });
@@ -261,7 +267,7 @@ function stopBackend() {
     healthCheckTimer = null;
   }
   if (backendProcess) {
-    log("info", "Stopping backend process");
+    log("info", "Stopping backend process", { pid: backendPid });
     backendProcess.kill("SIGTERM");
     setTimeout(() => {
       if (backendProcess) {
@@ -305,11 +311,9 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+  mainWindow.on("closed", () => { mainWindow = null; });
 
-  // Inject API URL after page loads — single source of truth
+  // Inject API URL — single source of truth for renderer
   mainWindow.webContents.on("did-finish-load", () => {
     const apiUrl = getApiUrl();
     mainWindow.webContents.executeJavaScript(`
@@ -319,6 +323,117 @@ function createWindow() {
     `);
     log("info", "Config injected into renderer", { apiUrl, role: config.role });
   });
+}
+
+// ==============================
+// SERVER AUTO-DISCOVERY
+// ==============================
+
+/**
+ * Get all local IPv4 addresses including Tailscale interfaces
+ */
+function getLocalIPs() {
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        ips.push({ address: iface.address, name, netmask: iface.netmask });
+      }
+    }
+  }
+  return ips;
+}
+
+/**
+ * Detect Tailscale IP (100.x.x.x range)
+ */
+function getTailscaleIPs() {
+  return getLocalIPs().filter(ip => ip.address.startsWith("100."));
+}
+
+/**
+ * Fast parallel health check with timeout
+ */
+function fastHealthCheck(host, port, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://${host}:${port}/api/health`, { timeout: timeoutMs }, (res) => {
+      let data = "";
+      res.on("data", d => data += d);
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json.status === "ok" ? host : null);
+        } catch { resolve(null); }
+      });
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => { req.destroy(); resolve(null); });
+  });
+}
+
+/**
+ * Full subnet scan — checks all 254 IPs in each local subnet in parallel batches
+ * Also checks Tailscale peers
+ */
+async function autoDiscoverServer() {
+  const localIPs = getLocalIPs();
+  const candidates = new Set();
+
+  // 1. Tailscale IPs — check the Tailscale subnet (100.x.x.x)
+  const tailscaleIPs = getTailscaleIPs();
+  if (tailscaleIPs.length > 0) {
+    log("info", "Tailscale detected", { ips: tailscaleIPs.map(i => i.address) });
+    // Try to get Tailscale peers via CLI
+    try {
+      const output = execSync("tailscale status --json", { encoding: "utf8", timeout: 5000 });
+      const status = JSON.parse(output);
+      if (status.Peer) {
+        for (const peer of Object.values(status.Peer)) {
+          if (peer.TailscaleIPs) {
+            for (const ip of peer.TailscaleIPs) {
+              if (ip.includes(".")) candidates.add(ip); // IPv4 only
+            }
+          }
+        }
+      }
+    } catch {
+      // Tailscale CLI not available — scan 100.x.x.0/24 subnet
+      for (const ts of tailscaleIPs) {
+        const subnet = ts.address.split(".").slice(0, 3).join(".");
+        for (let i = 1; i <= 254; i++) {
+          candidates.add(`${subnet}.${i}`);
+        }
+      }
+    }
+  }
+
+  // 2. LAN subnets — full /24 scan
+  for (const ip of localIPs) {
+    if (ip.address.startsWith("100.")) continue; // Already handled
+    const subnet = ip.address.split(".").slice(0, 3).join(".");
+    for (let i = 1; i <= 254; i++) {
+      const addr = `${subnet}.${i}`;
+      if (addr !== ip.address) candidates.add(addr);
+    }
+  }
+
+  // 3. Scan in parallel batches of 50
+  const candidateList = [...candidates];
+  log("info", `Auto-discovery: scanning ${candidateList.length} candidates`);
+
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < candidateList.length; i += BATCH_SIZE) {
+    const batch = candidateList.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map(ip => fastHealthCheck(ip, API_PORT)));
+    const found = results.find(r => r !== null);
+    if (found) {
+      log("info", "Server discovered!", { host: found });
+      return found;
+    }
+  }
+
+  return null;
 }
 
 // ==============================
@@ -335,8 +450,7 @@ function registerIpcHandlers() {
   }));
 
   ipcMain.handle("app:setConfig", async (_e, newConfig) => {
-    // Never allow port changes
-    delete newConfig.apiPort;
+    delete newConfig.apiPort; // Never allow port changes
     config = { ...config, ...newConfig };
     saveConfig(config);
     log("info", "Config updated via IPC", newConfig);
@@ -348,6 +462,7 @@ function registerIpcHandlers() {
     healthy: backendReady,
     port: API_PORT,
     role: config.role,
+    pid: backendPid,
   }));
 
   ipcMain.handle("app:restartBackend", async () => {
@@ -381,8 +496,8 @@ function registerIpcHandlers() {
 
   ipcMain.handle("app:discoverServer", async (_e, host) => {
     try {
-      const healthy = await checkHealth(host, API_PORT);
-      if (healthy) {
+      const health = await checkHealth(host, API_PORT);
+      if (health) {
         config.apiHost = host;
         saveConfig(config);
         return { found: true, host };
@@ -391,46 +506,16 @@ function registerIpcHandlers() {
     return { found: false };
   });
 
-  // Auto-discover server on LAN (broadcast-based)
   ipcMain.handle("app:autoDiscover", async () => {
     if (config.role !== "client") return { found: false };
-
-    // Try common LAN patterns
-    const localIPs = getLocalIPs();
-    for (const ip of localIPs) {
-      const subnet = ip.split(".").slice(0, 3).join(".");
-      // Check gateway and common server IPs
-      const candidates = [
-        `${subnet}.1`, `${subnet}.2`, `${subnet}.100`,
-        `${subnet}.10`, `${subnet}.50`, `${subnet}.200`,
-      ];
-      for (const candidate of candidates) {
-        if (candidate === ip) continue;
-        const healthy = await checkHealth(candidate, API_PORT);
-        if (healthy) {
-          config.apiHost = candidate;
-          saveConfig(config);
-          log("info", "Auto-discovered server", { host: candidate });
-          return { found: true, host: candidate };
-        }
-      }
+    const host = await autoDiscoverServer();
+    if (host) {
+      config.apiHost = host;
+      saveConfig(config);
+      return { found: true, host };
     }
     return { found: false };
   });
-}
-
-function getLocalIPs() {
-  const os = require("os");
-  const interfaces = os.networkInterfaces();
-  const ips = [];
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === "IPv4" && !iface.internal) {
-        ips.push(iface.address);
-      }
-    }
-  }
-  return ips;
 }
 
 // ==============================
@@ -470,15 +555,26 @@ app.whenReady().then(async () => {
       }
     }
   } else if (config.role === "client") {
-    const healthy = await checkHealth(config.apiHost, API_PORT);
-    if (!healthy) {
-      log("warn", "Server not reachable in client mode", { host: config.apiHost, port: API_PORT });
-    } else {
+    // Try configured host first
+    let health = await checkHealth(config.apiHost, API_PORT);
+    if (!health) {
+      // Auto-discover
+      log("info", "Server not reachable, attempting auto-discovery...");
+      const discovered = await autoDiscoverServer();
+      if (discovered) {
+        config.apiHost = discovered;
+        saveConfig(config);
+        health = true;
+      }
+    }
+    if (health) {
       backendReady = true;
+    } else {
+      log("warn", "Server not reachable in client mode", { host: config.apiHost });
     }
   }
 
-  // CRITICAL: Only create window AFTER backend is confirmed ready (or timeout)
+  // CRITICAL: Window created AFTER backend confirmed ready (or timeout)
   createWindow();
   startHealthMonitor();
 });
@@ -488,9 +584,7 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
-  stopBackend();
-});
+app.on("before-quit", () => { stopBackend(); });
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

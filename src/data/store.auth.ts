@@ -1,18 +1,18 @@
 // ==============================
-// Auth & Users Module
+// Auth & Users Module — API-First
+// localStorage used ONLY for session token persistence
+// User data comes from API only
 // ==============================
 
 import type { UserAccount, RolePermissions } from "./types";
 import { DEFAULT_PERMISSIONS } from "./types";
-import { loadFromStorage, saveToStorage, nextId, notifyListeners } from "./store.core";
-import { hashPassword, verifyPassword, checkRateLimit, recordLoginAttempt, sanitizeEmail } from "@/utils/security";
+import { notifyListeners } from "./store.core";
 import type { SecurityEvent } from "./types";
+import { api } from "./apiClient";
 
-// ---- Security Log ----
-const securityLog: SecurityEvent[] = loadFromStorage("securityLog", []);
-let securityLogSnap: SecurityEvent[] = [...securityLog];
-
-function saveSecurityLog() { saveToStorage("securityLog", securityLog); }
+// ---- Security Log (API-backed, local buffer for fire-and-forget) ----
+let securityLogCache: SecurityEvent[] = [];
+let securityLogSnap: SecurityEvent[] = [];
 
 export function getSecurityLog(): SecurityEvent[] { return securityLogSnap; }
 
@@ -21,40 +21,43 @@ export function addSecurityEvent(type: SecurityEvent["type"], email: string, use
     id: `SEC${Date.now().toString(36)}`,
     type, email, userName,
     timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
   };
-  securityLog.unshift(event);
-  if (securityLog.length > 500) securityLog.splice(500);
-  saveSecurityLog();
-  securityLogSnap = [...securityLog];
+  securityLogCache.unshift(event);
+  if (securityLogCache.length > 500) securityLogCache.splice(500);
+  securityLogSnap = [...securityLogCache];
+  // Fire and forget to API
+  api.addSecurityEvent(event).catch(() => {});
 }
 
-export function clearSecurityLog() {
-  securityLog.length = 0;
-  saveSecurityLog();
-  securityLogSnap = [];
-  notifyListeners();
+export async function clearSecurityLog() {
+  try {
+    await api.clearSecurityLog();
+    securityLogCache = [];
+    securityLogSnap = [];
+    notifyListeners();
+  } catch {}
 }
 
 export function rebuildSecurityLogSnap() {
-  securityLogSnap = [...securityLog];
+  securityLogSnap = [...securityLogCache];
 }
 
-// ---- Users ----
-const DEFAULT_USERS: UserAccount[] = [
-  { id: "U001", name: "المدير", email: "admin@emperor.com", password: "admin123", role: "admin", active: true },
-  { id: "U002", name: "موظف مبيعات", email: "sales@emperor.com", password: "sales123", role: "sales", active: true },
-  { id: "U003", name: "المحاسب", email: "accountant@emperor.com", password: "acc123", role: "accountant", active: true },
-];
+// Load security log from API
+export async function loadSecurityLogFromApi() {
+  try {
+    const log = await api.getSecurityLog();
+    if (Array.isArray(log)) {
+      securityLogCache = log;
+      securityLogSnap = [...log];
+    }
+  } catch {}
+}
 
-const users: UserAccount[] = loadFromStorage("userAccounts", DEFAULT_USERS);
-let usersSnap: UserAccount[] = [...users];
-
-function saveUsers() { saveToStorage("userAccounts", users); }
-
+// ---- Users — NO local storage, API only ----
 let currentUser: UserAccount | null = null;
 
-export function getUsers(): UserAccount[] { return usersSnap; }
+export function getUsers(): UserAccount[] { return []; } // Stub — real data from store.ts getUsers/getUsersSync
 export function getCurrentUser(): UserAccount | null { return currentUser; }
 export function _setCurrentUser(user: UserAccount | null) { currentUser = user; }
 
@@ -68,10 +71,10 @@ export function getUserPermissions(): RolePermissions {
 }
 
 export function rebuildUsersSnap() {
-  usersSnap = [...users];
+  // No-op — users managed in store.ts via API
 }
 
-// ---- Audit log reference (will be set by store.ts) ----
+// ---- Audit log reference (set by store.ts) ----
 let addAuditLogFn: (action: string, entity: string, entityId: string, entityName: string, details: string) => void = () => {};
 let notifyFn: (...entities: string[]) => void = () => {};
 
@@ -80,134 +83,46 @@ export function setAuthDeps(auditFn: typeof addAuditLogFn, nFn: typeof notifyFn)
   notifyFn = nFn;
 }
 
-export async function addUser(data: Omit<UserAccount, "id">): Promise<UserAccount> {
-  const hashedPassword = await hashPassword(data.password);
-  const u = { id: nextId("U", users), ...data, password: hashedPassword };
-  users.push(u);
-  saveUsers();
-  addAuditLogFn("create", "settings", u.id, u.name, `إضافة مستخدم: ${u.name} (${u.role})`);
-  notifyFn("users");
-  return u;
-}
-
-export async function updateUser(id: string, data: Partial<UserAccount>) {
-  const idx = users.findIndex((u) => u.id === id);
-  if (idx >= 0) {
-    if (data.password && (!data.password.includes(":") || data.password.length < 40)) {
-      data.password = await hashPassword(data.password);
-    }
-    users[idx] = { ...users[idx], ...data };
-    saveUsers();
-    addAuditLogFn("update", "settings", id, users[idx].name, `تعديل مستخدم: ${users[idx].name}`);
-    notifyFn("users");
-  }
-}
-
-export function deleteUser(id: string) {
-  const idx = users.findIndex((u) => u.id === id);
-  if (idx >= 0) {
-    const name = users[idx].name;
-    users.splice(idx, 1);
-    saveUsers();
-    addAuditLogFn("delete", "settings", id, name, `حذف مستخدم: ${name}`);
-    notifyFn("users");
-  }
-}
-
-// ---- Auth / Session ----
-const AUTH_KEY = "isLoggedIn";
-const CURRENT_USER_KEY = "currentUserId";
+// ---- Session Management ----
 const SESSION_TOKEN_KEY = "sessionToken";
 const SESSION_EXPIRY_KEY = "sessionExpiry";
+const CURRENT_USER_KEY = "currentUserData";
 const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
-
-function generateSessionToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array).map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 export function isAuthenticated(): boolean {
   const token = localStorage.getItem(SESSION_TOKEN_KEY);
   const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
-  const loggedIn = localStorage.getItem(AUTH_KEY) === "true";
-
-  if (!loggedIn || !token || !expiry) return false;
+  if (!token || !expiry) return false;
 
   if (Date.now() > parseInt(expiry, 10)) {
     logout();
     return false;
   }
 
-  return true;
-}
-
-export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-  const cleanEmail = sanitizeEmail(email);
-
-  const rateCheck = checkRateLimit(cleanEmail);
-  if (!rateCheck.allowed) {
-    const minutes = Math.ceil((rateCheck.lockedUntilMs || 0) / 60000);
-    addSecurityEvent("login_failed", cleanEmail, "محاولات كثيرة");
-    return { success: false, error: `تم تجاوز الحد المسموح. حاول بعد ${minutes} دقيقة` };
+  // Restore currentUser from session cache if needed (NOT from users list)
+  if (!currentUser) {
+    try {
+      const cached = localStorage.getItem(CURRENT_USER_KEY);
+      if (cached) {
+        currentUser = JSON.parse(cached);
+      }
+    } catch {}
   }
 
-  const user = users.find((u) => u.email === cleanEmail && u.active);
-  if (!user) {
-    recordLoginAttempt(cleanEmail, false);
-    addSecurityEvent("login_failed", cleanEmail, "");
-    return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-  }
-
-  const passwordValid = await verifyPassword(password, user.password);
-  if (!passwordValid) {
-    recordLoginAttempt(cleanEmail, false);
-    addSecurityEvent("login_failed", cleanEmail, "");
-    const remaining = rateCheck.remainingAttempts - 1;
-    return {
-      success: false,
-      error: remaining > 0
-        ? `كلمة المرور غير صحيحة. متبقي ${remaining} محاولات`
-        : "تم تجاوز الحد المسموح. حاول لاحقاً"
-    };
-  }
-
-  // Auto-migrate plain-text passwords to hashed
-  if (!user.password.includes(":") || user.password.length < 40) {
-    const hashed = await hashPassword(password);
-    const idx = users.findIndex(u => u.id === user.id);
-    if (idx >= 0) {
-      users[idx].password = hashed;
-      saveUsers();
-    }
-  }
-
-  recordLoginAttempt(cleanEmail, true);
-  const sessionToken = generateSessionToken();
-  localStorage.setItem(AUTH_KEY, "true");
-  localStorage.setItem(CURRENT_USER_KEY, user.id);
-  localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
-  localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_DURATION));
-  currentUser = user;
-  addSecurityEvent("login_success", cleanEmail, user.name);
-  return { success: true };
+  return !!currentUser;
 }
 
 export function logout() {
   if (currentUser) {
     addSecurityEvent("logout", currentUser.email, currentUser.name);
   }
-  localStorage.removeItem(AUTH_KEY);
-  localStorage.removeItem(CURRENT_USER_KEY);
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(SESSION_EXPIRY_KEY);
+  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem("isLoggedIn");
+  localStorage.removeItem("currentUserId");
   currentUser = null;
 }
 
-// Restore user on load
-(function restoreUser() {
-  const userId = localStorage.getItem(CURRENT_USER_KEY);
-  if (userId) {
-    currentUser = users.find((u) => u.id === userId) || null;
-  }
-})();
+// NOTE: login() is defined in store.ts as API-first — NOT here.
+// This module only handles session token persistence and user state.
