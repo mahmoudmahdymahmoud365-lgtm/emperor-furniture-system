@@ -18,9 +18,9 @@ router.post("/", async (req, res, next) => {
   try {
     const d = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO employees (id, name, national_id, phone, branch, monthly_salary, role, active)
-       VALUES ('E' || LPAD(nextval('employees_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [d.name, d.nationalId||'', d.phone||'', d.branch||'', d.monthlySalary||0, d.role||'', d.active!==false]
+      `INSERT INTO employees (id, name, national_id, phone, branch, monthly_salary, role, active, email)
+       VALUES ('E' || LPAD(nextval('employees_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [d.name, d.nationalId||'', d.phone||'', d.branch||'', d.monthlySalary||0, d.role||'', d.active!==false, d.email||'']
     );
     res.json(toApi(rows[0]));
   } catch (e) { next(e); }
