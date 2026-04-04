@@ -1,11 +1,19 @@
 // ==============================
-// Users Route — API-first auth with bcrypt password hashing
+// Users Route — API-first auth with bcrypt + rate limiting
 // ==============================
 const router = require("express").Router();
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
+const { createRateLimiter } = require("../middleware/rateLimiter");
 
 const BCRYPT_ROUNDS = 12;
+
+// Rate limit login: 5 attempts per 5 minutes per IP+email
+const loginLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  message: "تم تجاوز عدد المحاولات المسموح. حاول مرة أخرى بعد 5 دقائق.",
+});
 
 const toApi = r => ({
   id: r.id, name: r.name, email: r.email, role: r.role,
