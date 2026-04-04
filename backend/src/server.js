@@ -12,14 +12,45 @@ const PORT = parseInt(process.env.PORT, 10) || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
 // ==============================
-// LOGGING
+// LOGGING — with file output and rotation
 // ==============================
+const fsNode = require("fs");
+const pathNode = require("path");
+
+const LOG_DIR = process.env.LOG_DIR || pathNode.join(process.cwd(), "logs");
+const MAX_LOG_AGE_DAYS = 14;
+
+function ensureLogDir() {
+  try { if (!fsNode.existsSync(LOG_DIR)) fsNode.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+}
+
+function cleanOldLogs() {
+  try {
+    ensureLogDir();
+    const files = fsNode.readdirSync(LOG_DIR).filter(f => f.startsWith("api-") && f.endsWith(".log"));
+    const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000;
+    for (const file of files) {
+      try {
+        const stat = fsNode.statSync(pathNode.join(LOG_DIR, file));
+        if (stat.mtimeMs < cutoff) fsNode.unlinkSync(pathNode.join(LOG_DIR, file));
+      } catch {}
+    }
+  } catch {}
+}
+
 function log(level, msg, meta) {
   const ts = new Date().toISOString();
   const line = `[${ts}] [API:${level.toUpperCase()}] ${msg}${meta ? " " + JSON.stringify(meta) : ""}`;
   if (level === "error") console.error(line);
   else console.log(line);
+  try {
+    ensureLogDir();
+    fsNode.appendFileSync(pathNode.join(LOG_DIR, `api-${ts.slice(0, 10)}.log`), line + "\n");
+  } catch {}
 }
+
+// Clean old logs on startup
+cleanOldLogs();
 
 // ==============================
 // MIDDLEWARE
@@ -63,30 +94,16 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // ==============================
-// AUTO-INIT DATABASE SCHEMA ON FIRST START
+// DATABASE MIGRATIONS — versioned schema management
 // ==============================
 async function ensureSchema() {
   try {
-    // Check if tables exist
-    const { rows } = await pool.query(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename='user_accounts'"
-    );
-    if (rows.length === 0) {
-      log("info", "Database tables not found — running schema initialization...");
-      const initDb = require("./initDb");
-      if (typeof initDb === "function") await initDb(pool);
-      else {
-        // initDb.js runs itself, but we can also run the SQL inline
-        const path = require("path");
-        const { execSync } = require("child_process");
-        execSync(`node ${path.join(__dirname, "initDb.js")}`, { stdio: "inherit" });
-      }
-      log("info", "Database schema initialized successfully");
-    } else {
-      log("info", "Database schema already exists");
-    }
+    const runMigrations = require("./migrations");
+    await runMigrations(log);
   } catch (e) {
-    log("error", "Schema check/init failed", { error: e.message });
+    log("error", "Database migration failed", { error: e.message });
+    // Fatal on first run — schema is required
+    throw e;
   }
 }
 

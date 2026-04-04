@@ -23,10 +23,30 @@ const CONFIG_FILE = path.join(app.getPath("userData"), "emperor-config.json");
 const LOG_DIR = path.join(app.getPath("userData"), "logs");
 
 // ==============================
-// LOGGING — File-based, daily rotation
+// LOGGING — File-based with rotation & cleanup
 // ==============================
+const MAX_LOG_AGE_DAYS = 14;
+const MAX_LOG_SIZE_MB = 10;
+
 function ensureLogDir() {
   try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+}
+
+function cleanOldLogs() {
+  try {
+    ensureLogDir();
+    const files = fs.readdirSync(LOG_DIR).filter(f => f.startsWith("emperor-") && f.endsWith(".log"));
+    const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000;
+    for (const file of files) {
+      const filePath = path.join(LOG_DIR, file);
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs < cutoff || stat.size > MAX_LOG_SIZE_MB * 1024 * 1024) {
+          fs.unlinkSync(filePath);
+        }
+      } catch {}
+    }
+  } catch {}
 }
 
 function log(level, msg, meta) {
@@ -326,12 +346,9 @@ function createWindow() {
 }
 
 // ==============================
-// SERVER AUTO-DISCOVERY
+// SERVER AUTO-DISCOVERY — Cache-first, minimal scanning
 // ==============================
 
-/**
- * Get all local IPv4 addresses including Tailscale interfaces
- */
 function getLocalIPs() {
   const interfaces = os.networkInterfaces();
   const ips = [];
@@ -346,15 +363,36 @@ function getLocalIPs() {
 }
 
 /**
- * Detect Tailscale IP (100.x.x.x range)
+ * Detect Tailscale: installed, connected, self IPs, peer IPs
  */
-function getTailscaleIPs() {
-  return getLocalIPs().filter(ip => ip.address.startsWith("100."));
+function getTailscaleStatus() {
+  const result = { installed: false, connected: false, ips: [], peers: [] };
+  try {
+    execSync("tailscale version", { encoding: "utf8", timeout: 3000 });
+    result.installed = true;
+  } catch {
+    return result;
+  }
+  try {
+    const output = execSync("tailscale status --json", { encoding: "utf8", timeout: 5000 });
+    const status = JSON.parse(output);
+    if (status.Self && status.Self.TailscaleIPs) {
+      result.ips = status.Self.TailscaleIPs.filter(ip => ip.includes("."));
+    }
+    result.connected = !!(status.Self && status.Self.Online !== false);
+    if (status.Peer) {
+      for (const peer of Object.values(status.Peer)) {
+        if (peer.TailscaleIPs) {
+          for (const ip of peer.TailscaleIPs) {
+            if (ip.includes(".")) result.peers.push(ip);
+          }
+        }
+      }
+    }
+  } catch {}
+  return result;
 }
 
-/**
- * Fast parallel health check with timeout
- */
 function fastHealthCheck(host, port, timeoutMs = 1500) {
   return new Promise((resolve) => {
     const req = http.get(`http://${host}:${port}/api/health`, { timeout: timeoutMs }, (res) => {
@@ -373,63 +411,70 @@ function fastHealthCheck(host, port, timeoutMs = 1500) {
 }
 
 /**
- * Full subnet scan — checks all 254 IPs in each local subnet in parallel batches
- * Also checks Tailscale peers
+ * CACHE-FIRST discovery strategy:
+ * 1. Cached host from config (instant)
+ * 2. Tailscale peers (precise, no scan)
+ * 3. Common gateway/server IPs (.1, .100, .200)
+ * 4. Full /24 subnet scan (last resort only)
  */
 async function autoDiscoverServer() {
-  const localIPs = getLocalIPs();
-  const candidates = new Set();
-
-  // 1. Tailscale IPs — check the Tailscale subnet (100.x.x.x)
-  const tailscaleIPs = getTailscaleIPs();
-  if (tailscaleIPs.length > 0) {
-    log("info", "Tailscale detected", { ips: tailscaleIPs.map(i => i.address) });
-    // Try to get Tailscale peers via CLI
-    try {
-      const output = execSync("tailscale status --json", { encoding: "utf8", timeout: 5000 });
-      const status = JSON.parse(output);
-      if (status.Peer) {
-        for (const peer of Object.values(status.Peer)) {
-          if (peer.TailscaleIPs) {
-            for (const ip of peer.TailscaleIPs) {
-              if (ip.includes(".")) candidates.add(ip); // IPv4 only
-            }
-          }
-        }
-      }
-    } catch {
-      // Tailscale CLI not available — scan 100.x.x.0/24 subnet
-      for (const ts of tailscaleIPs) {
-        const subnet = ts.address.split(".").slice(0, 3).join(".");
-        for (let i = 1; i <= 254; i++) {
-          candidates.add(`${subnet}.${i}`);
-        }
-      }
+  // 1. Try cached host first
+  if (config.apiHost && config.apiHost !== "localhost") {
+    const cached = await fastHealthCheck(config.apiHost, API_PORT, 2000);
+    if (cached) {
+      log("info", "Server found at cached host", { host: cached });
+      return cached;
     }
+    log("info", "Cached host unreachable, trying alternatives...");
   }
 
-  // 2. LAN subnets — full /24 scan
-  for (const ip of localIPs) {
-    if (ip.address.startsWith("100.")) continue; // Already handled
-    const subnet = ip.address.split(".").slice(0, 3).join(".");
-    for (let i = 1; i <= 254; i++) {
-      const addr = `${subnet}.${i}`;
-      if (addr !== ip.address) candidates.add(addr);
-    }
-  }
-
-  // 3. Scan in parallel batches of 50
-  const candidateList = [...candidates];
-  log("info", `Auto-discovery: scanning ${candidateList.length} candidates`);
-
-  const BATCH_SIZE = 50;
-  for (let i = 0; i < candidateList.length; i += BATCH_SIZE) {
-    const batch = candidateList.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map(ip => fastHealthCheck(ip, API_PORT)));
+  // 2. Tailscale peers — precise, no scanning
+  const tailscale = getTailscaleStatus();
+  if (tailscale.connected && tailscale.peers.length > 0) {
+    log("info", `Checking ${tailscale.peers.length} Tailscale peers`);
+    const results = await Promise.all(tailscale.peers.map(ip => fastHealthCheck(ip, API_PORT, 2000)));
     const found = results.find(r => r !== null);
     if (found) {
-      log("info", "Server discovered!", { host: found });
+      log("info", "Server found via Tailscale", { host: found });
       return found;
+    }
+  }
+
+  // 3. Common gateway/server IPs (fast — max ~10 checks)
+  const localIPs = getLocalIPs().filter(ip => !ip.address.startsWith("100."));
+  const gatewayCandidates = new Set();
+  for (const ip of localIPs) {
+    const subnet = ip.address.split(".").slice(0, 3).join(".");
+    for (const suffix of [1, 2, 10, 50, 100, 150, 200, 254]) {
+      gatewayCandidates.add(`${subnet}.${suffix}`);
+    }
+  }
+  if (gatewayCandidates.size > 0) {
+    const results = await Promise.all([...gatewayCandidates].map(ip => fastHealthCheck(ip, API_PORT, 1500)));
+    const found = results.find(r => r !== null);
+    if (found) {
+      log("info", "Server found at common IP", { host: found });
+      return found;
+    }
+  }
+
+  // 4. Full /24 scan — last resort
+  log("info", "Falling back to full subnet scan...");
+  for (const ip of localIPs) {
+    const subnet = ip.address.split(".").slice(0, 3).join(".");
+    const batch = [];
+    for (let i = 1; i <= 254; i++) {
+      const addr = `${subnet}.${i}`;
+      if (addr !== ip.address && !gatewayCandidates.has(addr)) batch.push(addr);
+    }
+    for (let i = 0; i < batch.length; i += 50) {
+      const chunk = batch.slice(i, i + 50);
+      const results = await Promise.all(chunk.map(a => fastHealthCheck(a, API_PORT)));
+      const found = results.find(r => r !== null);
+      if (found) {
+        log("info", "Server discovered via subnet scan", { host: found });
+        return found;
+      }
     }
   }
 
@@ -516,6 +561,11 @@ function registerIpcHandlers() {
     }
     return { found: false };
   });
+
+  // Tailscale status for UI guidance
+  ipcMain.handle("app:getTailscaleStatus", () => {
+    return getTailscaleStatus();
+  });
 }
 
 // ==============================
@@ -529,6 +579,9 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+  // Clean old logs on startup
+  cleanOldLogs();
+
   log("info", "Emperor ERP starting", {
     version: app.getVersion(),
     role: config.role,

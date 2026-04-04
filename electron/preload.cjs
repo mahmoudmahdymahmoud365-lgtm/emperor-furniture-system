@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld("emperorAPI", {
   // ---- Logs ----
   getLogs: () => ipcRenderer.invoke("app:getLogs"),
 
+  // ---- Tailscale ----
+  getTailscaleStatus: () => ipcRenderer.invoke("app:getTailscaleStatus"),
+
   // ---- Event Listeners ----
   onBackendStatus: (callback) => {
     const handler = (_event, data) => callback(data);
