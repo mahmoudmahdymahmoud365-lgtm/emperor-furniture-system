@@ -24,7 +24,7 @@ import { useEmployees, useShifts, useAttendance, useBranches } from "@/data/hook
 import type { AttendanceStatus } from "@/data/types";
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS } from "@/data/types";
 
-const emptyForm = { name: "", nationalId: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" };
+const emptyForm = { name: "", nationalId: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات", email: "" };
 const emptyShiftForm = { name: "", startTime: "08:00", endTime: "16:00", hours: 8, branch: "", active: true, notes: "" };
 
 function calcHours(start: string, end: string): number {
