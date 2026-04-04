@@ -369,7 +369,7 @@ export default function Employees() {
                 </Select>
               </div>
               <div className="flex gap-2">
-                <ExportButtons data={filteredEmployees as any} headers={[{ key: "id", label: "الكود" }, { key: "name", label: "الاسم" }, { key: "nationalId", label: "الرقم القومي" }, { key: "phone", label: "الهاتف" }, { key: "branch", label: "الفرع" }, { key: "monthlySalary", label: "المرتب" }, { key: "role", label: "الدور" }]} fileName="الموظفين" title="الموظفين" />
+                <ExportButtons data={filteredEmployees as any} headers={[{ key: "id", label: "الكود" }, { key: "name", label: "الاسم" }, { key: "email", label: "البريد الإلكتروني" }, { key: "nationalId", label: "الرقم القومي" }, { key: "phone", label: "الهاتف" }, { key: "branch", label: "الفرع" }, { key: "monthlySalary", label: "المرتب" }, { key: "role", label: "الدور" }]} fileName="الموظفين" title="الموظفين" />
                 <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(emptyForm); setEditingId(null); } }}>
                   <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />إضافة موظف</Button></DialogTrigger>
                   <DialogContent className="max-w-lg">
