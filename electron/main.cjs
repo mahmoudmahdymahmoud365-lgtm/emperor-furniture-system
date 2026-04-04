@@ -579,6 +579,9 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+  // Clean old logs on startup
+  cleanOldLogs();
+
   log("info", "Emperor ERP starting", {
     version: app.getVersion(),
     role: config.role,
