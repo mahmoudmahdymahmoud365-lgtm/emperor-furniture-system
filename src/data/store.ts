@@ -1055,6 +1055,39 @@ export const getSecurityLog = _getSecurityLog;
 export const addSecurityEvent = _addSecurityEvent;
 export const clearSecurityLog = _clearSecurityLog;
 
+// ---- Auto-attendance on login ----
+async function recordAutoAttendance(email: string, userName: string) {
+  if (!apiConnected) return;
+  const emp = employees.find(e => e.email && e.email.toLowerCase() === email.toLowerCase());
+  if (!emp) return;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const alreadyRecorded = attendance.find(a => a.employeeId === emp.id && a.date === todayStr);
+  if (alreadyRecorded) return;
+
+  // Find current active shift matching employee branch
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const matchingShift = shifts.find(s => s.active && (!s.branch || s.branch === emp.branch));
+
+  const record: Omit<AttendanceRecord, "id"> = {
+    employeeId: emp.id,
+    employeeName: emp.name,
+    shiftId: matchingShift?.id || "",
+    shiftName: matchingShift?.name || "تلقائي",
+    date: todayStr,
+    checkIn: currentTime,
+    checkOut: "",
+    hoursWorked: 0,
+    status: "present",
+    overtimeHours: 0,
+    notes: "تسجيل تلقائي عند الدخول",
+  };
+
+  try {
+    await addAttendance(record);
+  } catch {}
+}
+
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   const cleanEmail = sanitizeEmail(email);
 
