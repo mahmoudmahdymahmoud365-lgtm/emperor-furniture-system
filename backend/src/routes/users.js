@@ -56,9 +56,9 @@ router.get("/", async (_, res, next) => {
 });
 
 // ==============================
-// POST /users/login — Authenticate against PostgreSQL
+// POST /users/login — Authenticate against PostgreSQL (rate limited)
 // ==============================
-router.post("/login", async (req, res, next) => {
+router.post("/login", loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {

@@ -63,30 +63,16 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // ==============================
-// AUTO-INIT DATABASE SCHEMA ON FIRST START
+// DATABASE MIGRATIONS — versioned schema management
 // ==============================
 async function ensureSchema() {
   try {
-    // Check if tables exist
-    const { rows } = await pool.query(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename='user_accounts'"
-    );
-    if (rows.length === 0) {
-      log("info", "Database tables not found — running schema initialization...");
-      const initDb = require("./initDb");
-      if (typeof initDb === "function") await initDb(pool);
-      else {
-        // initDb.js runs itself, but we can also run the SQL inline
-        const path = require("path");
-        const { execSync } = require("child_process");
-        execSync(`node ${path.join(__dirname, "initDb.js")}`, { stdio: "inherit" });
-      }
-      log("info", "Database schema initialized successfully");
-    } else {
-      log("info", "Database schema already exists");
-    }
+    const runMigrations = require("./migrations");
+    await runMigrations(log);
   } catch (e) {
-    log("error", "Schema check/init failed", { error: e.message });
+    log("error", "Database migration failed", { error: e.message });
+    // Fatal on first run — schema is required
+    throw e;
   }
 }
 
