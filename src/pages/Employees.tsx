@@ -480,7 +480,7 @@ export default function Employees() {
                           </td>
                           <td className="p-3.5">
                             <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setForm({ name: e.name, nationalId: e.nationalId || "", phone: e.phone, branch: e.branch, monthlySalary: e.monthlySalary, role: e.role }); setEditingId(e.id); setOpen(true); }}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setForm({ name: e.name, nationalId: e.nationalId || "", phone: e.phone, branch: e.branch, monthlySalary: e.monthlySalary, role: e.role, email: e.email || "" }); setEditingId(e.id); setOpen(true); }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(e.id)}>
