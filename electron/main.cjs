@@ -561,6 +561,11 @@ function registerIpcHandlers() {
     }
     return { found: false };
   });
+
+  // Tailscale status for UI guidance
+  ipcMain.handle("app:getTailscaleStatus", () => {
+    return getTailscaleStatus();
+  });
 }
 
 // ==============================
