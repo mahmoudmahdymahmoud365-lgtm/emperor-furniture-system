@@ -440,6 +440,7 @@ export default function Employees() {
                               <div>
                                 <p className="font-medium text-foreground">{e.name}</p>
                                 <p className="text-xs text-muted-foreground font-mono">{e.id}</p>
+                                {e.email && <p className="text-xs text-muted-foreground" dir="ltr">{e.email}</p>}
                               </div>
                             </div>
                           </td>
