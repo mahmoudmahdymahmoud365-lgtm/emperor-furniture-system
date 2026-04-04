@@ -245,12 +245,25 @@ const MIGRATIONS = [
       ON CONFLICT (id) DO NOTHING;
     `,
   },
-  // Future migrations go here:
-  // {
-  //   version: 2,
-  //   description: "Add invoice_items table",
-  //   up: `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS ...;`
-  // },
+  {
+    version: 2,
+    description: "Add email column to employees for auto-attendance",
+    up: `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';`,
+  },
+  {
+    version: 3,
+    description: "Add updated_at column for optimistic locking",
+    up: `
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE receipts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE offers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    `,
+  },
 ];
 
 /**

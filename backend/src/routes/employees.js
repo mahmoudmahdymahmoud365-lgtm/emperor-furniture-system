@@ -4,6 +4,7 @@ const pool = require("../db");
 const toApi = r => ({
   id: r.id, name: r.name, nationalId: r.national_id, phone: r.phone,
   branch: r.branch, monthlySalary: Number(r.monthly_salary), role: r.role, active: r.active,
+  email: r.email || "",
 });
 
 router.get("/", async (_, res, next) => {
@@ -17,9 +18,9 @@ router.post("/", async (req, res, next) => {
   try {
     const d = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO employees (id, name, national_id, phone, branch, monthly_salary, role, active)
-       VALUES ('E' || LPAD(nextval('employees_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [d.name, d.nationalId||'', d.phone||'', d.branch||'', d.monthlySalary||0, d.role||'', d.active!==false]
+      `INSERT INTO employees (id, name, national_id, phone, branch, monthly_salary, role, active, email)
+       VALUES ('E' || LPAD(nextval('employees_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [d.name, d.nationalId||'', d.phone||'', d.branch||'', d.monthlySalary||0, d.role||'', d.active!==false, d.email||'']
     );
     res.json(toApi(rows[0]));
   } catch (e) { next(e); }
@@ -36,6 +37,7 @@ router.put("/:id", async (req, res, next) => {
     if (d.monthlySalary !== undefined) { sets.push(`monthly_salary=$${i++}`); vals.push(d.monthlySalary); }
     if (d.role !== undefined) { sets.push(`role=$${i++}`); vals.push(d.role); }
     if (d.active !== undefined) { sets.push(`active=$${i++}`); vals.push(d.active); }
+    if (d.email !== undefined) { sets.push(`email=$${i++}`); vals.push(d.email); }
     if (sets.length === 0) return res.json({ ok: true });
     vals.push(req.params.id);
     await pool.query(`UPDATE employees SET ${sets.join(",")} WHERE id=$${i}`, vals);

@@ -117,6 +117,7 @@ export interface Employee {
   monthlySalary: number;
   role: string;
   active: boolean;
+  email?: string;
 }
 
 // ==============================

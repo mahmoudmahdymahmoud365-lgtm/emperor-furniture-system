@@ -24,7 +24,7 @@ import { useEmployees, useShifts, useAttendance, useBranches } from "@/data/hook
 import type { AttendanceStatus } from "@/data/types";
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS } from "@/data/types";
 
-const emptyForm = { name: "", nationalId: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات" };
+const emptyForm = { name: "", nationalId: "", phone: "", branch: "", monthlySalary: 0, role: "مبيعات", email: "" };
 const emptyShiftForm = { name: "", startTime: "08:00", endTime: "16:00", hours: 8, branch: "", active: true, notes: "" };
 
 function calcHours(start: string, end: string): number {
@@ -369,7 +369,7 @@ export default function Employees() {
                 </Select>
               </div>
               <div className="flex gap-2">
-                <ExportButtons data={filteredEmployees as any} headers={[{ key: "id", label: "الكود" }, { key: "name", label: "الاسم" }, { key: "nationalId", label: "الرقم القومي" }, { key: "phone", label: "الهاتف" }, { key: "branch", label: "الفرع" }, { key: "monthlySalary", label: "المرتب" }, { key: "role", label: "الدور" }]} fileName="الموظفين" title="الموظفين" />
+                <ExportButtons data={filteredEmployees as any} headers={[{ key: "id", label: "الكود" }, { key: "name", label: "الاسم" }, { key: "email", label: "البريد الإلكتروني" }, { key: "nationalId", label: "الرقم القومي" }, { key: "phone", label: "الهاتف" }, { key: "branch", label: "الفرع" }, { key: "monthlySalary", label: "المرتب" }, { key: "role", label: "الدور" }]} fileName="الموظفين" title="الموظفين" />
                 <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(emptyForm); setEditingId(null); } }}>
                   <DialogTrigger asChild><Button className="gap-2 shadow-md"><Plus className="h-4 w-4" />إضافة موظف</Button></DialogTrigger>
                   <DialogContent className="max-w-lg">
@@ -388,6 +388,7 @@ export default function Employees() {
                         </Select>
                       </div>
                       <div className="form-group"><Label>المرتب الشهري</Label><Input type="number" value={form.monthlySalary} onChange={(e) => setForm({ ...form, monthlySalary: Number(e.target.value) })} dir="ltr" placeholder="0" /></div>
+                      <div className="form-group sm:col-span-2"><Label>البريد الإلكتروني (على البرنامج)</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" placeholder="employee@emperor.com" /></div>
                       <div className="form-group sm:col-span-2">
                         <Label>الدور الوظيفي</Label>
                         <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
@@ -439,6 +440,7 @@ export default function Employees() {
                               <div>
                                 <p className="font-medium text-foreground">{e.name}</p>
                                 <p className="text-xs text-muted-foreground font-mono">{e.id}</p>
+                                {e.email && <p className="text-xs text-muted-foreground" dir="ltr">{e.email}</p>}
                               </div>
                             </div>
                           </td>
@@ -479,7 +481,7 @@ export default function Employees() {
                           </td>
                           <td className="p-3.5">
                             <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setForm({ name: e.name, nationalId: e.nationalId || "", phone: e.phone, branch: e.branch, monthlySalary: e.monthlySalary, role: e.role }); setEditingId(e.id); setOpen(true); }}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setForm({ name: e.name, nationalId: e.nationalId || "", phone: e.phone, branch: e.branch, monthlySalary: e.monthlySalary, role: e.role, email: e.email || "" }); setEditingId(e.id); setOpen(true); }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(e.id)}>
