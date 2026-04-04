@@ -23,10 +23,30 @@ const CONFIG_FILE = path.join(app.getPath("userData"), "emperor-config.json");
 const LOG_DIR = path.join(app.getPath("userData"), "logs");
 
 // ==============================
-// LOGGING — File-based, daily rotation
+// LOGGING — File-based with rotation & cleanup
 // ==============================
+const MAX_LOG_AGE_DAYS = 14;
+const MAX_LOG_SIZE_MB = 10;
+
 function ensureLogDir() {
   try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+}
+
+function cleanOldLogs() {
+  try {
+    ensureLogDir();
+    const files = fs.readdirSync(LOG_DIR).filter(f => f.startsWith("emperor-") && f.endsWith(".log"));
+    const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000;
+    for (const file of files) {
+      const filePath = path.join(LOG_DIR, file);
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs < cutoff || stat.size > MAX_LOG_SIZE_MB * 1024 * 1024) {
+          fs.unlinkSync(filePath);
+        }
+      } catch {}
+    }
+  } catch {}
 }
 
 function log(level, msg, meta) {
