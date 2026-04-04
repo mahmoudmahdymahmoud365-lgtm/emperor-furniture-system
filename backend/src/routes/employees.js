@@ -4,6 +4,7 @@ const pool = require("../db");
 const toApi = r => ({
   id: r.id, name: r.name, nationalId: r.national_id, phone: r.phone,
   branch: r.branch, monthlySalary: Number(r.monthly_salary), role: r.role, active: r.active,
+  email: r.email || "",
 });
 
 router.get("/", async (_, res, next) => {
