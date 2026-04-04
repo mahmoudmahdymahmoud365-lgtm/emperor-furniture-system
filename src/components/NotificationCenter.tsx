@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, AlertTriangle, Clock, Tag, Package,
@@ -33,14 +33,45 @@ const priorityBg: Record<NotifPriority, string> = {
   info: "bg-info/10",
 };
 
+// ---- Persistent daily dismissals ----
+const DISMISSED_KEY = "notif_dismissed";
+
+function getTodayKey(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function loadDismissed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.date === getTodayKey()) {
+        return new Set<string>(parsed.ids);
+      }
+      // Different day — clear
+      localStorage.removeItem(DISMISSED_KEY);
+    }
+  } catch {}
+  return new Set();
+}
+
+function saveDismissed(ids: Set<string>) {
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify({ date: getTodayKey(), ids: [...ids] }));
+}
+
 export function NotificationCenter() {
   const { invoices, getOverdueInstallments, getUpcomingInstallments } = useInvoices();
   const { receipts } = useReceipts();
   const { products } = useProducts();
   const { offers } = useOffers();
   const navigate = useNavigate();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed());
   const [filter, setFilter] = useState<string>("all");
+
+  // Persist dismissed to localStorage whenever it changes
+  useEffect(() => {
+    saveDismissed(dismissed);
+  }, [dismissed]);
 
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
@@ -63,7 +94,7 @@ export function NotificationCenter() {
       });
     });
 
-    // ---- Installment due alerts (new) ----
+    // ---- Installment due alerts ----
     const overdue = getOverdueInstallments();
     overdue.forEach(({ invoice, daysOverdue, remaining }) => {
       notifs.push({
@@ -132,7 +163,7 @@ export function NotificationCenter() {
       });
     });
 
-    // Overdue payments (legacy — based on last payment date)
+    // Overdue payments (legacy)
     const customerLastPay = new Map<string, string>();
     receipts.forEach(r => {
       const existing = customerLastPay.get(r.customer);
@@ -140,7 +171,7 @@ export function NotificationCenter() {
     });
 
     invoices.forEach(inv => {
-      if (inv.nextDueDate) return; // handled by installment alerts above
+      if (inv.nextDueDate) return;
       const total = inv.items.reduce((s, i) => s + i.qty * i.unitPrice - i.lineDiscount, 0) - (inv.appliedDiscount || 0);
       const remaining = total - inv.paidTotal;
       if (remaining > 0) {
@@ -165,7 +196,7 @@ export function NotificationCenter() {
 
     // Upcoming delivery dates
     invoices.forEach(inv => {
-      if (inv.manufacturingStatus) return; // handled by manufacturing alerts
+      if (inv.manufacturingStatus) return;
       if (inv.deliveryDate && inv.status !== "تم التسليم" && inv.status !== "مغلقة") {
         const diff = Math.floor((new Date(inv.deliveryDate).getTime() - now.getTime()) / 86400000);
         if (diff < 0) {
@@ -216,6 +247,18 @@ export function NotificationCenter() {
     installment: "الأقساط", manufacturing: "التصنيع", recurring: "متكررة",
   };
 
+  const handleDismiss = (id: string) => {
+    setDismissed(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  const handleDismissAll = () => {
+    setDismissed(new Set(notifications.map(n => n.id)));
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -234,7 +277,7 @@ export function NotificationCenter() {
         <div className="p-3 border-b flex items-center justify-between">
           <span className="font-semibold text-sm">الإشعارات ({visibleNotifs.length})</span>
           {visibleNotifs.length > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setDismissed(new Set(notifications.map(n => n.id)))}>
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={handleDismissAll}>
               <CheckCircle2 className="h-3 w-3 ml-1" />تجاهل الكل
             </Button>
           )}
@@ -280,7 +323,7 @@ export function NotificationCenter() {
                 </div>
                 <button
                   className="shrink-0 p-1 rounded hover:bg-muted"
-                  onClick={(e) => { e.stopPropagation(); setDismissed(prev => new Set(prev).add(n.id)); }}
+                  onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }}
                 >
                   <X className="h-3 w-3 text-muted-foreground" />
                 </button>
