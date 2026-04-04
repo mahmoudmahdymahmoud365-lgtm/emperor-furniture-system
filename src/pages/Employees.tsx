@@ -388,6 +388,7 @@ export default function Employees() {
                         </Select>
                       </div>
                       <div className="form-group"><Label>المرتب الشهري</Label><Input type="number" value={form.monthlySalary} onChange={(e) => setForm({ ...form, monthlySalary: Number(e.target.value) })} dir="ltr" placeholder="0" /></div>
+                      <div className="form-group sm:col-span-2"><Label>البريد الإلكتروني (على البرنامج)</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" placeholder="employee@emperor.com" /></div>
                       <div className="form-group sm:col-span-2">
                         <Label>الدور الوظيفي</Label>
                         <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
