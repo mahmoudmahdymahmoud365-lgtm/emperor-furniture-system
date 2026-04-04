@@ -1095,6 +1095,10 @@ export async function login(email: string, password: string): Promise<{ success:
     _setCurrentUser(user);
 
     _addSecurityEvent("login_success", cleanEmail, user.name);
+
+    // Auto-record attendance for the logged-in employee
+    recordAutoAttendance(cleanEmail, user.name).catch(() => {});
+
     return { success: true };
   } catch (e: any) {
     return { success: false, error: "فشل الاتصال بالخادم. تأكد من تشغيل الخادم." };
