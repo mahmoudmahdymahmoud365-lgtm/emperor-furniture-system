@@ -37,6 +37,7 @@ router.put("/:id", async (req, res, next) => {
     if (d.monthlySalary !== undefined) { sets.push(`monthly_salary=$${i++}`); vals.push(d.monthlySalary); }
     if (d.role !== undefined) { sets.push(`role=$${i++}`); vals.push(d.role); }
     if (d.active !== undefined) { sets.push(`active=$${i++}`); vals.push(d.active); }
+    if (d.email !== undefined) { sets.push(`email=$${i++}`); vals.push(d.email); }
     if (sets.length === 0) return res.json({ ok: true });
     vals.push(req.params.id);
     await pool.query(`UPDATE employees SET ${sets.join(",")} WHERE id=$${i}`, vals);
