@@ -12,14 +12,45 @@ const PORT = parseInt(process.env.PORT, 10) || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
 // ==============================
-// LOGGING
+// LOGGING — with file output and rotation
 // ==============================
+const fsNode = require("fs");
+const pathNode = require("path");
+
+const LOG_DIR = process.env.LOG_DIR || pathNode.join(process.cwd(), "logs");
+const MAX_LOG_AGE_DAYS = 14;
+
+function ensureLogDir() {
+  try { if (!fsNode.existsSync(LOG_DIR)) fsNode.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+}
+
+function cleanOldLogs() {
+  try {
+    ensureLogDir();
+    const files = fsNode.readdirSync(LOG_DIR).filter(f => f.startsWith("api-") && f.endsWith(".log"));
+    const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000;
+    for (const file of files) {
+      try {
+        const stat = fsNode.statSync(pathNode.join(LOG_DIR, file));
+        if (stat.mtimeMs < cutoff) fsNode.unlinkSync(pathNode.join(LOG_DIR, file));
+      } catch {}
+    }
+  } catch {}
+}
+
 function log(level, msg, meta) {
   const ts = new Date().toISOString();
   const line = `[${ts}] [API:${level.toUpperCase()}] ${msg}${meta ? " " + JSON.stringify(meta) : ""}`;
   if (level === "error") console.error(line);
   else console.log(line);
+  try {
+    ensureLogDir();
+    fsNode.appendFileSync(pathNode.join(LOG_DIR, `api-${ts.slice(0, 10)}.log`), line + "\n");
+  } catch {}
 }
+
+// Clean old logs on startup
+cleanOldLogs();
 
 // ==============================
 // MIDDLEWARE
