@@ -859,7 +859,7 @@ export function BackupManager() {
                                 {b.label || (b.type === "auto" ? "نسخة تلقائية" : "نسخة يدوية")}
                               </p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{formatDate(b.timestamp)}</span>
+                                <span>{formatDate(b.createdAt || (b as any).timestamp)}</span>
                                 <span>•</span>
                                 <span className="font-mono">{formatSize(b.size)}</span>
                               </div>
