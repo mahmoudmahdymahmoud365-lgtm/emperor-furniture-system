@@ -4,6 +4,7 @@ const pool = require("../db");
 const toApi = r => ({
   id: r.id, name: r.name, category: r.category, defaultPrice: Number(r.default_price),
   unit: r.unit, stock: r.stock, minStock: r.min_stock, notes: r.notes,
+  updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
 router.get("/", async (_, res, next) => {
@@ -37,9 +38,22 @@ router.put("/:id", async (req, res, next) => {
     if (d.minStock !== undefined) { sets.push(`min_stock=$${i++}`); vals.push(d.minStock); }
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (sets.length === 0) return res.json({ ok: true });
+
+    sets.push(`updated_at=NOW()`);
     vals.push(req.params.id);
-    await pool.query(`UPDATE products SET ${sets.join(",")} WHERE id=$${i}`, vals);
-    res.json({ ok: true });
+
+    let query = `UPDATE products SET ${sets.join(",")} WHERE id=$${i}`;
+    if (d._updatedAt) {
+      vals.push(d._updatedAt);
+      query += ` AND updated_at=$${i + 1}`;
+    }
+    query += " RETURNING updated_at";
+
+    const { rowCount, rows } = await pool.query(query, vals);
+    if (rowCount === 0 && d._updatedAt) {
+      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر. يرجى إعادة تحميل البيانات." });
+    }
+    res.json({ ok: true, updatedAt: rows[0]?.updated_at });
   } catch (e) { next(e); }
 });
 

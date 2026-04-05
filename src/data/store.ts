@@ -39,6 +39,9 @@ export {
   getLastAutoBackupTime, getAutoBackupInterval, setAutoBackupInterval,
   checkAndRunAutoBackup,
   getCloudConfig, updateCloudConfig,
+  // New server-backed exports
+  getServerBackups, createServerBackup, restoreServerBackup,
+  deleteServerBackup, getBackupDownloadUrl, restoreFromUpload,
 } from "./store.backup";
 export type { BackupMeta, CloudConfig } from "./store.backup";
 
@@ -226,12 +229,10 @@ function getBackupData() {
   };
 }
 
-export function importBackup(jsonStr: string): boolean {
+function _importBackup(jsonStr: string): boolean {
   try {
     const data = JSON.parse(jsonStr);
     if (!data.version) return false;
-    // For backup restore, push all data to API
-    // This is a bulk operation — best effort
     console.warn("Backup restore should be done via API for data integrity");
     return false;
   } catch {
@@ -239,7 +240,7 @@ export function importBackup(jsonStr: string): boolean {
   }
 }
 
-setBackupDeps(getBackupData, importBackup);
+setBackupDeps(getBackupData, _importBackup);
 
 // ==============================
 // API-FIRST INITIALIZATION
@@ -383,6 +384,16 @@ function requireApi() {
   if (!apiConnected) {
     throw new Error("غير متصل بالخادم. لا يمكن إجراء العملية.");
   }
+}
+
+// Handle 409 conflict responses
+function handleConflict(e: any) {
+  if (e.message?.includes("CONFLICT") || e.message?.includes("تم تعديل")) {
+    // Force reload data from API
+    loadFromApi();
+    throw new Error("تم تعديل هذا السجل من جهاز آخر. تم تحديث البيانات تلقائياً. حاول مرة أخرى.");
+  }
+  throw e;
 }
 
 // ==============================
@@ -579,13 +590,16 @@ export async function addCustomer(data: Omit<Customer, "id">): Promise<Customer>
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
   requireApi();
-  await api.updateCustomer(id, data);
-  const idx = customers.findIndex(c => c.id === id);
-  if (idx >= 0) {
-    customers[idx] = { ...customers[idx], ...data };
-    cacheWrite("emp_customers", customers);
-    notify("customers");
-  }
+  const existing = customers.find(c => c.id === id);
+  try {
+    await api.updateCustomer(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = customers.findIndex(c => c.id === id);
+    if (idx >= 0) {
+      customers[idx] = { ...customers[idx], ...data };
+      cacheWrite("emp_customers", customers);
+      notify("customers");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteCustomer(id: string) {
@@ -615,13 +629,16 @@ export async function addProduct(data: Omit<Product, "id">): Promise<Product> {
 
 export async function updateProduct(id: string, data: Partial<Product>) {
   requireApi();
-  await api.updateProduct(id, data);
-  const idx = products.findIndex(p => p.id === id);
-  if (idx >= 0) {
-    products[idx] = { ...products[idx], ...data };
-    cacheWrite("emp_products", products);
-    notify("products");
-  }
+  const existing = products.find(p => p.id === id);
+  try {
+    await api.updateProduct(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = products.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      products[idx] = { ...products[idx], ...data };
+      cacheWrite("emp_products", products);
+      notify("products");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteProduct(id: string) {
@@ -654,30 +671,30 @@ export async function addInvoice(data: Omit<Invoice, "id">): Promise<Invoice> {
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
   requireApi();
-  await api.updateInvoice(id, data);
-  const idx = invoices.findIndex(i => i.id === id);
-  if (idx >= 0) {
-    invoices[idx] = { ...invoices[idx], ...data };
-    cacheWrite("emp_invoices", invoices);
-    notify("invoices");
-  }
+  const existing = invoices.find(i => i.id === id);
+  try {
+    await api.updateInvoice(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = invoices.findIndex(i => i.id === id);
+    if (idx >= 0) {
+      invoices[idx] = { ...invoices[idx], ...data };
+      cacheWrite("emp_invoices", invoices);
+      notify("invoices");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteInvoice(id: string) {
   requireApi();
-  // Backend handles cascade delete of receipts and stock restoration
   await api.deleteInvoice(id);
   const idx = invoices.findIndex(i => i.id === id);
   if (idx >= 0) {
     invoices.splice(idx, 1);
     cacheWrite("emp_invoices", invoices);
   }
-  // Remove local receipts for this invoice
   for (let i = receipts.length - 1; i >= 0; i--) {
     if (receipts[i].invoiceId === id) receipts.splice(i, 1);
   }
   cacheWrite("emp_receipts", receipts);
-  // Refresh products for updated stock
   api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
   notify("invoices", "receipts", "products", "stockMovements");
 }
@@ -865,13 +882,16 @@ export async function addEmployee(data: Omit<Employee, "id">): Promise<Employee>
 
 export async function updateEmployee(id: string, data: Partial<Employee>) {
   requireApi();
-  await api.updateEmployee(id, data);
-  const idx = employees.findIndex(e => e.id === id);
-  if (idx >= 0) {
-    employees[idx] = { ...employees[idx], ...data };
-    cacheWrite("emp_employees", employees);
-    notify("employees");
-  }
+  const existing = employees.find(e => e.id === id);
+  try {
+    await api.updateEmployee(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = employees.findIndex(e => e.id === id);
+    if (idx >= 0) {
+      employees[idx] = { ...employees[idx], ...data };
+      cacheWrite("emp_employees", employees);
+      notify("employees");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteEmployee(id: string) {

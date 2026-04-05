@@ -128,6 +128,7 @@ const routeModules = [
   ["/api/audit-log", "./routes/auditLog"],
   ["/api/security-log", "./routes/securityLog"],
   ["/api/files", "./routes/files"],
+  ["/api/backup", "./routes/backup"],
 ];
 
 for (const [path, mod] of routeModules) {
@@ -138,6 +139,69 @@ for (const [path, mod] of routeModules) {
     log("error", `Failed to mount route: ${path}`, { error: e.message });
   }
 }
+
+// ==============================
+// SERVE STATIC FRONTEND (Web mode — no Electron needed)
+// Serves dist/ folder for browser access via LAN/VPN
+// ==============================
+const distPath = pathNode.join(__dirname, "../../dist");
+if (fsNode.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA fallback — serve index.html for all non-API routes
+  app.get(/^(?!\/api).*/, (_req, res, next) => {
+    const indexPath = pathNode.join(distPath, "index.html");
+    if (fsNode.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      next();
+    }
+  });
+  log("info", "Static frontend served from dist/");
+}
+
+// ==============================
+// AUTO-BACKUP SCHEDULER — daily backup at server level
+// ==============================
+const BACKUP_INTERVAL_HOURS = parseInt(process.env.BACKUP_INTERVAL_HOURS, 10) || 24;
+
+async function runAutoBackup() {
+  try {
+    const backupRoute = require("./routes/backup");
+    const backupDir = process.env.BACKUP_DIR || pathNode.join(process.cwd(), "backups");
+    if (!fsNode.existsSync(backupDir)) fsNode.mkdirSync(backupDir, { recursive: true });
+
+    const tables = [
+      "customers", "products", "invoices", "employees", "branches",
+      "receipts", "offers", "stock_movements", "product_returns",
+      "shifts", "attendance", "expenses", "user_accounts", "settings",
+      "audit_log", "security_log",
+    ];
+    const data = {};
+    for (const table of tables) {
+      try { const { rows } = await pool.query(`SELECT * FROM ${table}`); data[table] = rows; } catch { data[table] = []; }
+    }
+    const backup = {
+      meta: { version: 1, type: "auto", label: "نسخة تلقائية", createdAt: new Date().toISOString(),
+        tableCount: Object.keys(data).length, totalRows: Object.values(data).reduce((s, arr) => s + arr.length, 0) },
+      data,
+    };
+    const filename = `auto_${Date.now()}.json`;
+    fsNode.writeFileSync(pathNode.join(backupDir, filename), JSON.stringify(backup));
+
+    // Clean old auto backups (keep last 7)
+    const autoFiles = fsNode.readdirSync(backupDir).filter(f => f.startsWith("auto_")).sort().reverse();
+    for (const f of autoFiles.slice(7)) {
+      try { fsNode.unlinkSync(pathNode.join(backupDir, f)); } catch {}
+    }
+    log("info", "Auto backup created: " + filename);
+  } catch (e) {
+    log("error", "Auto backup failed", { error: e.message });
+  }
+}
+
+setInterval(() => runAutoBackup(), BACKUP_INTERVAL_HOURS * 60 * 60 * 1000);
+// Run first auto backup 1 minute after startup
+setTimeout(() => runAutoBackup(), 60 * 1000);
 
 // ==============================
 // ERROR HANDLING

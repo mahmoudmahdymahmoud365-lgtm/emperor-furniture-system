@@ -7,6 +7,7 @@ const toApi = r => ({
   status: r.status, paidTotal: Number(r.paid_total), commissionPercent: Number(r.commission_percent),
   appliedOfferName: r.applied_offer_name || '', appliedDiscount: Number(r.applied_discount || 0),
   notes: r.notes || '',
+  updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
 router.get("/", async (_, res, next) => {
@@ -26,7 +27,6 @@ router.post("/", async (req, res, next) => {
        JSON.stringify(d.items||[]), d.status||'مسودة', d.paidTotal||0, d.commissionPercent||0,
        d.appliedOfferName||'', d.appliedDiscount||0, d.notes||'']
     );
-    // Update stock for sold items
     for (const item of (d.items || [])) {
       await pool.query("UPDATE products SET stock = GREATEST(0, stock - $1) WHERE name = $2", [item.qty, item.productName]);
     }
@@ -49,22 +49,33 @@ router.put("/:id", async (req, res, next) => {
     if (d.commissionPercent !== undefined) { sets.push(`commission_percent=$${i++}`); vals.push(d.commissionPercent); }
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (sets.length === 0) return res.json({ ok: true });
+
+    sets.push(`updated_at=NOW()`);
     vals.push(req.params.id);
-    await pool.query(`UPDATE invoices SET ${sets.join(",")} WHERE id=$${i}`, vals);
-    res.json({ ok: true });
+
+    let query = `UPDATE invoices SET ${sets.join(",")} WHERE id=$${i}`;
+    if (d._updatedAt) {
+      vals.push(d._updatedAt);
+      query += ` AND updated_at=$${i + 1}`;
+    }
+    query += " RETURNING updated_at";
+
+    const { rowCount, rows } = await pool.query(query, vals);
+    if (rowCount === 0 && d._updatedAt) {
+      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر. يرجى إعادة تحميل البيانات." });
+    }
+    res.json({ ok: true, updatedAt: rows[0]?.updated_at });
   } catch (e) { next(e); }
 });
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    // Restore stock before deleting
     const { rows } = await pool.query("SELECT items FROM invoices WHERE id=$1", [req.params.id]);
     if (rows[0]) {
       for (const item of (rows[0].items || [])) {
         await pool.query("UPDATE products SET stock = stock + $1 WHERE name = $2", [item.qty, item.productName]);
       }
     }
-    // Cascade delete related receipts (installments)
     await pool.query("DELETE FROM receipts WHERE invoice_id=$1", [req.params.id]);
     await pool.query("DELETE FROM invoices WHERE id=$1", [req.params.id]);
     res.json({ ok: true });

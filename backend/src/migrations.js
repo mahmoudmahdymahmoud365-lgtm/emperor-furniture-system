@@ -264,6 +264,14 @@ const MIGRATIONS = [
       ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     `,
   },
+  {
+    version: 4,
+    description: "Add unique partial index on employee email, auto-backup trigger function",
+    up: `
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email_unique
+        ON employees (LOWER(email)) WHERE email IS NOT NULL AND email != '';
+    `,
+  },
 ];
 
 /**

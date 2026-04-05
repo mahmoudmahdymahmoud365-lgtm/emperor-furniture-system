@@ -16,9 +16,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  exportBackup, importBackup, getAutoBackupList, createManualBackup,
+  exportBackup, getAutoBackupList, createManualBackup,
   restoreFromBackupId, deleteBackup, getAutoBackupInterval, setAutoBackupInterval,
   getLastAutoBackupTime, checkAndRunAutoBackup, getCloudConfig,
+  getServerBackups, createServerBackup, restoreServerBackup,
+  deleteServerBackup, getBackupDownloadUrl, restoreFromUpload,
   type BackupMeta, type CloudConfig,
 } from "@/data/store";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
@@ -169,12 +171,14 @@ export function BackupManager() {
         setDecryptPassword("");
         setDecryptError("");
       } else {
-        if (importBackup(result)) {
-          toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
-          setTimeout(() => window.location.reload(), 1500);
-        } else {
-          toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
-        }
+        restoreFromUpload(result).then(ok => {
+          if (ok) {
+            toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+          }
+        });
       }
     };
     reader.readAsText(file);
@@ -190,15 +194,18 @@ export function BackupManager() {
     setTimeout(() => {
       const decrypted = decryptData(pendingEncryptedData, decryptPassword);
       if (decrypted) {
-        if (importBackup(decrypted)) {
-          toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
-          setShowDecryptDialog(false);
-          setPendingEncryptedData(null);
-          setDecryptPassword("");
-          setTimeout(() => window.location.reload(), 1500);
-        } else {
-          setDecryptError("فشل استعادة البيانات بعد فك التشفير");
-        }
+        restoreFromUpload(decrypted).then(ok => {
+          if (ok) {
+            toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
+            setShowDecryptDialog(false);
+            setPendingEncryptedData(null);
+            setDecryptPassword("");
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            setDecryptError("فشل استعادة البيانات بعد فك التشفير");
+          }
+          setDecryptingCloud(false);
+        });
       } else {
         setDecryptError("كلمة المرور غير صحيحة. تأكد من إدخال نفس كلمة المرور المستخدمة عند التشفير.");
       }
@@ -859,7 +866,7 @@ export function BackupManager() {
                                 {b.label || (b.type === "auto" ? "نسخة تلقائية" : "نسخة يدوية")}
                               </p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{formatDate(b.timestamp)}</span>
+                                <span>{formatDate(b.createdAt || (b as any).timestamp)}</span>
                                 <span>•</span>
                                 <span className="font-mono">{formatSize(b.size)}</span>
                               </div>
