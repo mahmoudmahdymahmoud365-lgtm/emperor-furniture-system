@@ -670,30 +670,30 @@ export async function addInvoice(data: Omit<Invoice, "id">): Promise<Invoice> {
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
   requireApi();
-  await api.updateInvoice(id, data);
-  const idx = invoices.findIndex(i => i.id === id);
-  if (idx >= 0) {
-    invoices[idx] = { ...invoices[idx], ...data };
-    cacheWrite("emp_invoices", invoices);
-    notify("invoices");
-  }
+  const existing = invoices.find(i => i.id === id);
+  try {
+    await api.updateInvoice(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = invoices.findIndex(i => i.id === id);
+    if (idx >= 0) {
+      invoices[idx] = { ...invoices[idx], ...data };
+      cacheWrite("emp_invoices", invoices);
+      notify("invoices");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteInvoice(id: string) {
   requireApi();
-  // Backend handles cascade delete of receipts and stock restoration
   await api.deleteInvoice(id);
   const idx = invoices.findIndex(i => i.id === id);
   if (idx >= 0) {
     invoices.splice(idx, 1);
     cacheWrite("emp_invoices", invoices);
   }
-  // Remove local receipts for this invoice
   for (let i = receipts.length - 1; i >= 0; i--) {
     if (receipts[i].invoiceId === id) receipts.splice(i, 1);
   }
   cacheWrite("emp_receipts", receipts);
-  // Refresh products for updated stock
   api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
   notify("invoices", "receipts", "products", "stockMovements");
 }
