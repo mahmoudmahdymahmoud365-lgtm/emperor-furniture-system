@@ -194,15 +194,18 @@ export function BackupManager() {
     setTimeout(() => {
       const decrypted = decryptData(pendingEncryptedData, decryptPassword);
       if (decrypted) {
-        if (importBackup(decrypted)) {
-          toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
-          setShowDecryptDialog(false);
-          setPendingEncryptedData(null);
-          setDecryptPassword("");
-          setTimeout(() => window.location.reload(), 1500);
-        } else {
-          setDecryptError("فشل استعادة البيانات بعد فك التشفير");
-        }
+        restoreFromUpload(decrypted).then(ok => {
+          if (ok) {
+            toast({ title: "✅ تم فك التشفير والاستعادة", description: "تم فك تشفير واستعادة النسخة بنجاح. جاري إعادة التحميل..." });
+            setShowDecryptDialog(false);
+            setPendingEncryptedData(null);
+            setDecryptPassword("");
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            setDecryptError("فشل استعادة البيانات بعد فك التشفير");
+          }
+          setDecryptingCloud(false);
+        });
       } else {
         setDecryptError("كلمة المرور غير صحيحة. تأكد من إدخال نفس كلمة المرور المستخدمة عند التشفير.");
       }
