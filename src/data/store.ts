@@ -39,6 +39,10 @@ export {
   getLastAutoBackupTime, getAutoBackupInterval, setAutoBackupInterval,
   checkAndRunAutoBackup,
   getCloudConfig, updateCloudConfig,
+  importBackup,
+  // New server-backed exports
+  getServerBackups, createServerBackup, restoreServerBackup,
+  deleteServerBackup, getBackupDownloadUrl, restoreFromUpload,
 } from "./store.backup";
 export type { BackupMeta, CloudConfig } from "./store.backup";
 
