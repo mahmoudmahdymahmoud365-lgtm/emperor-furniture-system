@@ -128,6 +128,7 @@ const routeModules = [
   ["/api/audit-log", "./routes/auditLog"],
   ["/api/security-log", "./routes/securityLog"],
   ["/api/files", "./routes/files"],
+  ["/api/backup", "./routes/backup"],
 ];
 
 for (const [path, mod] of routeModules) {
