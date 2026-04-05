@@ -628,13 +628,16 @@ export async function addProduct(data: Omit<Product, "id">): Promise<Product> {
 
 export async function updateProduct(id: string, data: Partial<Product>) {
   requireApi();
-  await api.updateProduct(id, data);
-  const idx = products.findIndex(p => p.id === id);
-  if (idx >= 0) {
-    products[idx] = { ...products[idx], ...data };
-    cacheWrite("emp_products", products);
-    notify("products");
-  }
+  const existing = products.find(p => p.id === id);
+  try {
+    await api.updateProduct(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = products.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      products[idx] = { ...products[idx], ...data };
+      cacheWrite("emp_products", products);
+      notify("products");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteProduct(id: string) {
