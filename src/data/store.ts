@@ -385,6 +385,16 @@ function requireApi() {
   }
 }
 
+// Handle 409 conflict responses
+function handleConflict(e: any) {
+  if (e.message?.includes("CONFLICT") || e.message?.includes("تم تعديل")) {
+    // Force reload data from API
+    loadFromApi();
+    throw new Error("تم تعديل هذا السجل من جهاز آخر. تم تحديث البيانات تلقائياً. حاول مرة أخرى.");
+  }
+  throw e;
+}
+
 // ==============================
 // STOCK MOVEMENTS
 // ==============================
