@@ -136,6 +136,14 @@ export const api = {
   addSecurityEvent: (data: any) => request<any>("/security-log", { method: "POST", body: JSON.stringify(data) }),
   clearSecurityLog: () => request<any>("/security-log", { method: "DELETE" }),
 
+  // Backup
+  getBackups: () => request<any[]>("/backup/list"),
+  createBackup: (type: string, label?: string) => request<any>("/backup/export", { method: "POST", body: JSON.stringify({ type, label }) }),
+  downloadBackupUrl: (id: string) => `${getApiBase()}/backup/download/${id}`,
+  restoreBackup: (id: string) => request<any>(`/backup/restore/${id}`, { method: "POST" }),
+  restoreBackupUpload: (data: any) => request<any>("/backup/restore-upload", { method: "POST", body: JSON.stringify(data) }),
+  deleteBackup: (id: string) => request<any>(`/backup/${id}`, { method: "DELETE" }),
+
   // Files / Images
   getFiles: (params?: { relatedTo?: string; relatedId?: string }) => {
     const query = new URLSearchParams();
