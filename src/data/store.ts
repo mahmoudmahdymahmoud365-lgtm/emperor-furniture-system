@@ -589,13 +589,16 @@ export async function addCustomer(data: Omit<Customer, "id">): Promise<Customer>
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
   requireApi();
-  await api.updateCustomer(id, data);
-  const idx = customers.findIndex(c => c.id === id);
-  if (idx >= 0) {
-    customers[idx] = { ...customers[idx], ...data };
-    cacheWrite("emp_customers", customers);
-    notify("customers");
-  }
+  const existing = customers.find(c => c.id === id);
+  try {
+    await api.updateCustomer(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = customers.findIndex(c => c.id === id);
+    if (idx >= 0) {
+      customers[idx] = { ...customers[idx], ...data };
+      cacheWrite("emp_customers", customers);
+      notify("customers");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteCustomer(id: string) {
