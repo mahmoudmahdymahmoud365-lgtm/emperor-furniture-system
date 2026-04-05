@@ -1,13 +1,16 @@
 // ==============================
-// API Client - Communicates with Express Backend
-// ==============================
-
-// ==============================
-// API Client — Enterprise-grade with retry and timeout
+// API Client — Dynamic URL for LAN/VPN/Electron
 // ==============================
 
 function getApiBase(): string {
-  return (window as any).__API_URL__ || "http://localhost:3001/api";
+  // Priority: 1) Electron injected, 2) same-origin (web mode), 3) fallback
+  if ((window as any).__API_URL__) return (window as any).__API_URL__;
+  // In web mode served from backend, API is same-origin
+  if (window.location.port === "3001" || !window.location.port) {
+    return `${window.location.protocol}//${window.location.host}/api`;
+  }
+  // Dev mode
+  return "http://localhost:3001/api";
 }
 
 const MAX_RETRIES = 2;
