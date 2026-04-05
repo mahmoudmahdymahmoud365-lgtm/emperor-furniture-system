@@ -18,6 +18,30 @@ router.get("/", async (_, res, next) => {
 router.post("/", async (req, res, next) => {
   try {
     const d = req.body;
+
+    // Validate employee exists and is active
+    if (d.employeeId) {
+      const { rows: empRows } = await pool.query(
+        "SELECT id, active FROM employees WHERE id=$1", [d.employeeId]
+      );
+      if (empRows.length === 0) {
+        return res.status(400).json({ error: "الموظف غير موجود في النظام" });
+      }
+      if (!empRows[0].active) {
+        return res.status(400).json({ error: "لا يمكن تسجيل حضور لموظف غير نشط" });
+      }
+    }
+
+    // Prevent duplicate attendance for same employee+date
+    if (d.employeeId && d.date) {
+      const { rows: existing } = await pool.query(
+        "SELECT id FROM attendance WHERE employee_id=$1 AND date=$2", [d.employeeId, d.date]
+      );
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "تم تسجيل حضور هذا الموظف لهذا اليوم بالفعل" });
+      }
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO attendance (id, employee_id, employee_name, shift_id, shift_name, date, check_in, check_out, hours_worked, status, overtime_hours, notes)
        VALUES ('ATT' || LPAD(nextval('attendance_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
