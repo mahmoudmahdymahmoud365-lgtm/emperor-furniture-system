@@ -39,7 +39,6 @@ export {
   getLastAutoBackupTime, getAutoBackupInterval, setAutoBackupInterval,
   checkAndRunAutoBackup,
   getCloudConfig, updateCloudConfig,
-  importBackup,
   // New server-backed exports
   getServerBackups, createServerBackup, restoreServerBackup,
   deleteServerBackup, getBackupDownloadUrl, restoreFromUpload,
