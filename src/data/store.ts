@@ -881,13 +881,16 @@ export async function addEmployee(data: Omit<Employee, "id">): Promise<Employee>
 
 export async function updateEmployee(id: string, data: Partial<Employee>) {
   requireApi();
-  await api.updateEmployee(id, data);
-  const idx = employees.findIndex(e => e.id === id);
-  if (idx >= 0) {
-    employees[idx] = { ...employees[idx], ...data };
-    cacheWrite("emp_employees", employees);
-    notify("employees");
-  }
+  const existing = employees.find(e => e.id === id);
+  try {
+    await api.updateEmployee(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const idx = employees.findIndex(e => e.id === id);
+    if (idx >= 0) {
+      employees[idx] = { ...employees[idx], ...data };
+      cacheWrite("emp_employees", employees);
+      notify("employees");
+    }
+  } catch (e: any) { handleConflict(e); }
 }
 
 export async function deleteEmployee(id: string) {
