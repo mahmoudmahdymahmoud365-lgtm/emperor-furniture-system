@@ -229,12 +229,10 @@ function getBackupData() {
   };
 }
 
-export function importBackup(jsonStr: string): boolean {
+function _importBackup(jsonStr: string): boolean {
   try {
     const data = JSON.parse(jsonStr);
     if (!data.version) return false;
-    // For backup restore, push all data to API
-    // This is a bulk operation — best effort
     console.warn("Backup restore should be done via API for data integrity");
     return false;
   } catch {
