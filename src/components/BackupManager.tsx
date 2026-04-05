@@ -171,12 +171,14 @@ export function BackupManager() {
         setDecryptPassword("");
         setDecryptError("");
       } else {
-        if (importBackup(result)) {
-          toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
-          setTimeout(() => window.location.reload(), 1500);
-        } else {
-          toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
-        }
+        restoreFromUpload(result).then(ok => {
+          if (ok) {
+            toast({ title: "✅ تم الاستعادة", description: "تم استعادة النسخة الاحتياطية. جاري إعادة التحميل..." });
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            toast({ title: "خطأ", description: "ملف النسخة الاحتياطية غير صالح", variant: "destructive" });
+          }
+        });
       }
     };
     reader.readAsText(file);
