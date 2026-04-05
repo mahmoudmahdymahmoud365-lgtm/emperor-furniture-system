@@ -240,7 +240,7 @@ function _importBackup(jsonStr: string): boolean {
   }
 }
 
-setBackupDeps(getBackupData, importBackup);
+setBackupDeps(getBackupData, _importBackup);
 
 // ==============================
 // API-FIRST INITIALIZATION
