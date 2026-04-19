@@ -1,0 +1,81 @@
+# ==============================
+# Logs
+# ==============================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==============================
+# Node
+# ==============================
+node_modules/
+
+# ==============================
+# Build (Frontend)
+# ==============================
+dist/
+dist-ssr/
+
+# ==============================
+# Electron Build / Releases
+# ==============================
+release/
+build/
+out/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.7z
+
+# ==============================
+# Env Files (IMPORTANT)
+# ==============================
+.env
+.env.*
+backend/.env
+
+# ==============================
+# Database / Backups
+# ==============================
+backend/backups/
+*.sqlite
+*.db
+
+# ==============================
+# OS / Editor
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==============================
+# Electron cache / temp
+# ==============================
+.cache/
+tmp/
+
+
+node_modules
+dist
+release
+*.exe
+*.log
+.env
+backend/node_modules
+backend/logs
+backend/backups
