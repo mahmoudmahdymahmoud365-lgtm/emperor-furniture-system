@@ -235,20 +235,6 @@ export default function Settings() {
             </div>
           </>
         )}
-
-        {/* Backup Section */}
-        {permissions.backup && (
-          <>
-            <Separator />
-            <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-                <Database className="h-5 w-5 text-primary" />
-                النسخ الاحتياطي والتخزين السحابي
-              </h2>
-              <BackupManager />
-            </div>
-          </>
-        )}
       </div>
     </AppLayout>
   );
