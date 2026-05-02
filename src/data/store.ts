@@ -32,19 +32,14 @@ import {
   loadSecurityLogFromApi,
 } from "./store.auth";
 
-// ---- Re-export backup ----
+// ---- Re-export backup (real, server-backed only) ----
 export {
-  exportBackup, exportBackupAsFile,
-  getAutoBackupList, createAutoBackup, createManualBackup,
-  restoreFromBackupId, deleteBackup,
-  getLastAutoBackupTime, getAutoBackupInterval, setAutoBackupInterval,
-  checkAndRunAutoBackup,
-  getCloudConfig, updateCloudConfig,
-  // New server-backed exports
+  getBackupConfig, updateBackupConfig,
   getServerBackups, createServerBackup, restoreServerBackup,
   deleteServerBackup, getBackupDownloadUrl, restoreFromUpload,
+  getOneDriveStatus, getOneDriveAuthUrl, disconnectOneDrive,
 } from "./store.backup";
-export type { BackupMeta, CloudConfig } from "./store.backup";
+export type { BackupMeta, BackupConfig, OneDriveStatus } from "./store.backup";
 
 import { setBackupDeps } from "./store.backup";
 

@@ -130,6 +130,7 @@ const routeModules = [
   ["/api/security-log", "./routes/securityLog"],
   ["/api/files", "./routes/files"],
   ["/api/backup", "./routes/backup"],
+  ["/api/cloud/onedrive", "./routes/cloudOneDrive"],
 ];
 
 for (const [path, mod] of routeModules) {
@@ -161,47 +162,39 @@ if (fsNode.existsSync(distPath)) {
 }
 
 // ==============================
-// AUTO-BACKUP SCHEDULER — daily backup at server level
+// AUTO-BACKUP SCHEDULER — uses settings-based config + cloud upload
 // ==============================
-const BACKUP_INTERVAL_HOURS = parseInt(process.env.BACKUP_INTERVAL_HOURS, 10) || 24;
+let autoBackupTimer = null;
 
 async function runAutoBackup() {
   try {
-    const backupRoute = require("./routes/backup");
-    const backupDir = process.env.BACKUP_DIR || pathNode.join(process.cwd(), "backups");
-    if (!fsNode.existsSync(backupDir)) fsNode.mkdirSync(backupDir, { recursive: true });
-
-    const tables = [
-      "customers", "products", "invoices", "employees", "branches",
-      "receipts", "offers", "stock_movements", "product_returns",
-      "shifts", "attendance", "expenses", "user_accounts", "settings",
-      "audit_log", "security_log",
-    ];
-    const data = {};
-    for (const table of tables) {
-      try { const { rows } = await pool.query(`SELECT * FROM ${table}`); data[table] = rows; } catch { data[table] = []; }
-    }
-    const backup = {
-      meta: { version: 1, type: "auto", label: "نسخة تلقائية", createdAt: new Date().toISOString(),
-        tableCount: Object.keys(data).length, totalRows: Object.values(data).reduce((s, arr) => s + arr.length, 0) },
-      data,
-    };
-    const filename = `auto_${Date.now()}.json`;
-    fsNode.writeFileSync(pathNode.join(backupDir, filename), JSON.stringify(backup));
-
-    // Clean old auto backups (keep last 7)
-    const autoFiles = fsNode.readdirSync(backupDir).filter(f => f.startsWith("auto_")).sort().reverse();
-    for (const f of autoFiles.slice(7)) {
-      try { fsNode.unlinkSync(pathNode.join(backupDir, f)); } catch {}
-    }
-    log("info", "Auto backup created: " + filename);
+    const backupModule = require("./routes/backup");
+    const cfg = await backupModule.getBackupConfig();
+    if (!cfg.autoEnabled) return;
+    const result = await backupModule.performBackup("auto", "نسخة تلقائية");
+    log("info", "Auto backup created: " + result.filename, {
+      cloud: result.cloud ? (result.cloud.ok ? "uploaded" : `failed: ${result.cloud.error}`) : "skipped",
+    });
   } catch (e) {
     log("error", "Auto backup failed", { error: e.message });
   }
 }
 
-setInterval(() => runAutoBackup(), BACKUP_INTERVAL_HOURS * 60 * 60 * 1000);
-// Run first auto backup 1 minute after startup
+async function scheduleAutoBackup() {
+  try {
+    const backupModule = require("./routes/backup");
+    const cfg = await backupModule.getBackupConfig();
+    const ms = Math.max(1, cfg.intervalHours) * 60 * 60 * 1000;
+    if (autoBackupTimer) clearInterval(autoBackupTimer);
+    autoBackupTimer = setInterval(() => runAutoBackup(), ms);
+    log("info", `Auto-backup scheduled every ${cfg.intervalHours}h (enabled=${cfg.autoEnabled})`);
+  } catch (e) {
+    log("error", "Failed to schedule auto-backup", { error: e.message });
+  }
+}
+
+setInterval(() => scheduleAutoBackup(), 60 * 60 * 1000);
+setTimeout(() => scheduleAutoBackup(), 5 * 1000);
 setTimeout(() => runAutoBackup(), 60 * 1000);
 
 // ==============================

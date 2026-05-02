@@ -9,7 +9,6 @@ import { Settings as SettingsIcon, Save, ImagePlus, Phone, Mail, Plus, X, Buildi
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings, useUsers } from "@/data/hooks";
 import { BackupManager } from "@/components/BackupManager";
-import { DatabaseSettings } from "@/components/DatabaseSettings";
 
 export default function Settings() {
   const { settings, updateSettings } = useCompanySettings();
@@ -223,20 +222,6 @@ export default function Settings() {
           </Card>
         </div>
 
-        {/* Database Connection Section */}
-        {permissions.backup && (
-          <>
-            <Separator />
-            <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-                <Database className="h-5 w-5 text-primary" />
-                ربط قاعدة البيانات
-              </h2>
-              <DatabaseSettings />
-            </div>
-          </>
-        )}
-
         {/* Backup Section */}
         {permissions.backup && (
           <>
@@ -244,7 +229,7 @@ export default function Settings() {
             <div>
               <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
                 <Database className="h-5 w-5 text-primary" />
-                النسخ الاحتياطي والتخزين السحابي
+                النسخ الاحتياطي و OneDrive
               </h2>
               <BackupManager />
             </div>

@@ -213,6 +213,13 @@ export const api = {
   restoreBackup: (id: string) => request<any>(`/backup/restore/${id}`, { method: "POST" }),
   restoreBackupUpload: (data: any) => request<any>("/backup/restore-upload", { method: "POST", body: JSON.stringify(data) }),
   deleteBackup: (id: string) => request<any>(`/backup/${id}`, { method: "DELETE" }),
+  getBackupConfig: () => request<any>("/backup/config"),
+  updateBackupConfig: (data: any) => request<any>("/backup/config", { method: "POST", body: JSON.stringify(data) }),
+
+  // OneDrive
+  oneDriveStatus: () => request<any>("/cloud/onedrive/status"),
+  oneDriveAuthUrl: () => request<any>("/cloud/onedrive/auth"),
+  oneDriveDisconnect: () => request<any>("/cloud/onedrive/disconnect", { method: "POST" }),
 
   // Files / Images
   getFiles: (params?: { relatedTo?: string; relatedId?: string }) => {
