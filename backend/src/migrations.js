@@ -272,6 +272,32 @@ const MIGRATIONS = [
         ON employees (LOWER(email)) WHERE email IS NOT NULL AND email != '';
     `,
   },
+  {
+    version: 5,
+    description: "Cloud tokens table for OneDrive (encrypted refresh_token) + backup config defaults",
+    up: `
+      CREATE TABLE IF NOT EXISTS cloud_tokens (
+        provider TEXT PRIMARY KEY,
+        access_token TEXT NOT NULL,
+        refresh_token_enc TEXT NOT NULL,
+        expires_at TIMESTAMPTZ,
+        account_email TEXT,
+        account_name TEXT,
+        last_sync_at TIMESTAMPTZ,
+        last_sync_status TEXT,
+        last_sync_error TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      INSERT INTO settings (key, value) VALUES
+        ('backup_local_path', ''),
+        ('backup_auto_enabled', 'true'),
+        ('backup_interval_hours', '24'),
+        ('backup_onedrive_upload', 'false')
+      ON CONFLICT (key) DO NOTHING;
+    `,
+  },
 ];
 
 /**
