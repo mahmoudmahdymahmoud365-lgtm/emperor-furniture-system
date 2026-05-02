@@ -1,5 +1,7 @@
 // ==============================
-// Backup Module — API-backed (server-side storage)
+// Backup Module — REAL server-backed only.
+// Local backups live on the SERVER disk at the configured path.
+// OneDrive integration is fully server-side.
 // ==============================
 
 import { api } from "./apiClient";
@@ -9,54 +11,63 @@ export interface BackupMeta {
   filename: string;
   size: number;
   createdAt: string;
-  type: "auto" | "manual";
+  type: "auto" | "manual" | "safety";
   label?: string;
 }
 
-export interface CloudConfig {
-  enabled: boolean;
-  provider: "lovable-cloud" | "onedrive" | "none";
-  lastSync?: string;
-  autoSync: boolean;
+export interface BackupConfig {
+  localPath: string;
+  defaultPath: string;
+  pathExists: boolean;
+  autoEnabled: boolean;
+  intervalHours: number;
+  onedriveUpload: boolean;
 }
 
-// Will be set by store.ts
-let getBackupDataFn: () => any = () => ({});
-let importBackupFn: (json: string) => boolean = () => false;
+export interface OneDriveStatus {
+  configured: boolean;
+  connected: boolean;
+  reason?: string;
+  accountEmail?: string | null;
+  accountName?: string | null;
+  expiresAt?: string | null;
+  lastSync?: string | null;
+  lastSyncStatus?: "ok" | "error" | null;
+  lastSyncError?: string | null;
+}
 
-export function setBackupDeps(getDataFn: typeof getBackupDataFn, importFn: typeof importBackupFn) {
-  getBackupDataFn = getDataFn;
-  importBackupFn = importFn;
+// store.ts wires this for legacy compatibility (no-op now)
+let _getBackupDataFn: () => any = () => ({});
+let _importBackupFn: (json: string) => boolean = () => false;
+export function setBackupDeps(getDataFn: typeof _getBackupDataFn, importFn: typeof _importBackupFn) {
+  _getBackupDataFn = getDataFn;
+  _importBackupFn = importFn;
 }
 
 // ==============================
-// Server-side backup operations
+// Backup config
 // ==============================
+export async function getBackupConfig(): Promise<BackupConfig> {
+  return api.getBackupConfig();
+}
+export async function updateBackupConfig(patch: Partial<Pick<BackupConfig, "localPath" | "autoEnabled" | "intervalHours" | "onedriveUpload">>): Promise<BackupConfig> {
+  const res = await api.updateBackupConfig(patch);
+  return res.config;
+}
 
+// ==============================
+// Server backups
+// ==============================
 export async function getServerBackups(): Promise<BackupMeta[]> {
-  try {
-    return await api.getBackups();
-  } catch {
-    return [];
-  }
+  try { return await api.getBackups(); } catch { return []; }
 }
 
-export async function createServerBackup(type: "auto" | "manual" = "manual", label?: string): Promise<BackupMeta | null> {
-  try {
-    return await api.createBackup(type, label);
-  } catch (e) {
-    console.error("Backup failed:", e);
-    return null;
-  }
+export async function createServerBackup(type: "auto" | "manual" = "manual", label?: string) {
+  return api.createBackup(type, label);
 }
 
 export async function restoreServerBackup(id: string): Promise<boolean> {
-  try {
-    await api.restoreBackup(id);
-    return true;
-  } catch {
-    return false;
-  }
+  try { await api.restoreBackup(id); return true; } catch { return false; }
 }
 
 export async function deleteServerBackup(id: string): Promise<void> {
@@ -67,56 +78,26 @@ export function getBackupDownloadUrl(id: string): string {
   return api.downloadBackupUrl(id);
 }
 
-// ==============================
-// Client-side export (download JSON file)
-// ==============================
-export function exportBackup(): string {
-  return JSON.stringify(getBackupDataFn(), null, 2);
-}
-
-export function exportBackupAsFile(): Blob {
-  return new Blob([exportBackup()], { type: "application/json" });
-}
-
-// ==============================
-// Client-side restore from uploaded file (sends to server)
-// ==============================
+// Restore by uploading a backup JSON file (sent to server)
 export async function restoreFromUpload(jsonStr: string): Promise<boolean> {
   try {
     const data = JSON.parse(jsonStr);
-    // If it's a server backup format, extract data
-    const backupData = data.data || data;
-    await api.restoreBackupUpload({ data: backupData });
+    const backupData = data.data ? data : { data };
+    await api.restoreBackupUpload(backupData);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 // ==============================
-// Legacy compatibility — localStorage-based (deprecated, kept for migration)
+// OneDrive
 // ==============================
-export function getAutoBackupList(): BackupMeta[] { return []; }
-export function createAutoBackup(): BackupMeta | null { return null; }
-export function createManualBackup(label?: string): BackupMeta | null { return null; }
-export function restoreFromBackupId(_id: string): boolean { return false; }
-export function deleteBackup(_id: string) {}
-export function getLastAutoBackupTime(): string | null { return null; }
-export function getAutoBackupInterval(): number { return 24; }
-export function setAutoBackupInterval(_hours: number) {}
-export function checkAndRunAutoBackup(): boolean { return false; }
-export function importBackup(_json: string): boolean { return false; }
-
-export function getCloudConfig(): CloudConfig {
-  try {
-    const saved = localStorage.getItem("cloud_config");
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return { enabled: false, provider: "none", autoSync: false };
+export async function getOneDriveStatus(): Promise<OneDriveStatus> {
+  return api.oneDriveStatus();
 }
-
-export function updateCloudConfig(config: Partial<CloudConfig>) {
-  const current = getCloudConfig();
-  const updated = { ...current, ...config };
-  localStorage.setItem("cloud_config", JSON.stringify(updated));
+export async function getOneDriveAuthUrl(): Promise<string> {
+  const r = await api.oneDriveAuthUrl();
+  return r.url;
+}
+export async function disconnectOneDrive(): Promise<void> {
+  await api.oneDriveDisconnect();
 }
