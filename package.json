@@ -14,8 +14,11 @@
     "test:watch": "vitest",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
     "backend:dev": "node backend/src/server.js",
+    "backend:install": "cd backend && npm install --omit=dev",
     "start:dev": "concurrently \"vite\" \"node backend/src/server.js\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "prebuild:electron": "npm run backend:install",
+    "build:electron": "npm run prebuild:electron && vite build && electron-builder",
+    "electron:build": "npm run build:electron"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -103,34 +106,64 @@
   },
   "build": {
     "appId": "com.emperor.furniture",
-    "productName": "الامبراطور للأثاث",
-    "publish": [{
-              "provider": "github",
-              "owner": "mahmoudmahdymahmoud365-lgtm",
-              "repo": "emperor-furniture-system"
-            }],
+    "productName": "EmperorFurniture",
+    "asar": true,
+    "compression": "normal",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mahmoudmahdymahmoud365-lgtm",
+        "repo": "emperor-furniture-system"
+      }
+    ],
     "files": [
-              "dist/**/*",
-              "electron/**/*",
-              "backend/**/*",
-              "public/**/*",
-              "backend/**/*"
-             ],
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "app.asar.unpacked/backend",
+        "filter": ["**/*", "!node_modules/.cache/**"]
+      }
+    ],
     "asarUnpack": [
-             "backend/**/*"
-             ],
+      "**/node_modules/better-sqlite3/**/*"
+    ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "public"
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/logo.png"
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "public/logo.png",
+      "artifactName": "EmperorFurniture-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Emperor Furniture",
+      "deleteAppDataOnUninstall": false
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "public/logo.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "public/logo.png",
+      "category": "Office"
     }
   }
 }

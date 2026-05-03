@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>الإمبراطور — اختيار الدور</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", Tahoma, sans-serif;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: #f1f5f9; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .card { width: 100%; max-width: 520px; background: #0b1220; border: 1px solid #1e293b;
+    border-radius: 16px; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p.sub { color: #94a3b8; margin: 0 0 22px; font-size: 14px; }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .role { cursor: pointer; padding: 18px; border-radius: 12px; border: 2px solid #1e293b;
+    background: #111827; transition: .15s; text-align: center; }
+  .role:hover { border-color: #3b82f6; transform: translateY(-2px); }
+  .role.active { border-color: #3b82f6; background: #1e3a8a33; }
+  .role .icon { font-size: 28px; margin-bottom: 6px; }
+  .role .title { font-weight: 700; font-size: 15px; }
+  .role .desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .client-config { margin-top: 18px; display: none; }
+  .client-config.show { display: block; }
+  label { display: block; font-size: 13px; color: #cbd5e1; margin-bottom: 6px; }
+  input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155;
+    background: #0f172a; color: #f1f5f9; font-size: 14px; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  button { flex: 1; padding: 11px; border-radius: 8px; border: 0; font-weight: 700;
+    cursor: pointer; font-size: 14px; transition: .15s; }
+  .btn-primary { background: #3b82f6; color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { background: #475569; cursor: not-allowed; }
+  .btn-ghost { background: #1e293b; color: #f1f5f9; }
+  .btn-ghost:hover { background: #334155; }
+  .status { margin-top: 12px; font-size: 13px; padding: 10px; border-radius: 8px; display: none; }
+  .status.ok { background: #064e3b; color: #d1fae5; display: block; }
+  .status.err { background: #7f1d1d; color: #fee2e2; display: block; }
+  .status.info { background: #1e3a8a; color: #dbeafe; display: block; }
+  .save { margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>الإعداد الأولي</h1>
+  <p class="sub">اختر دور هذا الجهاز. يمكنك تغييره لاحقاً من الإعدادات.</p>
+
+  <div class="roles">
+    <div class="role" id="role-server" onclick="pickRole('server')">
+      <div class="icon">🖥️</div>
+      <div class="title">خادم (Server)</div>
+      <div class="desc">يشغّل قاعدة البيانات والـ API محلياً</div>
+    </div>
+    <div class="role" id="role-client" onclick="pickRole('client')">
+      <div class="icon">💻</div>
+      <div class="title">عميل (Client)</div>
+      <div class="desc">يتصل بجهاز خادم آخر على الشبكة</div>
+    </div>
+  </div>
+
+  <div class="client-config" id="client-config">
+    <label>عنوان السيرفر (IP أو اسم الجهاز)</label>
+    <input id="apiHost" placeholder="مثال: 192.168.1.100" value="" />
+    <div class="row">
+      <button class="btn-ghost" onclick="testConn()">اختبار الاتصال</button>
+      <button class="btn-ghost" onclick="autoDiscover()">اكتشاف تلقائي</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="save">
+    <button class="btn-primary" id="saveBtn" onclick="save()" disabled>حفظ ومتابعة</button>
+  </div>
+</div>
+
+<script>
+  let role = null;
+
+  function pickRole(r) {
+    role = r;
+    document.getElementById('role-server').classList.toggle('active', r === 'server');
+    document.getElementById('role-client').classList.toggle('active', r === 'client');
+    document.getElementById('client-config').classList.toggle('show', r === 'client');
+    document.getElementById('saveBtn').disabled = (r === 'client' && !document.getElementById('apiHost').value.trim());
+    if (r === 'server') document.getElementById('saveBtn').disabled = false;
+  }
+
+  document.addEventListener('input', (e) => {
+    if (e.target.id === 'apiHost' && role === 'client') {
+      document.getElementById('saveBtn').disabled = !e.target.value.trim();
+    }
+  });
+
+  function setStatus(kind, msg) {
+    const el = document.getElementById('status');
+    el.className = 'status ' + kind;
+    el.textContent = msg;
+  }
+
+  async function testConn() {
+    const host = document.getElementById('apiHost').value.trim();
+    if (!host) return setStatus('err', 'أدخل عنوان السيرفر أولاً');
+    setStatus('info', 'جارٍ الاختبار...');
+    const r = await window.rolePicker.testHost(host);
+    if (r.ok) setStatus('ok', '✔ متصل بالسيرفر بنجاح');
+    else setStatus('err', '❌ تعذر الاتصال: ' + (r.error || 'غير متاح'));
+  }
+
+  async function autoDiscover() {
+    setStatus('info', 'جارٍ البحث عن السيرفر على الشبكة... قد يستغرق دقيقة.');
+    const r = await window.rolePicker.autoDiscover();
+    if (r.found) {
+      document.getElementById('apiHost').value = r.host;
+      document.getElementById('saveBtn').disabled = false;
+      setStatus('ok', '✔ تم العثور على السيرفر: ' + r.host);
+    } else {
+      setStatus('err', '❌ لم يتم العثور على سيرفر على الشبكة');
+    }
+  }
+
+  async function save() {
+    const host = role === 'client' ? document.getElementById('apiHost').value.trim() : 'localhost';
+    document.getElementById('saveBtn').disabled = true;
+    document.getElementById('saveBtn').textContent = 'جارٍ الحفظ...';
+    await window.rolePicker.save({ role, apiHost: host });
+  }
+</script>
+</body>
+</html>
