@@ -14,8 +14,11 @@
     "test:watch": "vitest",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
     "backend:dev": "node backend/src/server.js",
+    "backend:install": "cd backend && npm install --omit=dev",
     "start:dev": "concurrently \"vite\" \"node backend/src/server.js\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "prebuild:electron": "npm run backend:install",
+    "build:electron": "npm run prebuild:electron && vite build && electron-builder",
+    "electron:build": "npm run build:electron"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
