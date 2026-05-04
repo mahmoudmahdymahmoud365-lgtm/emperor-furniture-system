@@ -298,6 +298,28 @@ const MIGRATIONS = [
       ON CONFLICT (key) DO NOTHING;
     `,
   },
+  {
+    version: 6,
+    description: "Product colors, agency flag, unique constraints, notes on receipts",
+    up: `
+      -- Product colors as JSON array on product
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS colors JSONB DEFAULT '[]';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_agency BOOLEAN DEFAULT false;
+
+      -- Receipts: notes already exist; ensure updated_at for editability
+      ALTER TABLE receipts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+      -- UNIQUE constraints (partial, ignoring empty strings)
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone_unique
+        ON customers (phone) WHERE phone IS NOT NULL AND phone != '';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_nid_unique
+        ON customers (national_id) WHERE national_id IS NOT NULL AND national_id != '';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_nid_unique
+        ON employees (national_id) WHERE national_id IS NOT NULL AND national_id != '';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_products_name_cat_unique
+        ON products (LOWER(name), LOWER(COALESCE(category, '')));
+    `,
+  },
 ];
 
 /**
