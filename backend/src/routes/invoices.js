@@ -51,6 +51,8 @@ router.put("/:id", async (req, res, next) => {
     if (d.status !== undefined) { sets.push(`status=$${i++}`); vals.push(d.status); }
     if (d.paidTotal !== undefined) { sets.push(`paid_total=$${i++}`); vals.push(d.paidTotal); }
     if (d.commissionPercent !== undefined) { sets.push(`commission_percent=$${i++}`); vals.push(d.commissionPercent); }
+    if (d.appliedOfferName !== undefined) { sets.push(`applied_offer_name=$${i++}`); vals.push(d.appliedOfferName); }
+    if (d.appliedDiscount !== undefined) { sets.push(`applied_discount=$${i++}`); vals.push(d.appliedDiscount); }
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (sets.length === 0) return res.json({ ok: true });
 
@@ -62,13 +64,15 @@ router.put("/:id", async (req, res, next) => {
       vals.push(d._updatedAt);
       query += ` AND updated_at=$${i + 1}`;
     }
-    query += " RETURNING updated_at";
+    query += " RETURNING *";
 
     const { rowCount, rows } = await pool.query(query, vals);
-    if (rowCount === 0 && d._updatedAt) {
-      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر. يرجى إعادة تحميل البيانات." });
+    if (rowCount === 0) {
+      const cur = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
+      if (cur.rowCount === 0) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر.", current: toApi(cur.rows[0]) });
     }
-    res.json({ ok: true, updatedAt: rows[0]?.updated_at });
+    res.json(toApi(rows[0]));
   } catch (e) { next(e); }
 });
 
