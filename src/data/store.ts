@@ -588,11 +588,13 @@ export async function updateCustomer(id: string, data: Partial<Customer>) {
   requireApi();
   const existing = customers.find(c => c.id === id);
   try {
-    await api.updateCustomer(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const updated = await api.updateCustomer(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
     const idx = customers.findIndex(c => c.id === id);
     if (idx >= 0) {
-      customers[idx] = { ...customers[idx], ...data };
+      // Use server response (includes new updatedAt) to keep optimistic locking in sync
+      customers[idx] = { ...customers[idx], ...data, ...(updated && typeof updated === "object" ? updated : {}) };
       cacheWrite("emp_customers", customers);
+      addAuditLog("update", "customer", id, customers[idx].fullName, `تعديل عميل: ${customers[idx].fullName}`);
       notify("customers");
     }
   } catch (e: any) { handleConflict(e); }
@@ -627,11 +629,12 @@ export async function updateProduct(id: string, data: Partial<Product>) {
   requireApi();
   const existing = products.find(p => p.id === id);
   try {
-    await api.updateProduct(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const updated = await api.updateProduct(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
     const idx = products.findIndex(p => p.id === id);
     if (idx >= 0) {
-      products[idx] = { ...products[idx], ...data };
+      products[idx] = { ...products[idx], ...data, ...(updated && typeof updated === "object" ? updated : {}) };
       cacheWrite("emp_products", products);
+      addAuditLog("update", "product", id, products[idx].name, `تعديل منتج: ${products[idx].name}`);
       notify("products");
     }
   } catch (e: any) { handleConflict(e); }
@@ -669,11 +672,12 @@ export async function updateInvoice(id: string, data: Partial<Invoice>) {
   requireApi();
   const existing = invoices.find(i => i.id === id);
   try {
-    await api.updateInvoice(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const updated = await api.updateInvoice(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
     const idx = invoices.findIndex(i => i.id === id);
     if (idx >= 0) {
-      invoices[idx] = { ...invoices[idx], ...data };
+      invoices[idx] = { ...invoices[idx], ...data, ...(updated && typeof updated === "object" ? updated : {}) };
       cacheWrite("emp_invoices", invoices);
+      addAuditLog("update", "invoice", id, invoices[idx].id, `تعديل فاتورة: ${invoices[idx].id}`);
       notify("invoices");
     }
   } catch (e: any) { handleConflict(e); }
@@ -880,11 +884,12 @@ export async function updateEmployee(id: string, data: Partial<Employee>) {
   requireApi();
   const existing = employees.find(e => e.id === id);
   try {
-    await api.updateEmployee(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
+    const updated = await api.updateEmployee(id, { ...data, _updatedAt: (existing as any)?.updatedAt });
     const idx = employees.findIndex(e => e.id === id);
     if (idx >= 0) {
-      employees[idx] = { ...employees[idx], ...data };
+      employees[idx] = { ...employees[idx], ...data, ...(updated && typeof updated === "object" ? updated : {}) };
       cacheWrite("emp_employees", employees);
+      addAuditLog("update", "employee", id, employees[idx].name, `تعديل موظف: ${employees[idx].name}`);
       notify("employees");
     }
   } catch (e: any) { handleConflict(e); }
