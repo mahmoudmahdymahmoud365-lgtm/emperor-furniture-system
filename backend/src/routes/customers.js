@@ -7,6 +7,15 @@ const toApi = r => ({
   updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
+function mapError(e) {
+  const detail = (e?.detail || e?.message || "");
+  if (e?.code === "23505") {
+    if (/idx_customers_phone_unique|customers.*phone/i.test(detail)) return { status: 400, error: "رقم الهاتف مسجل لعميل آخر بالفعل" };
+    if (/idx_customers_nid_unique|national_id/i.test(detail)) return { status: 400, error: "الرقم القومي مسجل لعميل آخر بالفعل" };
+  }
+  return null;
+}
+
 router.get("/", async (_, res, next) => {
   try {
     const { rows } = await pool.query("SELECT * FROM customers ORDER BY created_at DESC");
@@ -23,7 +32,10 @@ router.post("/", async (req, res, next) => {
       [d.fullName, d.nationalId||'', d.phone||'', d.address||'', d.governorate||'', d.jobTitle||'', d.notes||'']
     );
     res.json(toApi(rows[0]));
-  } catch (e) { next(e); }
+  } catch (e) {
+    const m = mapError(e); if (m) return res.status(m.status).json({ error: m.error });
+    next(e);
+  }
 });
 
 router.put("/:id", async (req, res, next) => {
@@ -39,23 +51,27 @@ router.put("/:id", async (req, res, next) => {
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (sets.length === 0) return res.json({ ok: true });
 
-    // Optimistic locking: updated_at must match
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id);
-    
+
     let query = `UPDATE customers SET ${sets.join(",")} WHERE id=$${i}`;
     if (d._updatedAt) {
       vals.push(d._updatedAt);
       query += ` AND updated_at=$${i + 1}`;
     }
-    query += " RETURNING updated_at";
+    query += " RETURNING *";
 
     const { rowCount, rows } = await pool.query(query, vals);
-    if (rowCount === 0 && d._updatedAt) {
-      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر. يرجى إعادة تحميل البيانات." });
+    if (rowCount === 0) {
+      const cur = await pool.query("SELECT * FROM customers WHERE id=$1", [req.params.id]);
+      if (cur.rowCount === 0) return res.status(404).json({ error: "العميل غير موجود" });
+      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر.", current: toApi(cur.rows[0]) });
     }
-    res.json({ ok: true, updatedAt: rows[0]?.updated_at });
-  } catch (e) { next(e); }
+    res.json(toApi(rows[0]));
+  } catch (e) {
+    const m = mapError(e); if (m) return res.status(m.status).json({ error: m.error });
+    next(e);
+  }
 });
 
 router.delete("/:id", async (req, res, next) => {

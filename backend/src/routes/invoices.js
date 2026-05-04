@@ -23,12 +23,16 @@ router.post("/", async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO invoices (id, customer, branch, employee, date, delivery_date, items, status, paid_total, commission_percent, applied_offer_name, applied_discount, notes)
        VALUES ('INV-' || LPAD(nextval('invoices_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [d.customer, d.branch||'', d.employee||'', d.date||'', d.deliveryDate||'',
+      [d.customer, d.branch||'', d.employee||'', d.date || new Date().toISOString().split("T")[0], d.deliveryDate||'',
        JSON.stringify(d.items||[]), d.status||'مسودة', d.paidTotal||0, d.commissionPercent||0,
        d.appliedOfferName||'', d.appliedDiscount||0, d.notes||'']
     );
+    // Decrement stock — skip agency items
     for (const item of (d.items || [])) {
-      await pool.query("UPDATE products SET stock = GREATEST(0, stock - $1) WHERE name = $2", [item.qty, item.productName]);
+      const { rows: prows } = await pool.query("SELECT id, is_agency FROM products WHERE name=$1 LIMIT 1", [item.productName]);
+      if (prows[0] && !prows[0].is_agency) {
+        await pool.query("UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2", [item.qty, prows[0].id]);
+      }
     }
     res.json(toApi(rows[0]));
   } catch (e) { next(e); }
@@ -47,6 +51,8 @@ router.put("/:id", async (req, res, next) => {
     if (d.status !== undefined) { sets.push(`status=$${i++}`); vals.push(d.status); }
     if (d.paidTotal !== undefined) { sets.push(`paid_total=$${i++}`); vals.push(d.paidTotal); }
     if (d.commissionPercent !== undefined) { sets.push(`commission_percent=$${i++}`); vals.push(d.commissionPercent); }
+    if (d.appliedOfferName !== undefined) { sets.push(`applied_offer_name=$${i++}`); vals.push(d.appliedOfferName); }
+    if (d.appliedDiscount !== undefined) { sets.push(`applied_discount=$${i++}`); vals.push(d.appliedDiscount); }
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (sets.length === 0) return res.json({ ok: true });
 
@@ -58,13 +64,15 @@ router.put("/:id", async (req, res, next) => {
       vals.push(d._updatedAt);
       query += ` AND updated_at=$${i + 1}`;
     }
-    query += " RETURNING updated_at";
+    query += " RETURNING *";
 
     const { rowCount, rows } = await pool.query(query, vals);
-    if (rowCount === 0 && d._updatedAt) {
-      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر. يرجى إعادة تحميل البيانات." });
+    if (rowCount === 0) {
+      const cur = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
+      if (cur.rowCount === 0) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+      return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر.", current: toApi(cur.rows[0]) });
     }
-    res.json({ ok: true, updatedAt: rows[0]?.updated_at });
+    res.json(toApi(rows[0]));
   } catch (e) { next(e); }
 });
 
