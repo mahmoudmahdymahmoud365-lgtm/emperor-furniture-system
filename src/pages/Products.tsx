@@ -14,7 +14,7 @@ import { useProducts, useStockMovements, useCompanySettings } from "@/data/hooks
 import { MOVEMENT_TYPE_LABELS } from "@/data/types";
 import type { Product } from "@/data/types";
 
-const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "" };
+const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "", colors: [] as string[], isAgency: false };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
@@ -106,6 +106,24 @@ export default function Products() {
                   <div className="form-group"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="form-group"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="sm:col-span-2 form-group"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
+                  <div className="sm:col-span-2 form-group">
+                    <Label>الألوان المتاحة (مفصولة بفاصلة)</Label>
+                    <Input
+                      placeholder="أحمر، أزرق، بني..."
+                      value={(formData.colors || []).join("، ")}
+                      onChange={(e) => setFormData({ ...formData, colors: e.target.value.split(/[,،]/).map(s => s.trim()).filter(Boolean) })}
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex items-center gap-2">
+                    <input
+                      id="isAgency"
+                      type="checkbox"
+                      checked={!!formData.isAgency}
+                      onChange={(e) => setFormData({ ...formData, isAgency: e.target.checked })}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="isAgency" className="cursor-pointer">منتج توكيل (لا يُخصم من المخزون)</Label>
+                  </div>
                 </div>
                 <Button onClick={handleSave} className="w-full mt-4">{editingId ? "تحديث" : "حفظ"}</Button>
               </DialogContent>
