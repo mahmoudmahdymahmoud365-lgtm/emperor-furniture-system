@@ -6,6 +6,7 @@ interface InvoiceItem {
   qty: number;
   unitPrice: number;
   lineDiscount: number;
+  color?: string;
 }
 
 interface Invoice {
@@ -21,6 +22,7 @@ interface Invoice {
   commissionPercent: number;
   appliedOfferName?: string;
   appliedDiscount?: number;
+  notes?: string;
 }
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
@@ -92,7 +94,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
           <tbody>
             {invoice.items.map((item, i) => (
               <tr key={i} style={{ borderBottom: "1px dashed #ccc" }}>
-                <td style={{ padding: "3px 4px" }}>{item.productName}</td>
+                <td style={{ padding: "3px 4px" }}>{item.productName}{item.color ? ` (${item.color})` : ""}</td>
                 <td style={{ textAlign: "center", padding: "3px" }}>{item.qty}</td>
                 <td style={{ textAlign: "center", padding: "3px" }}>{item.unitPrice.toLocaleString()}</td>
                 <td style={{ textAlign: "left", padding: "3px" }}>{calcLineTotal(item).toLocaleString()}</td>
@@ -106,6 +108,11 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
           <p>المدفوع: {invoice.paidTotal.toLocaleString()} ج.م</p>
           {remaining > 0 && <p style={{ fontWeight: 700 }}>المتبقي: {remaining.toLocaleString()} ج.م</p>}
         </div>
+        {invoice.notes && (
+          <div style={{ marginTop: "8px", padding: "6px", border: "1px dashed #999", fontSize: "11px" }}>
+            <strong>ملاحظات:</strong> {invoice.notes}
+          </div>
+        )}
         <div style={{ textAlign: "center", marginTop: "12px", fontSize: "10px", color: "#999" }}>
           شكراً لتعاملكم معنا
         </div>
@@ -161,7 +168,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
             {invoice.items.map((item, i) => (
               <tr key={i} style={{ borderBottom: "1px solid #ddd", background: i % 2 === 0 ? "#fff" : "#f8f9fa" }}>
                 <td style={{ padding: "8px 12px" }}>{i + 1}</td>
-                <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.productName}</td>
+                <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.productName}{item.color ? ` — ${item.color}` : ""}</td>
                 <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.qty}</td>
                 <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.unitPrice.toLocaleString()} ج.م</td>
                 <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.lineDiscount.toLocaleString()} ج.م</td>
@@ -193,8 +200,14 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: "#0d5c63", color: "#fff", fontWeight: 700 }}>
               <span>المتبقي</span><span style={{ fontSize: "16px" }}>{remaining.toLocaleString()} ج.م</span>
-            </div>
           </div>
+        </div>
+
+        {invoice.notes && (
+          <div style={{ marginTop: "20px", padding: "12px", border: "1px dashed #0d5c63", background: "#f8f9fa", fontSize: "13px" }}>
+            <strong style={{ color: "#0d5c63" }}>ملاحظات:</strong> {invoice.notes}
+          </div>
+        )}
         </div>
 
         <div style={{ marginTop: "40px", display: "flex", justifyContent: "space-between" }}>
@@ -266,7 +279,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
           {invoice.items.map((item, i) => (
             <tr key={i} style={{ borderBottom: "1px solid #e9ecef", background: i % 2 === 0 ? "#fff" : "#f8f9fa" }}>
               <td style={{ padding: "10px 12px", fontSize: "13px" }}>{i + 1}</td>
-              <td style={{ padding: "10px 12px", fontSize: "14px", fontWeight: "600" }}>{item.productName}</td>
+              <td style={{ padding: "10px 12px", fontSize: "14px", fontWeight: "600" }}>{item.productName}{item.color ? ` — ${item.color}` : ""}</td>
               <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.qty}</td>
               <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.unitPrice.toLocaleString()} ج.م</td>
               <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.lineDiscount.toLocaleString()} ج.م</td>
@@ -313,6 +326,12 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
           </div>
         </div>
       </div>
+
+      {invoice.notes && (
+        <div style={{ marginTop: "20px", padding: "14px 16px", borderRadius: "8px", border: "1px solid #e9ecef", background: "#fffbe6", fontSize: "13px" }}>
+          <strong style={{ color: "#0d5c63" }}>ملاحظات: </strong>{invoice.notes}
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{ marginTop: "40px", paddingTop: "16px", borderTop: "2px solid #e9ecef", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>

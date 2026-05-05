@@ -22,6 +22,8 @@ export interface Product {
   stock: number;
   minStock: number;
   notes: string;
+  colors?: string[];
+  isAgency?: boolean;
 }
 
 export interface InvoiceItem {
@@ -29,6 +31,7 @@ export interface InvoiceItem {
   qty: number;
   unitPrice: number;
   lineDiscount: number;
+  color?: string;
 }
 
 export interface Invoice {

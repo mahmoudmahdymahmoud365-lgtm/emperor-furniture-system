@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,13 +39,14 @@ export default function Invoices() {
   const { addReturn } = useReturns();
 
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
-
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customer, setCustomer] = useState("");
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [invoiceNotes, setInvoiceNotes] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const [commissionPercent, setCommissionPercent] = useState(0);
@@ -104,6 +106,19 @@ export default function Invoices() {
     });
   }, [invoices, search, filterStatus]);
 
+  // Open new-invoice dialog when navigated from Customers page with ?newFor=
+  useEffect(() => {
+    const newFor = searchParams.get("newFor");
+    if (newFor) {
+      setCustomer(newFor);
+      setOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("newFor");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePrint = (inv: Invoice) => {
     setPrintInvoice(inv);
     setTimeout(() => {
@@ -143,6 +158,7 @@ export default function Invoices() {
 
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
+    setInvoiceDate(new Date().toISOString().split("T")[0]);
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
     setEditingId(null); setSelectedOfferId(""); setInvoiceNotes("");
   };
@@ -150,7 +166,8 @@ export default function Invoices() {
   const handleEdit = (inv: Invoice) => {
     setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
-    setDeliveryDate(inv.deliveryDate || ""); setInvoiceNotes(inv.notes || "");
+    setDeliveryDate(inv.deliveryDate || ""); setInvoiceDate(inv.date || new Date().toISOString().split("T")[0]);
+    setInvoiceNotes(inv.notes || "");
     setItems([...inv.items]); setOpen(true);
   };
 
@@ -167,11 +184,11 @@ export default function Invoices() {
     if (!customer || items.some((i) => !i.productName)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" }); return;
     }
-    // Check stock warnings
+    // Check stock warnings — skip agency products (no stock deduction)
     const stockWarnings: string[] = [];
     for (const item of items) {
       const prod = products.find(p => p.name === item.productName);
-      if (prod) {
+      if (prod && !prod.isAgency) {
         if (prod.stock <= 0) {
           stockWarnings.push(`⚠️ "${prod.name}" نفد من المخزون (الكمية = 0)`);
         } else if (item.qty > prod.stock) {
@@ -185,10 +202,10 @@ export default function Invoices() {
       stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, notes: invoiceNotes });
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, date: invoiceDate, notes: invoiceNotes });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
+      addInvoice({ customer, branch, employee, date: invoiceDate, deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
@@ -295,8 +312,12 @@ export default function Invoices() {
                 <div className="space-y-1.5"><Label>نسبة العمولة %</Label><Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} dir="ltr" /></div>
               </div>
 
-              {/* Delivery Date & Notes */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Invoice Date / Delivery Date / Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label>تاريخ الفاتورة</Label>
+                  <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} dir="ltr" />
+                </div>
                 <div className="space-y-1.5">
                   <Label>تاريخ التسليم المتوقع</Label>
                   <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} dir="ltr" />
@@ -315,8 +336,10 @@ export default function Invoices() {
                 <div className="space-y-3">
                   {items.map((item, i) => {
                     const fp = products.filter(p => p.name.includes(item.productName));
+                    const selectedProd = products.find(p => p.name === item.productName);
+                    const productColors = selectedProd?.colors || [];
                     return (
-                      <div key={i} className="grid grid-cols-5 gap-2 items-end p-3 bg-muted/50 rounded-lg">
+                      <div key={i} className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/50 rounded-lg">
                         <div className="space-y-1 relative">
                           <Label className="text-xs">المنتج</Label>
                           <Input value={item.productName} onChange={(e) => updateItem(i, "productName", e.target.value)} onFocus={() => setProductFocusIdx(i)} onBlur={() => setTimeout(() => setProductFocusIdx(null), 200)} className="text-sm" />
@@ -325,12 +348,24 @@ export default function Invoices() {
                               {fp.map((p, pi) => (
                                 <button key={pi} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => selectProduct(i, p.name)}>
                                   {p.name} <span className="text-xs text-muted-foreground">({p.defaultPrice.toLocaleString()} ج.م)</span>
+                                  {p.isAgency && <span className="text-xs text-warning mr-1">[توكيل]</span>}
                                 </button>
                               ))}
                               <button className="w-full text-right px-3 py-2 text-sm hover:bg-accent text-primary font-medium border-t" onMouseDown={() => { setNewProductItemIdx(i); setNewProductName(item.productName); setNewProductOpen(true); }}>
                                 <PackagePlus className="h-3 w-3 inline ml-1" />إضافة منتج جديد
                               </button>
                             </div>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">اللون</Label>
+                          {productColors.length > 0 ? (
+                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
+                              <option value="">—</option>
+                              {productColors.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          ) : (
+                            <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
                           )}
                         </div>
                         <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
