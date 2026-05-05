@@ -298,8 +298,12 @@ export default function Invoices() {
                 <div className="space-y-1.5"><Label>نسبة العمولة %</Label><Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} dir="ltr" /></div>
               </div>
 
-              {/* Delivery Date & Notes */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Invoice Date / Delivery Date / Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label>تاريخ الفاتورة</Label>
+                  <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} dir="ltr" />
+                </div>
                 <div className="space-y-1.5">
                   <Label>تاريخ التسليم المتوقع</Label>
                   <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} dir="ltr" />
