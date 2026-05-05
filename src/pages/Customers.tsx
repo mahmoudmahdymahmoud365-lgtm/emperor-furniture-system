@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Edit, Trash2, FileBarChart, Users, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Edit, Trash2, FileBarChart, Users, Phone, MapPin, Receipt } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -141,6 +141,7 @@ export default function Customers() {
                     <td className="p-3.5 hidden lg:table-cell text-muted-foreground text-xs">{c.jobTitle || "—"}</td>
                     <td className="p-3.5">
                       <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/invoices?newFor=${encodeURIComponent(c.fullName)}`)} title="إنشاء فاتورة" className="h-8 w-8 text-primary"><Receipt className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => navigate(`/customer-report/${c.id}`)} title="تقرير العميل" className="h-8 w-8"><FileBarChart className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)} className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
