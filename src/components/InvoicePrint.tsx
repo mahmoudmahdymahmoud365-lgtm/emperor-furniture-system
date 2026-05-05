@@ -327,18 +327,18 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: "40px", paddingTop: "16px", borderTop: "2px solid #e9ecef", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <div>
-          <p style={{ fontSize: "12px", color: "#999", margin: 0 }}>شكراً لتعاملكم معنا — {settings.name}</p>
-          <p style={{ fontSize: "11px", color: "#bbb", margin: "4px 0 0" }}>هذه الفاتورة صادرة إلكترونياً ولا تحتاج إلى توقيع</p>
-      </div>
-
       {invoice.notes && (
         <div style={{ marginTop: "20px", padding: "14px 16px", borderRadius: "8px", border: "1px solid #e9ecef", background: "#fffbe6", fontSize: "13px" }}>
           <strong style={{ color: "#0d5c63" }}>ملاحظات: </strong>{invoice.notes}
         </div>
       )}
+
+      {/* Footer */}
+      <div style={{ marginTop: "40px", paddingTop: "16px", borderTop: "2px solid #e9ecef", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          <p style={{ fontSize: "12px", color: "#999", margin: 0 }}>شكراً لتعاملكم معنا — {settings.name}</p>
+          <p style={{ fontSize: "11px", color: "#bbb", margin: "4px 0 0" }}>هذه الفاتورة صادرة إلكترونياً ولا تحتاج إلى توقيع</p>
+        </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ borderTop: "1px solid #333", width: "150px", paddingTop: "8px", fontSize: "11px", color: "#666" }}>التوقيع</div>
         </div>
