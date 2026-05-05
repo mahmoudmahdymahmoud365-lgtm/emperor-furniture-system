@@ -322,8 +322,10 @@ export default function Invoices() {
                 <div className="space-y-3">
                   {items.map((item, i) => {
                     const fp = products.filter(p => p.name.includes(item.productName));
+                    const selectedProd = products.find(p => p.name === item.productName);
+                    const productColors = selectedProd?.colors || [];
                     return (
-                      <div key={i} className="grid grid-cols-5 gap-2 items-end p-3 bg-muted/50 rounded-lg">
+                      <div key={i} className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/50 rounded-lg">
                         <div className="space-y-1 relative">
                           <Label className="text-xs">المنتج</Label>
                           <Input value={item.productName} onChange={(e) => updateItem(i, "productName", e.target.value)} onFocus={() => setProductFocusIdx(i)} onBlur={() => setTimeout(() => setProductFocusIdx(null), 200)} className="text-sm" />
@@ -332,12 +334,24 @@ export default function Invoices() {
                               {fp.map((p, pi) => (
                                 <button key={pi} className="w-full text-right px-3 py-2 text-sm hover:bg-accent" onMouseDown={() => selectProduct(i, p.name)}>
                                   {p.name} <span className="text-xs text-muted-foreground">({p.defaultPrice.toLocaleString()} ج.م)</span>
+                                  {p.isAgency && <span className="text-xs text-warning mr-1">[توكيل]</span>}
                                 </button>
                               ))}
                               <button className="w-full text-right px-3 py-2 text-sm hover:bg-accent text-primary font-medium border-t" onMouseDown={() => { setNewProductItemIdx(i); setNewProductName(item.productName); setNewProductOpen(true); }}>
                                 <PackagePlus className="h-3 w-3 inline ml-1" />إضافة منتج جديد
                               </button>
                             </div>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">اللون</Label>
+                          {productColors.length > 0 ? (
+                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
+                              <option value="">—</option>
+                              {productColors.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          ) : (
+                            <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
                           )}
                         </div>
                         <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
