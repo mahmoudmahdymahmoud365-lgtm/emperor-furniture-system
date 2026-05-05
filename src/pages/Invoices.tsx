@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ export default function Invoices() {
   const { addReturn } = useReturns();
 
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
-
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customer, setCustomer] = useState("");
