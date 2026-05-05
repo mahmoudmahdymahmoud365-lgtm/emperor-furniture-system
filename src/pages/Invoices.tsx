@@ -106,6 +106,19 @@ export default function Invoices() {
     });
   }, [invoices, search, filterStatus]);
 
+  // Open new-invoice dialog when navigated from Customers page with ?newFor=
+  useEffect(() => {
+    const newFor = searchParams.get("newFor");
+    if (newFor) {
+      setCustomer(newFor);
+      setOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("newFor");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePrint = (inv: Invoice) => {
     setPrintInvoice(inv);
     setTimeout(() => {
