@@ -226,7 +226,7 @@ export default function Products() {
                         <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }} className="h-8 w-8"><QrCode className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }} className="h-8 w-8"><Package className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => { setFormData(p); setEditingId(p.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setFormData({ ...emptyProduct, ...p, colors: p.colors || [], isAgency: !!p.isAgency }); setEditingId(p.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>
