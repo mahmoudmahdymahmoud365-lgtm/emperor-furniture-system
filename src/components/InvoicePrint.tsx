@@ -6,6 +6,7 @@ interface InvoiceItem {
   qty: number;
   unitPrice: number;
   lineDiscount: number;
+  color?: string;
 }
 
 interface Invoice {
@@ -21,6 +22,7 @@ interface Invoice {
   commissionPercent: number;
   appliedOfferName?: string;
   appliedDiscount?: number;
+  notes?: string;
 }
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
