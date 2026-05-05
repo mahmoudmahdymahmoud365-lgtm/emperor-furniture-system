@@ -45,6 +45,7 @@ export default function Invoices() {
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [invoiceNotes, setInvoiceNotes] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const [commissionPercent, setCommissionPercent] = useState(0);
@@ -143,6 +144,7 @@ export default function Invoices() {
 
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
+    setInvoiceDate(new Date().toISOString().split("T")[0]);
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
     setEditingId(null); setSelectedOfferId(""); setInvoiceNotes("");
   };
@@ -150,7 +152,8 @@ export default function Invoices() {
   const handleEdit = (inv: Invoice) => {
     setEditingId(inv.id); setCustomer(inv.customer); setBranch(inv.branch);
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
-    setDeliveryDate(inv.deliveryDate || ""); setInvoiceNotes(inv.notes || "");
+    setDeliveryDate(inv.deliveryDate || ""); setInvoiceDate(inv.date || new Date().toISOString().split("T")[0]);
+    setInvoiceNotes(inv.notes || "");
     setItems([...inv.items]); setOpen(true);
   };
 
@@ -167,11 +170,11 @@ export default function Invoices() {
     if (!customer || items.some((i) => !i.productName)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" }); return;
     }
-    // Check stock warnings
+    // Check stock warnings — skip agency products (no stock deduction)
     const stockWarnings: string[] = [];
     for (const item of items) {
       const prod = products.find(p => p.name === item.productName);
-      if (prod) {
+      if (prod && !prod.isAgency) {
         if (prod.stock <= 0) {
           stockWarnings.push(`⚠️ "${prod.name}" نفد من المخزون (الكمية = 0)`);
         } else if (item.qty > prod.stock) {
@@ -185,10 +188,10 @@ export default function Invoices() {
       stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, notes: invoiceNotes });
+      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, date: invoiceDate, notes: invoiceNotes });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: new Date().toISOString().split("T")[0], deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
+      addInvoice({ customer, branch, employee, date: invoiceDate, deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
