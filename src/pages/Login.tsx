@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Lock, Mail, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, AlertTriangle, Eye, EyeOff, FlaskConical } from "lucide-react";
 import { login } from "@/data/store";
 import { useToast } from "@/hooks/use-toast";
+import { isDemoMode, enableDemoMode, disableDemoMode } from "@/data/demoMode";
 
 export default function Login() {
   const navigate = useNavigate();
