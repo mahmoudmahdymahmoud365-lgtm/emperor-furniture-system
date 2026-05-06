@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Lock, Mail, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, AlertTriangle, Eye, EyeOff, FlaskConical } from "lucide-react";
 import { login } from "@/data/store";
 import { useToast } from "@/hooks/use-toast";
+import { isDemoMode, enableDemoMode, disableDemoMode } from "@/data/demoMode";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -113,6 +114,30 @@ export default function Login() {
             <p>مدير: admin@emperor.com / admin123</p>
             <p>مبيعات: sales@emperor.com / sales123</p>
             <p>محاسب: accountant@emperor.com / acc123</p>
+          </div>
+          <div className="mt-3 p-3 border border-dashed border-primary/40 rounded-lg bg-primary/5">
+            <div className="flex items-start gap-2 mb-2">
+              <FlaskConical className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="text-xs text-foreground">
+                <p className="font-semibold">وضع التجربة (Browser Demo)</p>
+                <p className="text-muted-foreground mt-0.5">
+                  يعمل بدون backend — البيانات تُحفظ محلياً في المتصفح فقط. مناسب للاختبار قبل تثبيت التطبيق.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant={isDemoMode() ? "destructive" : "secondary"}
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => {
+                if (isDemoMode()) { disableDemoMode(); toast({ title: "تم إيقاف وضع التجربة" }); }
+                else { enableDemoMode(); toast({ title: "تم تفعيل وضع التجربة", description: "استخدم admin@emperor.com / admin123" }); }
+                window.location.reload();
+              }}
+            >
+              {isDemoMode() ? "إيقاف وضع التجربة" : "تفعيل وضع التجربة"}
+            </Button>
           </div>
         </CardContent>
       </Card>

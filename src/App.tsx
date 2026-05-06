@@ -30,6 +30,7 @@ const ManufacturingReport = lazy(() => import("./pages/ManufacturingReport"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const SecurityLog = lazy(() => import("./pages/SecurityLog"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const POS = lazy(() => import("./pages/POS"));
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/customers" element={<ProtectedRoute permissionKey="customers" operation="view"><Customers /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute permissionKey="products" operation="view"><Products /></ProtectedRoute>} />
               <Route path="/invoices" element={<ProtectedRoute permissionKey="invoices" operation="view"><Invoices /></ProtectedRoute>} />
+              <Route path="/pos" element={<ProtectedRoute permissionKey="invoices" operation="create"><POS /></ProtectedRoute>} />
               <Route path="/installments" element={<ProtectedRoute permissionKey="installments" operation="view"><Installments /></ProtectedRoute>} />
               <Route path="/customer-report/:customerId" element={<ProtectedRoute permissionKey="customers" operation="view"><CustomerReport /></ProtectedRoute>} />
               <Route path="/employees" element={<ProtectedRoute permissionKey="employees" operation="view"><Employees /></ProtectedRoute>} />

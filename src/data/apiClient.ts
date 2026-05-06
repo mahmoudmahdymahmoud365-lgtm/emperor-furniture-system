@@ -67,9 +67,27 @@ const REQUEST_TIMEOUT = 10000;
 let onSessionExpired: (() => void) | null = null;
 export function setOnSessionExpired(cb: () => void) { onSessionExpired = cb; }
 
+import { isDemoMode, demoFetch } from "./demoMode";
+
 async function request<T>(path: string, options?: RequestInit, retries = MAX_RETRIES): Promise<T> {
+  // ---- Demo Mode short-circuit (browser-only, when backend is unreachable) ----
+  if (isDemoMode()) {
+    const method = (options?.method || "GET").toUpperCase();
+    let body: any = undefined;
+    if (options?.body && typeof options.body === "string") {
+      try { body = JSON.parse(options.body); } catch {}
+    }
+    const res: any = await demoFetch(method, path, body);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || res.statusText || "Demo error");
+    }
+    return res.json();
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const fullUrl = `${getApiBase()}${path}`;
 
   try {
     const headers: Record<string, string> = {
@@ -77,22 +95,14 @@ async function request<T>(path: string, options?: RequestInit, retries = MAX_RET
       ...(options?.headers as Record<string, string> || {}),
     };
 
-    // Attach session token if available
     const token = getSessionToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${getApiBase()}${path}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
+    const res = await fetch(fullUrl, { ...options, headers, signal: controller.signal });
     clearTimeout(timeout);
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      // Handle session expiry from server
       if (res.status === 401 && err.code === "SESSION_EXPIRED") {
         clearSessionToken();
         if (onSessionExpired) onSessionExpired();
@@ -103,13 +113,24 @@ async function request<T>(path: string, options?: RequestInit, retries = MAX_RET
     return res.json();
   } catch (e: any) {
     clearTimeout(timeout);
-    if (retries > 0 && (e.name === "AbortError" || e.message?.includes("fetch"))) {
-      await new Promise(r => setTimeout(r, 1000));
-      return request<T>(path, options, retries - 1);
+    // Diagnostic-rich error reporting
+    if (e.name === "AbortError") {
+      if (retries > 0) { await new Promise(r => setTimeout(r, 800)); return request<T>(path, options, retries - 1); }
+      console.error(`[API] Timeout after ${REQUEST_TIMEOUT}ms → ${fullUrl}`);
+      const err: any = new Error(`انتهت مهلة الاتصال بالخادم (${REQUEST_TIMEOUT}ms): ${fullUrl}`);
+      err.code = "TIMEOUT"; err.url = fullUrl; throw err;
+    }
+    if (e instanceof TypeError || /fetch|network/i.test(e.message || "")) {
+      if (retries > 0) { await new Promise(r => setTimeout(r, 800)); return request<T>(path, options, retries - 1); }
+      console.error(`[API] Network error → ${fullUrl}:`, e.message);
+      const err: any = new Error(`تعذّر الاتصال بالخادم على ${fullUrl}. تأكد من تشغيل التطبيق وأن الـ backend شغّال.`);
+      err.code = "NETWORK"; err.url = fullUrl; throw err;
     }
     throw e;
   }
 }
+
+export function getApiBaseUrl() { return getApiBase(); }
 
 export const api = {
   // Health
