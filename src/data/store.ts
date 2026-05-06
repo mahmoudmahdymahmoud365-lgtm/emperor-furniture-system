@@ -1154,7 +1154,10 @@ export async function login(email: string, password: string): Promise<{ success:
 
     return { success: true };
   } catch (e: any) {
-    return { success: false, error: "فشل الاتصال بالخادم. تأكد من تشغيل الخادم." };
+    console.error("[Login] Failed:", e?.code, e?.url, e?.message);
+    if (e?.code === "TIMEOUT") return { success: false, error: `انتهت مهلة الاتصال (${e.url}). فعّل وضع التجربة أو تأكد من تشغيل الخادم.` };
+    if (e?.code === "NETWORK") return { success: false, error: `تعذّر الوصول للخادم: ${e.url}. شغّل الـ backend أو فعّل وضع التجربة.` };
+    return { success: false, error: e?.message || "فشل تسجيل الدخول" };
   }
 }
 
