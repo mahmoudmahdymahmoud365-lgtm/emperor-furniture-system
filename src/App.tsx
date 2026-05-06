@@ -30,6 +30,7 @@ const ManufacturingReport = lazy(() => import("./pages/ManufacturingReport"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const SecurityLog = lazy(() => import("./pages/SecurityLog"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const POS = lazy(() => import("./pages/POS"));
 
 const queryClient = new QueryClient();
 
