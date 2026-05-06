@@ -463,9 +463,7 @@ export default function POS() {
       {/* Hidden printable area */}
       {printInvoice && (
         <div style={{ position: "absolute", left: -99999, top: 0 }}>
-          <div ref={printRef}>
-            <InvoicePrint invoice={printInvoice} settings={settings} template="modern" />
-          </div>
+          <InvoicePrint ref={printRef} invoice={printInvoice as any} settings={settings as any} template="modern" />
         </div>
       )}
     </AppLayout>
