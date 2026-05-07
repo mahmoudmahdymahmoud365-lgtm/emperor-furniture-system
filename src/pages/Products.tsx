@@ -106,14 +106,26 @@ export default function Products() {
                   <div className="form-group"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="form-group"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="sm:col-span-2 form-group"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
-                  <div className="sm:col-span-2 form-group">
-                    <Label>الألوان المتاحة (مفصولة بفاصلة)</Label>
-                    <Input
-                      placeholder="أحمر، أزرق، بني..."
-                      value={(formData.colors || []).join("، ")}
-                      onChange={(e) => setFormData({ ...formData, colors: e.target.value.split(/[,،]/).map(s => s.trim()).filter(Boolean) })}
+                  <div className="sm:col-span-2 flex items-center gap-2">
+                    <input
+                      id="hasColorVariants"
+                      type="checkbox"
+                      checked={!!formData.hasColorVariants}
+                      onChange={(e) => setFormData({ ...formData, hasColorVariants: e.target.checked, colors: e.target.checked ? formData.colors : [] })}
+                      className="h-4 w-4"
                     />
+                    <Label htmlFor="hasColorVariants" className="cursor-pointer">هذا المنتج له ألوان محددة</Label>
                   </div>
+                  {formData.hasColorVariants && (
+                    <div className="sm:col-span-2 form-group">
+                      <Label>الألوان المتاحة (مفصولة بفاصلة)</Label>
+                      <Input
+                        placeholder="أحمر، أزرق، بني..."
+                        value={(formData.colors || []).join("، ")}
+                        onChange={(e) => setFormData({ ...formData, colors: e.target.value.split(/[,،]/).map(s => s.trim()).filter(Boolean) })}
+                      />
+                    </div>
+                  )}
                   <div className="sm:col-span-2 flex items-center gap-2">
                     <input
                       id="isAgency"
