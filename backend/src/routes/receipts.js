@@ -53,6 +53,7 @@ router.put("/:id", async (req, res, next) => {
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id);
     const { rows } = await pool.query(`UPDATE receipts SET ${sets.join(",")} WHERE id=$${i} RETURNING *`, vals);
+    if (rows[0]?.invoice_id) await recomputeInvoiceStatus(rows[0].invoice_id);
     res.json(rows[0] ? toApi(rows[0]) : { ok: true });
   } catch (e) { next(e); }
 });
@@ -64,6 +65,7 @@ router.delete("/:id", async (req, res, next) => {
       await pool.query("UPDATE invoices SET paid_total = GREATEST(0, paid_total - $1), updated_at=NOW() WHERE id = $2", [Number(rows[0].amount), rows[0].invoice_id]);
     }
     await pool.query("DELETE FROM receipts WHERE id=$1", [req.params.id]);
+    if (rows[0]?.invoice_id) await recomputeInvoiceStatus(rows[0].invoice_id);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
