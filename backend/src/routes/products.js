@@ -6,6 +6,7 @@ const toApi = r => ({
   unit: r.unit, stock: r.stock, minStock: r.min_stock, notes: r.notes,
   colors: Array.isArray(r.colors) ? r.colors : [],
   isAgency: !!r.is_agency,
+  hasColorVariants: !!r.has_color_variants,
   updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
