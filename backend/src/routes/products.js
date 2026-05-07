@@ -53,6 +53,7 @@ router.put("/:id", async (req, res, next) => {
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (d.colors !== undefined) { sets.push(`colors=$${i++}`); vals.push(JSON.stringify(d.colors||[])); }
     if (d.isAgency !== undefined) { sets.push(`is_agency=$${i++}`); vals.push(!!d.isAgency); }
+    if (d.hasColorVariants !== undefined) { sets.push(`has_color_variants=$${i++}`); vals.push(!!d.hasColorVariants); }
     if (sets.length === 0) return res.json({ ok: true });
 
     sets.push(`updated_at=NOW()`);
