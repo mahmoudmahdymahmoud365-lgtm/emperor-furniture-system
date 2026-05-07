@@ -24,6 +24,7 @@ export interface Product {
   notes: string;
   colors?: string[];
   isAgency?: boolean;
+  hasColorVariants?: boolean;
 }
 
 export interface InvoiceItem {
@@ -32,6 +33,7 @@ export interface InvoiceItem {
   unitPrice: number;
   lineDiscount: number;
   color?: string;
+  unit?: string;
 }
 
 export interface Invoice {
