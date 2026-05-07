@@ -28,10 +28,10 @@ router.post("/", async (req, res, next) => {
   try {
     const d = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO products (id, name, category, default_price, unit, stock, min_stock, notes, colors, is_agency)
-       VALUES ('P' || LPAD(nextval('products_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO products (id, name, category, default_price, unit, stock, min_stock, notes, colors, is_agency, has_color_variants)
+       VALUES ('P' || LPAD(nextval('products_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [d.name, d.category||'', d.defaultPrice||0, d.unit||'', d.stock||0, d.minStock||0, d.notes||'',
-       JSON.stringify(d.colors||[]), !!d.isAgency]
+       JSON.stringify(d.colors||[]), !!d.isAgency, !!d.hasColorVariants]
     );
     res.json(toApi(rows[0]));
   } catch (e) {
