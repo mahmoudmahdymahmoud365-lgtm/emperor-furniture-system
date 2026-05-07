@@ -26,6 +26,7 @@ router.post("/", async (req, res, next) => {
     );
     if (d.invoiceId) {
       await pool.query("UPDATE invoices SET paid_total = paid_total + $1, updated_at=NOW() WHERE id = $2", [d.amount||0, d.invoiceId]);
+      await recomputeInvoiceStatus(d.invoiceId);
     }
     res.json(toApi(rows[0]));
   } catch (e) { next(e); }
