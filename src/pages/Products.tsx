@@ -14,7 +14,7 @@ import { useProducts, useStockMovements, useCompanySettings } from "@/data/hooks
 import { MOVEMENT_TYPE_LABELS } from "@/data/types";
 import type { Product } from "@/data/types";
 
-const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "", colors: [] as string[], isAgency: false };
+const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "", colors: [] as string[], isAgency: false, hasColorVariants: false };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
