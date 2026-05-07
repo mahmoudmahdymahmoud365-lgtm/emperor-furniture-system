@@ -1,6 +1,8 @@
 const router = require("express").Router();
 const pool = require("../db");
 
+const AUTO_STATUSES = new Set(["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل"]);
+
 const toApi = r => ({
   id: r.id, customer: r.customer, branch: r.branch, employee: r.employee,
   date: r.date, deliveryDate: r.delivery_date, items: r.items || [],
@@ -9,6 +11,30 @@ const toApi = r => ({
   notes: r.notes || '',
   updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
+
+function calcInvoiceTotal(inv) {
+  const items = inv.items || [];
+  const sub = items.reduce((s, it) => s + (Number(it.qty)||0) * (Number(it.unitPrice)||0) - (Number(it.lineDiscount)||0), 0);
+  return sub - Number(inv.applied_discount || inv.appliedDiscount || 0);
+}
+
+async function recomputeInvoiceStatus(invoiceId) {
+  const { rows } = await pool.query("SELECT * FROM invoices WHERE id=$1", [invoiceId]);
+  if (!rows[0]) return;
+  const inv = rows[0];
+  // Don't auto-change manual-only statuses
+  if (!AUTO_STATUSES.has(inv.status) && inv.status !== "" && inv.status !== "مدفوعة") return;
+  const total = calcInvoiceTotal(inv);
+  const paid = Number(inv.paid_total || 0);
+  let next = inv.status || "مسودة";
+  if (total <= 0) next = inv.status || "مسودة";
+  else if (paid <= 0) next = AUTO_STATUSES.has(inv.status) ? "مؤكدة" : inv.status;
+  else if (paid + 0.001 < total) next = "مدفوعة جزئياً";
+  else next = "مدفوعة بالكامل";
+  if (next !== inv.status) {
+    await pool.query("UPDATE invoices SET status=$1, updated_at=NOW() WHERE id=$2", [next, invoiceId]);
+  }
+}
 
 router.get("/", async (_, res, next) => {
   try {
@@ -34,7 +60,9 @@ router.post("/", async (req, res, next) => {
         await pool.query("UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2", [item.qty, prows[0].id]);
       }
     }
-    res.json(toApi(rows[0]));
+    await recomputeInvoiceStatus(rows[0].id);
+    const { rows: fresh } = await pool.query("SELECT * FROM invoices WHERE id=$1", [rows[0].id]);
+    res.json(toApi(fresh[0]));
   } catch (e) { next(e); }
 });
 
@@ -72,7 +100,10 @@ router.put("/:id", async (req, res, next) => {
       if (cur.rowCount === 0) return res.status(404).json({ error: "الفاتورة غير موجودة" });
       return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر.", current: toApi(cur.rows[0]) });
     }
-    res.json(toApi(rows[0]));
+    // Only auto-recompute when status was NOT explicitly set in this request
+    if (d.status === undefined) await recomputeInvoiceStatus(req.params.id);
+    const { rows: fresh } = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
+    res.json(toApi(fresh[0]));
   } catch (e) { next(e); }
 });
 
@@ -85,9 +116,11 @@ router.delete("/:id", async (req, res, next) => {
       }
     }
     await pool.query("DELETE FROM receipts WHERE invoice_id=$1", [req.params.id]);
+    await pool.query("DELETE FROM customer_balance_adjustments WHERE invoice_id=$1", [req.params.id]).catch(() => {});
     await pool.query("DELETE FROM invoices WHERE id=$1", [req.params.id]);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
 
 module.exports = router;
+module.exports.recomputeInvoiceStatus = recomputeInvoiceStatus;
