@@ -1,5 +1,7 @@
 const router = require("express").Router();
 const pool = require("../db");
+const invoicesModule = require("./invoices");
+const recomputeInvoiceStatus = invoicesModule.recomputeInvoiceStatus || (async () => {});
 
 const toApi = r => ({
   id: r.id, invoiceId: r.invoice_id, customer: r.customer, amount: Number(r.amount),
