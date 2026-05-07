@@ -178,6 +178,17 @@ export const api = {
   updateOffer: (id: string, data: any) => request<any>(`/offers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteOffer: (id: string) => request<any>(`/offers/${id}`, { method: "DELETE" }),
 
+  // Adjustments
+  getAdjustments: (params?: { customerId?: string; invoiceId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set("customerId", params.customerId);
+    if (params?.invoiceId) q.set("invoiceId", params.invoiceId);
+    const qs = q.toString();
+    return request<any[]>(`/adjustments${qs ? `?${qs}` : ""}`);
+  },
+  addAdjustment: (data: any) => request<any>("/adjustments", { method: "POST", body: JSON.stringify(data) }),
+  deleteAdjustment: (id: string) => request<any>(`/adjustments/${id}`, { method: "DELETE" }),
+
   // Stock Movements
   getStockMovements: () => request<any[]>("/stock-movements"),
   addStockMovement: (data: any) => request<any>("/stock-movements", { method: "POST", body: JSON.stringify(data) }),

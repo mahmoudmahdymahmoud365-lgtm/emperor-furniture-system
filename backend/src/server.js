@@ -131,6 +131,7 @@ const routeModules = [
   ["/api/files", "./routes/files"],
   ["/api/backup", "./routes/backup"],
   ["/api/cloud/onedrive", "./routes/cloudOneDrive"],
+  ["/api/adjustments", "./routes/adjustments"],
 ];
 
 for (const [path, mod] of routeModules) {

@@ -6,6 +6,7 @@ const toApi = r => ({
   unit: r.unit, stock: r.stock, minStock: r.min_stock, notes: r.notes,
   colors: Array.isArray(r.colors) ? r.colors : [],
   isAgency: !!r.is_agency,
+  hasColorVariants: !!r.has_color_variants,
   updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
@@ -27,10 +28,10 @@ router.post("/", async (req, res, next) => {
   try {
     const d = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO products (id, name, category, default_price, unit, stock, min_stock, notes, colors, is_agency)
-       VALUES ('P' || LPAD(nextval('products_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO products (id, name, category, default_price, unit, stock, min_stock, notes, colors, is_agency, has_color_variants)
+       VALUES ('P' || LPAD(nextval('products_seq')::TEXT, 3, '0'), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [d.name, d.category||'', d.defaultPrice||0, d.unit||'', d.stock||0, d.minStock||0, d.notes||'',
-       JSON.stringify(d.colors||[]), !!d.isAgency]
+       JSON.stringify(d.colors||[]), !!d.isAgency, !!d.hasColorVariants]
     );
     res.json(toApi(rows[0]));
   } catch (e) {
@@ -52,6 +53,7 @@ router.put("/:id", async (req, res, next) => {
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
     if (d.colors !== undefined) { sets.push(`colors=$${i++}`); vals.push(JSON.stringify(d.colors||[])); }
     if (d.isAgency !== undefined) { sets.push(`is_agency=$${i++}`); vals.push(!!d.isAgency); }
+    if (d.hasColorVariants !== undefined) { sets.push(`has_color_variants=$${i++}`); vals.push(!!d.hasColorVariants); }
     if (sets.length === 0) return res.json({ ok: true });
 
     sets.push(`updated_at=NOW()`);

@@ -24,6 +24,7 @@ export interface Product {
   notes: string;
   colors?: string[];
   isAgency?: boolean;
+  hasColorVariants?: boolean;
 }
 
 export interface InvoiceItem {
@@ -32,6 +33,7 @@ export interface InvoiceItem {
   unitPrice: number;
   lineDiscount: number;
   color?: string;
+  unit?: string;
 }
 
 export interface Invoice {
@@ -191,7 +193,7 @@ export interface Receipt {
 // ==============================
 // Offers & Discounts
 // ==============================
-export type OfferType = "percentage" | "fixed" | "timed";
+export type OfferType = "percentage" | "fixed" | "fixed_price" | "timed";
 
 export interface Offer {
   id: string;
@@ -208,9 +210,33 @@ export interface Offer {
 
 export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
   percentage: "نسبة مئوية",
-  fixed: "مبلغ ثابت",
+  fixed: "خصم مبلغ ثابت",
+  fixed_price: "سعر ثابت للمنتج",
   timed: "عرض بفترة زمنية",
 };
+
+export const INVOICE_STATUSES = ["مسودة","مؤكدة","مدفوعة جزئياً","مدفوعة بالكامل","تم التسليم","ملغاة","مغلقة"] as const;
+export type InvoiceStatus = typeof INVOICE_STATUSES[number];
+
+export type AdjustmentType = "discount" | "debt_settlement" | "interest" | "manual";
+export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, string> = {
+  discount: "خصم إضافي",
+  debt_settlement: "تسوية مديونية",
+  interest: "فائدة",
+  manual: "تعديل يدوي",
+};
+export interface BalanceAdjustment {
+  id: string;
+  customerId: string;
+  customerName: string;
+  invoiceId?: string;
+  adjustmentType: AdjustmentType;
+  amount: number;
+  reason: string;
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+}
 
 // ==============================
 // Stock Movements

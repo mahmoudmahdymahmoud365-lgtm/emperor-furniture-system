@@ -14,7 +14,7 @@ import { useProducts, useStockMovements, useCompanySettings } from "@/data/hooks
 import { MOVEMENT_TYPE_LABELS } from "@/data/types";
 import type { Product } from "@/data/types";
 
-const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "", colors: [] as string[], isAgency: false };
+const emptyProduct = { name: "", category: "", defaultPrice: 0, unit: "قطعة", stock: 0, minStock: 0, notes: "", colors: [] as string[], isAgency: false, hasColorVariants: false };
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
@@ -106,14 +106,26 @@ export default function Products() {
                   <div className="form-group"><Label>الكمية المتاحة</Label><Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="form-group"><Label>حد أدنى للتنبيه</Label><Input type="number" value={formData.minStock} onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })} dir="ltr" /></div>
                   <div className="sm:col-span-2 form-group"><Label>ملاحظات</Label><Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} /></div>
-                  <div className="sm:col-span-2 form-group">
-                    <Label>الألوان المتاحة (مفصولة بفاصلة)</Label>
-                    <Input
-                      placeholder="أحمر، أزرق، بني..."
-                      value={(formData.colors || []).join("، ")}
-                      onChange={(e) => setFormData({ ...formData, colors: e.target.value.split(/[,،]/).map(s => s.trim()).filter(Boolean) })}
+                  <div className="sm:col-span-2 flex items-center gap-2">
+                    <input
+                      id="hasColorVariants"
+                      type="checkbox"
+                      checked={!!formData.hasColorVariants}
+                      onChange={(e) => setFormData({ ...formData, hasColorVariants: e.target.checked, colors: e.target.checked ? formData.colors : [] })}
+                      className="h-4 w-4"
                     />
+                    <Label htmlFor="hasColorVariants" className="cursor-pointer">هذا المنتج له ألوان محددة</Label>
                   </div>
+                  {formData.hasColorVariants && (
+                    <div className="sm:col-span-2 form-group">
+                      <Label>الألوان المتاحة (مفصولة بفاصلة)</Label>
+                      <Input
+                        placeholder="أحمر، أزرق، بني..."
+                        value={(formData.colors || []).join("، ")}
+                        onChange={(e) => setFormData({ ...formData, colors: e.target.value.split(/[,،]/).map(s => s.trim()).filter(Boolean) })}
+                      />
+                    </div>
+                  )}
                   <div className="sm:col-span-2 flex items-center gap-2">
                     <input
                       id="isAgency"
@@ -226,7 +238,7 @@ export default function Products() {
                         <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" title="رمز QR" onClick={() => { setQrProduct(p); setQrOpen(true); }} className="h-8 w-8"><QrCode className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" title="تعديل المخزون" onClick={() => { setStockEdit({ id: p.id, name: p.name, stock: p.stock, minStock: p.minStock }); setStockEditOpen(true); }} className="h-8 w-8"><Package className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => { setFormData({ ...emptyProduct, ...p, colors: p.colors || [], isAgency: !!p.isAgency }); setEditingId(p.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setFormData({ ...emptyProduct, ...p, colors: p.colors || [], isAgency: !!p.isAgency, hasColorVariants: !!p.hasColorVariants || (Array.isArray(p.colors) && p.colors.length > 0) }); setEditingId(p.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </td>

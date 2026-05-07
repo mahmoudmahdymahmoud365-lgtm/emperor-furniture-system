@@ -302,14 +302,9 @@ const MIGRATIONS = [
     version: 6,
     description: "Product colors, agency flag, unique constraints, notes on receipts",
     up: `
-      -- Product colors as JSON array on product
       ALTER TABLE products ADD COLUMN IF NOT EXISTS colors JSONB DEFAULT '[]';
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_agency BOOLEAN DEFAULT false;
-
-      -- Receipts: notes already exist; ensure updated_at for editability
       ALTER TABLE receipts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-
-      -- UNIQUE constraints (partial, ignoring empty strings)
       CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone_unique
         ON customers (phone) WHERE phone IS NOT NULL AND phone != '';
       CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_nid_unique
@@ -318,6 +313,27 @@ const MIGRATIONS = [
         ON employees (national_id) WHERE national_id IS NOT NULL AND national_id != '';
       CREATE UNIQUE INDEX IF NOT EXISTS idx_products_name_cat_unique
         ON products (LOWER(name), LOWER(COALESCE(category, '')));
+    `,
+  },
+  {
+    version: 7,
+    description: "Has-color-variants flag + customer balance adjustments table",
+    up: `
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS has_color_variants BOOLEAN DEFAULT false;
+
+      CREATE SEQUENCE IF NOT EXISTS adjustments_seq START 1;
+      CREATE TABLE IF NOT EXISTS customer_balance_adjustments (
+        id TEXT PRIMARY KEY DEFAULT 'ADJ' || LPAD(nextval('adjustments_seq')::TEXT, 4, '0'),
+        customer_id TEXT DEFAULT '',
+        customer_name TEXT DEFAULT '',
+        invoice_id TEXT DEFAULT '',
+        adjustment_type TEXT NOT NULL,
+        amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        reason TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_by TEXT DEFAULT '',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `,
   },
 ];
