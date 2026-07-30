@@ -84,7 +84,7 @@ export default function Offers() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{form.type === "fixed" ? "المبلغ (ج.م)" : "النسبة %"}</Label>
+                  <Label>{form.type === "fixed" ? "المبلغ (ج.م)" : form.type === "fixed_price" ? "السعر الثابت للوحدة (ج.م)" : "النسبة %"}</Label>
                   <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} dir="ltr" />
                 </div>
                 <div className="col-span-2 space-y-1.5">
