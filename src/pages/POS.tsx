@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingCart, Plus, Minus, Trash2, Search, X, Printer, CreditCard, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useProducts, useInvoices, useReceipts, useCustomers, useCompanySettings, useEmployees } from "@/data/hooks";
+import { useProducts, useInvoices, useReceipts, useCustomers, useCompanySettings, useEmployees, useOffers } from "@/data/hooks";
 import InvoicePrint from "@/components/InvoicePrint";
 import type { Invoice, InvoiceItem, Product } from "@/data/types";
 
@@ -27,6 +27,7 @@ export default function POS() {
   const { addReceipt } = useReceipts();
   const { customers } = useCustomers();
   const { employees } = useEmployees();
+  const { activeOffers } = useOffers();
   const { settings } = useCompanySettings();
   const { toast } = useToast();
 
@@ -134,6 +135,7 @@ export default function POS() {
         unitPrice: l.unitPrice,
         lineDiscount: l.lineDiscount || 0,
         color: l.color,
+        unit: l.unit,
       }));
       const created: Invoice = await addInvoice({
         customer: customer.trim(),
