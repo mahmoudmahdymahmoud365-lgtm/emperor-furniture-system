@@ -368,17 +368,20 @@ export default function Invoices() {
                             </div>
                           )}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">اللون</Label>
-                          {productColors.length > 0 ? (
-                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
-                              <option value="">—</option>
-                              {productColors.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                          ) : (
-                            <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
-                          )}
-                        </div>
+                        {showColor ? (
+                          <div className="space-y-1">
+                            <Label className="text-xs">اللون</Label>
+                            {productColors.length > 0 ? (
+                              <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
+                                <option value="">—</option>
+                                {productColors.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            ) : (
+                              <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
+                            )}
+                          </div>
+                        ) : <div />}
+
                         <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
                         <div className="space-y-1"><Label className="text-xs">السعر</Label><Input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
                         <div className="space-y-1"><Label className="text-xs">الخصم</Label><Input type="number" value={item.lineDiscount} onChange={(e) => updateItem(i, "lineDiscount", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
