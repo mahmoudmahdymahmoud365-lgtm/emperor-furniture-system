@@ -169,6 +169,15 @@ let shiftsSnap: Shift[] = [];
 let attendanceSnap: AttendanceRecord[] = [];
 let expensesSnap: Expense[] = [];
 let mfgOrdersSnap: ManufacturingOrder[] = [];
+let adjustmentsSnap: BalanceAdjustment[] = [];
+
+export async function refreshInvoices() {
+  try {
+    const rows = await api.getInvoices();
+    if (rows) { invoices = rows; cacheWrite("emp_invoices", invoices); notify("invoices"); }
+  } catch {}
+}
+
 
 let dirtyFlags = new Set<string>();
 function markDirty(entity: string) { dirtyFlags.add(entity); }
