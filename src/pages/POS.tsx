@@ -73,6 +73,11 @@ export default function POS() {
 
   // ---- Cart ops ----
   const addToCart = (p: Product) => {
+    // Apply an active "fixed price" offer for this product, if any
+    const fixedOffer = activeOffers.find(
+      (o) => o.type === "fixed_price" && (!o.productName || o.productName === p.name)
+    );
+    const price = fixedOffer ? fixedOffer.value : (p.defaultPrice || 0);
     setCart((prev) => {
       const idx = prev.findIndex((l) => l.productName === p.name);
       if (idx >= 0) {
@@ -85,15 +90,17 @@ export default function POS() {
         {
           productName: p.name,
           qty: 1,
-          unitPrice: p.defaultPrice || 0,
+          unitPrice: price,
           lineDiscount: 0,
-          color: (p.colors && p.colors[0]) || "",
+          color: p.hasColorVariants === false ? "" : ((p.colors && p.colors[0]) || ""),
+          unit: p.unit || "",
           stockAvailable: p.stock,
           isAgency: p.isAgency,
         },
       ];
     });
   };
+
   const setQty = (i: number, q: number) =>
     setCart((c) => c.map((l, idx) => (idx === i ? { ...l, qty: Math.max(1, q) } : l)));
   const setPrice = (i: number, v: number) =>
