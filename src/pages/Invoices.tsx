@@ -149,9 +149,18 @@ export default function Invoices() {
     if (!selectedOffer) return 0;
     const subtotal = calcTotal(items);
     if (selectedOffer.type === "fixed") return selectedOffer.value;
+    if (selectedOffer.type === "fixed_price") {
+      // Replace unit price with the offer price for matching product(s)
+      return items.reduce((sum, it) => {
+        if (selectedOffer.productName && it.productName !== selectedOffer.productName) return sum;
+        const diff = (Number(it.unitPrice) || 0) - selectedOffer.value;
+        return sum + (diff > 0 ? diff * (Number(it.qty) || 0) : 0);
+      }, 0);
+    }
     // percentage or timed
     return Math.round(subtotal * selectedOffer.value / 100);
   };
+
 
   const offerDiscount = calcOfferDiscount();
   const finalTotal = calcTotal(items) - offerDiscount;
