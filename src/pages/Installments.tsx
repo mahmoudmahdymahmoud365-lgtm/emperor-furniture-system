@@ -20,6 +20,8 @@ export default function Installments() {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = useReceipts();
   const { invoices, setInstallmentSchedule, getOverdueInstallments, getUpcomingInstallments } = useInvoices();
   const { settings } = useCompanySettings();
+  const { getInvoiceAdjustmentsTotal } = useAdjustments();
+
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ invoiceId: "", customer: "", amount: 0, method: "نقدي", notes: "" });
