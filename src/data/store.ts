@@ -343,6 +343,8 @@ function loadFromCache() {
   attendance = cacheRead("attendance");
   expensesList = cacheRead("expenses");
   auditLog = cacheRead("auditLog");
+  adjustments = cacheRead("adjustments");
+
   try {
     const cached = localStorage.getItem("companySettings_cache");
     if (cached) {
