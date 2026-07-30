@@ -15,7 +15,7 @@ import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useR
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
-const STATUSES = ["مسودة", "مؤكدة", "تم التسليم", "مغلقة"];
+const STATUSES = ["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل", "تم التسليم", "ملغاة", "مغلقة"];
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + calcLineTotal(item), 0);
