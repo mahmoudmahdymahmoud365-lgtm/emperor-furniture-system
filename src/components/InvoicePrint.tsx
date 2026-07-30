@@ -7,6 +7,7 @@ interface InvoiceItem {
   unitPrice: number;
   lineDiscount: number;
   color?: string;
+  unit?: string;
 }
 
 interface Invoice {
@@ -95,7 +96,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
             {invoice.items.map((item, i) => (
               <tr key={i} style={{ borderBottom: "1px dashed #ccc" }}>
                 <td style={{ padding: "3px 4px" }}>{item.productName}{item.color ? ` (${item.color})` : ""}</td>
-                <td style={{ textAlign: "center", padding: "3px" }}>{item.qty}</td>
+                <td style={{ textAlign: "center", padding: "3px" }}>{item.qty}{item.unit ? ` ${item.unit}` : ""}</td>
                 <td style={{ textAlign: "center", padding: "3px" }}>{item.unitPrice.toLocaleString()}</td>
                 <td style={{ textAlign: "left", padding: "3px" }}>{calcLineTotal(item).toLocaleString()}</td>
               </tr>
@@ -169,7 +170,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
               <tr key={i} style={{ borderBottom: "1px solid #ddd", background: i % 2 === 0 ? "#fff" : "#f8f9fa" }}>
                 <td style={{ padding: "8px 12px" }}>{i + 1}</td>
                 <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.productName}{item.color ? ` — ${item.color}` : ""}</td>
-                <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.qty}</td>
+                <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.qty}{item.unit ? ` ${item.unit}` : ""}</td>
                 <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.unitPrice.toLocaleString()} ج.م</td>
                 <td style={{ padding: "8px 12px", textAlign: "center" }}>{item.lineDiscount.toLocaleString()} ج.م</td>
                 <td style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700 }}>{calcLineTotal(item).toLocaleString()} ج.م</td>
@@ -280,7 +281,7 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ invoice, s
             <tr key={i} style={{ borderBottom: "1px solid #e9ecef", background: i % 2 === 0 ? "#fff" : "#f8f9fa" }}>
               <td style={{ padding: "10px 12px", fontSize: "13px" }}>{i + 1}</td>
               <td style={{ padding: "10px 12px", fontSize: "14px", fontWeight: "600" }}>{item.productName}{item.color ? ` — ${item.color}` : ""}</td>
-              <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.qty}</td>
+              <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.qty}{item.unit ? ` ${item.unit}` : ""}</td>
               <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.unitPrice.toLocaleString()} ج.م</td>
               <td style={{ padding: "10px 12px", textAlign: "center", fontSize: "13px" }}>{item.lineDiscount.toLocaleString()} ج.م</td>
               <td style={{ padding: "10px 12px", textAlign: "left", fontSize: "14px", fontWeight: "700" }}>{calcLineTotal(item).toLocaleString()} ج.م</td>
