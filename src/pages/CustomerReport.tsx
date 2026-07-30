@@ -13,7 +13,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { useCustomers, useInvoices, useReceipts, useCompanySettings, useReturns } from "@/data/hooks";
+import { useCustomers, useInvoices, useReceipts, useCompanySettings, useReturns, useAdjustments } from "@/data/hooks";
+import AdjustmentsPanel from "@/components/AdjustmentsPanel";
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
@@ -36,6 +37,7 @@ export default function CustomerReport() {
   const { receipts } = useReceipts();
   const { returns } = useReturns();
   const { settings } = useCompanySettings();
+  const { adjustments } = useAdjustments();
   const printRef = useRef<HTMLDivElement>(null);
 
   const customer = customers.find((c) => c.id === customerId);
@@ -46,7 +48,9 @@ export default function CustomerReport() {
   const totalInvoices = custInvoices.reduce((s, inv) => s + getInvoiceTotal(inv), 0);
   const totalPaid = custReceipts.reduce((s, r) => s + r.amount, 0);
   const totalReturns = custReturns.reduce((s, r) => s + r.totalAmount, 0);
-  const remaining = totalInvoices - totalPaid - totalReturns;
+  const custAdjustments = useMemo(() => customer ? adjustments.filter((a) => a.customerId === customer.id || a.customerName === customer.fullName) : [], [adjustments, customer]);
+  const totalAdjustments = custAdjustments.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const remaining = totalInvoices - totalPaid - totalReturns + totalAdjustments;
 
   // Monthly payment chart data
   const monthlyData = useMemo(() => {
@@ -206,8 +210,15 @@ export default function CustomerReport() {
             <TrendingUp className="h-5 w-5 mx-auto mb-1 text-destructive" />
             <p className="text-xs text-muted-foreground">المتبقي</p>
             <p className={`text-xl font-bold ${remaining > 0 ? "text-destructive" : "text-success"}`}>{remaining.toLocaleString()} ج.م</p>
+            {totalAdjustments !== 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1">شامل تسويات: {totalAdjustments.toLocaleString()} ج.م</p>
+            )}
           </CardContent></Card>
         </div>
+
+        {customer && (
+          <AdjustmentsPanel customerId={customer.id} customerName={customer.fullName} />
+        )}
 
         {/* Charts */}
         {monthlyData.length > 0 && (

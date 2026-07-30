@@ -15,7 +15,7 @@ import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useR
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
-const STATUSES = ["مسودة", "مؤكدة", "تم التسليم", "مغلقة"];
+const STATUSES = ["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل", "تم التسليم", "ملغاة", "مغلقة"];
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + calcLineTotal(item), 0);
@@ -139,9 +139,16 @@ export default function Invoices() {
 
   const selectProduct = (i: number, productName: string) => {
     const p = products.find(pr => pr.name === productName);
-    setItems(items.map((item, idx) => idx === i ? { ...item, productName, unitPrice: p?.defaultPrice || item.unitPrice } : item));
+    setItems(items.map((item, idx) => idx === i ? {
+      ...item,
+      productName,
+      unitPrice: p?.defaultPrice || item.unitPrice,
+      unit: p?.unit || item.unit,
+      color: p && p.hasColorVariants === false ? "" : item.color,
+    } : item));
     setProductFocusIdx(null);
   };
+
 
   const selectedOffer = activeOffers.find(o => o.id === selectedOfferId) || null;
 
@@ -149,9 +156,18 @@ export default function Invoices() {
     if (!selectedOffer) return 0;
     const subtotal = calcTotal(items);
     if (selectedOffer.type === "fixed") return selectedOffer.value;
+    if (selectedOffer.type === "fixed_price") {
+      // Replace unit price with the offer price for matching product(s)
+      return items.reduce((sum, it) => {
+        if (selectedOffer.productName && it.productName !== selectedOffer.productName) return sum;
+        const diff = (Number(it.unitPrice) || 0) - selectedOffer.value;
+        return sum + (diff > 0 ? diff * (Number(it.qty) || 0) : 0);
+      }, 0);
+    }
     // percentage or timed
     return Math.round(subtotal * selectedOffer.value / 100);
   };
+
 
   const offerDiscount = calcOfferDiscount();
   const finalTotal = calcTotal(items) - offerDiscount;
@@ -337,7 +353,9 @@ export default function Invoices() {
                   {items.map((item, i) => {
                     const fp = products.filter(p => p.name.includes(item.productName));
                     const selectedProd = products.find(p => p.name === item.productName);
-                    const productColors = selectedProd?.colors || [];
+                    const productColors = selectedProd?.hasColorVariants ? (selectedProd?.colors || []) : [];
+                    const showColor = !selectedProd || selectedProd.hasColorVariants !== false;
+
                     return (
                       <div key={i} className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/50 rounded-lg">
                         <div className="space-y-1 relative">
@@ -357,17 +375,20 @@ export default function Invoices() {
                             </div>
                           )}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">اللون</Label>
-                          {productColors.length > 0 ? (
-                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
-                              <option value="">—</option>
-                              {productColors.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                          ) : (
-                            <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
-                          )}
-                        </div>
+                        {showColor ? (
+                          <div className="space-y-1">
+                            <Label className="text-xs">اللون</Label>
+                            {productColors.length > 0 ? (
+                              <select className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)}>
+                                <option value="">—</option>
+                                {productColors.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            ) : (
+                              <Input value={item.color || ""} onChange={(e) => updateItem(i, "color", e.target.value)} placeholder="—" className="text-sm" />
+                            )}
+                          </div>
+                        ) : <div />}
+
                         <div className="space-y-1"><Label className="text-xs">الكمية</Label><Input type="number" value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
                         <div className="space-y-1"><Label className="text-xs">السعر</Label><Input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))} dir="ltr" className="text-sm" /></div>
                         <div className="space-y-1"><Label className="text-xs">الخصم</Label><Input type="number" value={item.lineDiscount} onChange={(e) => updateItem(i, "lineDiscount", Number(e.target.value))} dir="ltr" className="text-sm" /></div>

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingCart, Plus, Minus, Trash2, Search, X, Printer, CreditCard, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useProducts, useInvoices, useReceipts, useCustomers, useCompanySettings, useEmployees } from "@/data/hooks";
+import { useProducts, useInvoices, useReceipts, useCustomers, useCompanySettings, useEmployees, useOffers } from "@/data/hooks";
 import InvoicePrint from "@/components/InvoicePrint";
 import type { Invoice, InvoiceItem, Product } from "@/data/types";
 
@@ -27,6 +27,7 @@ export default function POS() {
   const { addReceipt } = useReceipts();
   const { customers } = useCustomers();
   const { employees } = useEmployees();
+  const { activeOffers } = useOffers();
   const { settings } = useCompanySettings();
   const { toast } = useToast();
 
@@ -73,6 +74,11 @@ export default function POS() {
 
   // ---- Cart ops ----
   const addToCart = (p: Product) => {
+    // Apply an active "fixed price" offer for this product, if any
+    const fixedOffer = activeOffers.find(
+      (o) => o.type === "fixed_price" && (!o.productName || o.productName === p.name)
+    );
+    const price = fixedOffer ? fixedOffer.value : (p.defaultPrice || 0);
     setCart((prev) => {
       const idx = prev.findIndex((l) => l.productName === p.name);
       if (idx >= 0) {
@@ -85,15 +91,17 @@ export default function POS() {
         {
           productName: p.name,
           qty: 1,
-          unitPrice: p.defaultPrice || 0,
+          unitPrice: price,
           lineDiscount: 0,
-          color: (p.colors && p.colors[0]) || "",
+          color: p.hasColorVariants === false ? "" : ((p.colors && p.colors[0]) || ""),
+          unit: p.unit || "",
           stockAvailable: p.stock,
           isAgency: p.isAgency,
         },
       ];
     });
   };
+
   const setQty = (i: number, q: number) =>
     setCart((c) => c.map((l, idx) => (idx === i ? { ...l, qty: Math.max(1, q) } : l)));
   const setPrice = (i: number, v: number) =>
@@ -127,6 +135,7 @@ export default function POS() {
         unitPrice: l.unitPrice,
         lineDiscount: l.lineDiscount || 0,
         color: l.color,
+        unit: l.unit,
       }));
       const created: Invoice = await addInvoice({
         customer: customer.trim(),

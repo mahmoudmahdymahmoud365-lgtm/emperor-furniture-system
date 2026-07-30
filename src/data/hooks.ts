@@ -104,6 +104,19 @@ export function useOffers() {
   };
 }
 
+export function useAdjustments() {
+  const adjustments = useStoreData(store.getAdjustments);
+  return {
+    adjustments,
+    getCustomerAdjustmentsTotal: store.getCustomerAdjustmentsTotal,
+    getInvoiceAdjustmentsTotal: store.getInvoiceAdjustmentsTotal,
+    addAdjustment: useCallback(store.addAdjustment, []),
+    deleteAdjustment: useCallback(store.deleteAdjustment, []),
+    refreshAdjustments: useCallback(store.refreshAdjustments, []),
+  };
+}
+
+
 export function useStockMovements() {
   const movements = useStoreData(store.getStockMovements);
   return { movements, addManualMovement: useCallback(store.addManualStockMovement, []) };

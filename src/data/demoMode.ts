@@ -28,7 +28,9 @@ type DemoDB = {
   stockMovements: any[];
   returns: any[];
   auditLog: any[];
+  adjustments: any[];
   securityLog: any[];
+
   settings: any;
   sessionToken?: string;
   sessionUserId?: string;
@@ -56,6 +58,8 @@ function defaultDB(): DemoDB {
     stockMovements: [],
     returns: [],
     auditLog: [],
+    adjustments: [],
+
     securityLog: [],
     settings: { name: "الامبراطور للأثاث (وضع تجريبي)", address: "", phone: "", phones: [], email: "" },
   };
@@ -130,9 +134,22 @@ function crudDelete(name: keyof DemoDB, id: string) {
 // Router — match the same paths as the real backend
 // ==============================
 export async function demoFetch(method: string, path: string, body?: any): Promise<any> {
-  // Strip /api prefix if present
-  const p = path.replace(/^\/api/, "");
+  // Strip /api prefix and query string if present
+  const [rawPath, rawQuery] = path.replace(/^\/api/, "").split("?");
+  const p = rawPath;
+  const query = new URLSearchParams(rawQuery || "");
   const m = method.toUpperCase();
+
+  // --- Adjustments (supports filtering) ---
+  if (p === "/adjustments" && m === "GET") {
+    const customerId = query.get("customerId");
+    const invoiceId = query.get("invoiceId");
+    let list = listGet("adjustments");
+    if (customerId) list = list.filter((a: any) => a.customerId === customerId);
+    if (invoiceId) list = list.filter((a: any) => a.invoiceId === invoiceId);
+    return ok(list);
+  }
+
 
   // --- Health ---
   if (p === "/health" && m === "GET") return ok({ status: "ok", mode: "demo" });
@@ -182,6 +199,8 @@ export async function demoFetch(method: string, path: string, body?: any): Promi
     "stock-movements": ["stockMovements", "SM"],
     returns: ["returns", "RT"],
     "audit-log": ["auditLog", "AL"],
+    adjustments: ["adjustments", "ADJ"],
+
     "security-log": ["securityLog", "SE"],
   };
   for (const key of Object.keys(map)) {

@@ -9,7 +9,7 @@ import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount,
   Offer, StockMovement, ProductReturn, Shift, AttendanceRecord,
-  Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder,
+  Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder, BalanceAdjustment,
 } from "./types";
 import { nextId, notifyListeners } from "./store.core";
 import { api } from "./apiClient";
@@ -152,6 +152,8 @@ let shifts: Shift[] = [];
 let attendance: AttendanceRecord[] = [];
 let expensesList: Expense[] = [];
 let manufacturingOrders: ManufacturingOrder[] = [];
+let adjustments: BalanceAdjustment[] = [];
+
 
 // ---- Snapshots for React rendering ----
 let customersSnap: Customer[] = [];
@@ -167,6 +169,15 @@ let shiftsSnap: Shift[] = [];
 let attendanceSnap: AttendanceRecord[] = [];
 let expensesSnap: Expense[] = [];
 let mfgOrdersSnap: ManufacturingOrder[] = [];
+let adjustmentsSnap: BalanceAdjustment[] = [];
+
+export async function refreshInvoices() {
+  try {
+    const rows = await api.getInvoices();
+    if (rows) { invoices = rows; cacheWrite("emp_invoices", invoices); notify("invoices"); }
+  } catch {}
+}
+
 
 let dirtyFlags = new Set<string>();
 function markDirty(entity: string) { dirtyFlags.add(entity); }
@@ -178,7 +189,8 @@ function rebuildSnapshots() {
     auditLogSnap = [...auditLog]; offersSnap = [...offers];
     stockMovementsSnap = [...stockMovements]; returnsSnap = [...productReturns];
     shiftsSnap = [...shifts]; attendanceSnap = [...attendance]; expensesSnap = [...expensesList];
-    mfgOrdersSnap = [...manufacturingOrders];
+    mfgOrdersSnap = [...manufacturingOrders]; adjustmentsSnap = [...adjustments];
+
     rebuildUsersSnap(); rebuildSecurityLogSnap();
   } else {
     if (dirtyFlags.has("customers")) customersSnap = [...customers];
@@ -197,6 +209,8 @@ function rebuildSnapshots() {
     if (dirtyFlags.has("securityLog")) rebuildSecurityLogSnap();
     if (dirtyFlags.has("expenses")) expensesSnap = [...expensesList];
     if (dirtyFlags.has("mfgOrders")) mfgOrdersSnap = [...manufacturingOrders];
+    if (dirtyFlags.has("adjustments")) adjustmentsSnap = [...adjustments];
+
   }
   dirtyFlags = new Set();
 }
@@ -282,8 +296,10 @@ async function loadFromApi() {
       api.getUsers().catch(() => null),
     ]);
 
-    // Also load security log from API
+    // Also load security log + adjustments from API
     loadSecurityLogFromApi().catch(() => {});
+    refreshAdjustments().catch(() => {});
+
 
     if (apiCustomers) { customers = apiCustomers; cacheWrite("emp_customers", customers); }
     if (apiProducts) { products = apiProducts; cacheWrite("emp_products", products); }
@@ -327,6 +343,8 @@ function loadFromCache() {
   attendance = cacheRead("attendance");
   expensesList = cacheRead("expenses");
   auditLog = cacheRead("auditLog");
+  adjustments = cacheRead("adjustments");
+
   try {
     const cached = localStorage.getItem("companySettings_cache");
     if (cached) {
@@ -566,6 +584,58 @@ export async function deleteOffer(id: string) {
     notify("offers");
   }
 }
+
+
+// ==============================
+// CUSTOMER BALANCE ADJUSTMENTS
+// ==============================
+export function getAdjustments(): BalanceAdjustment[] { return adjustmentsSnap; }
+
+export function getCustomerAdjustmentsTotal(customerName: string): number {
+  return adjustmentsSnap
+    .filter(a => a.customerName === customerName)
+    .reduce((s, a) => s + Number(a.amount || 0), 0);
+}
+
+export function getInvoiceAdjustmentsTotal(invoiceId: string): number {
+  return adjustmentsSnap
+    .filter(a => a.invoiceId === invoiceId)
+    .reduce((s, a) => s + Number(a.amount || 0), 0);
+}
+
+export async function addAdjustment(data: Omit<BalanceAdjustment, "id" | "createdAt">): Promise<BalanceAdjustment> {
+  requireApi();
+  const result = await api.addAdjustment(data);
+  adjustments.unshift(result);
+  cacheWrite("adjustments", adjustments);
+  addAuditLog("create", "customer", result.customerId || result.id, result.customerName,
+    `تسوية مالية (${result.adjustmentType}) بقيمة ${Number(result.amount).toLocaleString()} — ${result.reason || "بدون سبب"}`);
+  notify("adjustments");
+  await refreshInvoices();
+  return result;
+}
+
+export async function deleteAdjustment(id: string) {
+  requireApi();
+  const idx = adjustments.findIndex(a => a.id === id);
+  if (idx < 0) return;
+  const adj = adjustments[idx];
+  await api.deleteAdjustment(id);
+  adjustments.splice(idx, 1);
+  cacheWrite("adjustments", adjustments);
+  addAuditLog("delete", "customer", adj.customerId || id, adj.customerName,
+    `حذف تسوية بقيمة ${Number(adj.amount).toLocaleString()}`);
+  notify("adjustments");
+  await refreshInvoices();
+}
+
+export async function refreshAdjustments() {
+  try {
+    const rows = await api.getAdjustments();
+    if (rows) { adjustments = rows; cacheWrite("adjustments", adjustments); notify("adjustments"); }
+  } catch {}
+}
+
 
 // ==============================
 // CUSTOMERS
