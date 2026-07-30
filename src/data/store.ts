@@ -563,7 +563,10 @@ export async function deleteOffer(id: string) {
     offers.splice(idx, 1);
     cacheWrite("offers", offers);
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
+    notify("offers");
+  }
 }
+
 
 // ==============================
 // CUSTOMER BALANCE ADJUSTMENTS
