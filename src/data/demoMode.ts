@@ -186,6 +186,8 @@ export async function demoFetch(method: string, path: string, body?: any): Promi
     "stock-movements": ["stockMovements", "SM"],
     returns: ["returns", "RT"],
     "audit-log": ["auditLog", "AL"],
+    adjustments: ["adjustments", "ADJ"],
+
     "security-log": ["securityLog", "SE"],
   };
   for (const key of Object.keys(map)) {
