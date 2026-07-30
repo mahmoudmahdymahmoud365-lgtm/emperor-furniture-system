@@ -563,9 +563,58 @@ export async function deleteOffer(id: string) {
     offers.splice(idx, 1);
     cacheWrite("offers", offers);
     addAuditLog("delete", "offer", id, name, `حذف عرض: ${name}`);
-    notify("offers");
-  }
 }
+
+// ==============================
+// CUSTOMER BALANCE ADJUSTMENTS
+// ==============================
+export function getAdjustments(): BalanceAdjustment[] { return adjustmentsSnap; }
+
+export function getCustomerAdjustmentsTotal(customerName: string): number {
+  return adjustmentsSnap
+    .filter(a => a.customerName === customerName)
+    .reduce((s, a) => s + Number(a.amount || 0), 0);
+}
+
+export function getInvoiceAdjustmentsTotal(invoiceId: string): number {
+  return adjustmentsSnap
+    .filter(a => a.invoiceId === invoiceId)
+    .reduce((s, a) => s + Number(a.amount || 0), 0);
+}
+
+export async function addAdjustment(data: Omit<BalanceAdjustment, "id" | "createdAt">): Promise<BalanceAdjustment> {
+  requireApi();
+  const result = await api.addAdjustment(data);
+  adjustments.unshift(result);
+  cacheWrite("adjustments", adjustments);
+  addAuditLog("create", "customer", result.customerId || result.id, result.customerName,
+    `تسوية مالية (${result.adjustmentType}) بقيمة ${Number(result.amount).toLocaleString()} — ${result.reason || "بدون سبب"}`);
+  notify("adjustments");
+  await refreshInvoices();
+  return result;
+}
+
+export async function deleteAdjustment(id: string) {
+  requireApi();
+  const idx = adjustments.findIndex(a => a.id === id);
+  if (idx < 0) return;
+  const adj = adjustments[idx];
+  await api.deleteAdjustment(id);
+  adjustments.splice(idx, 1);
+  cacheWrite("adjustments", adjustments);
+  addAuditLog("delete", "customer", adj.customerId || id, adj.customerName,
+    `حذف تسوية بقيمة ${Number(adj.amount).toLocaleString()}`);
+  notify("adjustments");
+  await refreshInvoices();
+}
+
+export async function refreshAdjustments() {
+  try {
+    const rows = await api.getAdjustments();
+    if (rows) { adjustments = rows; cacheWrite("adjustments", adjustments); notify("adjustments"); }
+  } catch {}
+}
+
 
 // ==============================
 // CUSTOMERS
