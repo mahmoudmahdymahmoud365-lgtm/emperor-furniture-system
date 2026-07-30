@@ -8,7 +8,8 @@ import { Plus, Edit, Trash2, Printer, Search, DollarSign, TrendingUp, AlertTrian
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useReceipts, useInvoices, useCompanySettings } from "@/data/hooks";
+import { useReceipts, useInvoices, useCompanySettings, useAdjustments } from "@/data/hooks";
+import AdjustmentsPanel from "@/components/AdjustmentsPanel";
 import type { Receipt, InvoiceItem } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
@@ -212,11 +213,20 @@ export default function Installments() {
             <div className="space-y-1.5">
               {overdueInvoices.slice(0, 5).map(inv => {
                 const total = getInvoiceTotal(inv);
-                const remaining = total - inv.paidTotal;
+                const remaining = total - inv.paidTotal + getInvoiceAdjustmentsTotal(inv.id);
                 return (
-                  <div key={inv.id} className="flex justify-between text-sm">
+                  <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span>{inv.id} — {inv.customer}</span>
-                    <span className="font-medium text-destructive">متبقي: {remaining.toLocaleString()} ج.م</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-destructive">متبقي: {remaining.toLocaleString()} ج.م</span>
+                      <AdjustmentsPanel
+                        compact
+                        customerId=""
+                        customerName={inv.customer}
+                        invoiceId={inv.id}
+                        defaultType="interest"
+                      />
+                    </div>
                   </div>
                 );
               })}
