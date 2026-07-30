@@ -58,6 +58,8 @@ function defaultDB(): DemoDB {
     stockMovements: [],
     returns: [],
     auditLog: [],
+    adjustments: [],
+
     securityLog: [],
     settings: { name: "الامبراطور للأثاث (وضع تجريبي)", address: "", phone: "", phones: [], email: "" },
   };
