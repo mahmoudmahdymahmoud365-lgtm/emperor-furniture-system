@@ -152,6 +152,8 @@ let shifts: Shift[] = [];
 let attendance: AttendanceRecord[] = [];
 let expensesList: Expense[] = [];
 let manufacturingOrders: ManufacturingOrder[] = [];
+let adjustments: BalanceAdjustment[] = [];
+
 
 // ---- Snapshots for React rendering ----
 let customersSnap: Customer[] = [];
