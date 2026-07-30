@@ -139,9 +139,16 @@ export default function Invoices() {
 
   const selectProduct = (i: number, productName: string) => {
     const p = products.find(pr => pr.name === productName);
-    setItems(items.map((item, idx) => idx === i ? { ...item, productName, unitPrice: p?.defaultPrice || item.unitPrice } : item));
+    setItems(items.map((item, idx) => idx === i ? {
+      ...item,
+      productName,
+      unitPrice: p?.defaultPrice || item.unitPrice,
+      unit: p?.unit || item.unit,
+      color: p && p.hasColorVariants === false ? "" : item.color,
+    } : item));
     setProductFocusIdx(null);
   };
+
 
   const selectedOffer = activeOffers.find(o => o.id === selectedOfferId) || null;
 
