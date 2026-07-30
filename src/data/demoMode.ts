@@ -28,7 +28,9 @@ type DemoDB = {
   stockMovements: any[];
   returns: any[];
   auditLog: any[];
+  adjustments: any[];
   securityLog: any[];
+
   settings: any;
   sessionToken?: string;
   sessionUserId?: string;
