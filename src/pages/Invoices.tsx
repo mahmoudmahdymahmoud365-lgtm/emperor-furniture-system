@@ -346,7 +346,9 @@ export default function Invoices() {
                   {items.map((item, i) => {
                     const fp = products.filter(p => p.name.includes(item.productName));
                     const selectedProd = products.find(p => p.name === item.productName);
-                    const productColors = selectedProd?.colors || [];
+                    const productColors = selectedProd?.hasColorVariants ? (selectedProd?.colors || []) : [];
+                    const showColor = !selectedProd || selectedProd.hasColorVariants !== false;
+
                     return (
                       <div key={i} className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/50 rounded-lg">
                         <div className="space-y-1 relative">
