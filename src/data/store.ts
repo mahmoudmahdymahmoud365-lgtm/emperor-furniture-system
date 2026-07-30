@@ -9,7 +9,7 @@ import type {
   Customer, Product, Invoice, Employee, Branch, Receipt, CompanySettings,
   AuditLogEntry, AuditAction, AuditEntity, UserAccount,
   Offer, StockMovement, ProductReturn, Shift, AttendanceRecord,
-  Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder,
+  Expense, ManufacturingStatus, RecurringInterval, ManufacturingOrder, BalanceAdjustment,
 } from "./types";
 import { nextId, notifyListeners } from "./store.core";
 import { api } from "./apiClient";
