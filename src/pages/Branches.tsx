@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Building2, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, Building2, MapPin, Search } from "lucide-react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +16,12 @@ export default function Branches() {
   const [form, setForm] = useState({ name: "", address: "", rent: 0, active: true });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
+
+  const filtered = branches.filter((b) =>
+    !search || (b.name || "").includes(search) || (b.address || "").includes(search) || String(b.id).includes(search)
+  );
 
   const handleSave = () => {
     if (!form.name) { toast({ title: "خطأ", description: "يرجى إدخال اسم الفرع", variant: "destructive" }); return; }
@@ -60,7 +65,14 @@ export default function Branches() {
           </Dialog>
         </div>
 
-        <ExportButtons data={branches as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "الاسم" },{ key: "address", label: "العنوان" },{ key: "rent", label: "الإيجار" },{ key: "active", label: "الحالة" }]} fileName="الفروع" title="قائمة الفروع" />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="بحث بالاسم أو العنوان أو الكود..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
+          </div>
+        </div>
+
+        <ExportButtons data={filtered as any} headers={[{ key: "id", label: "الكود" },{ key: "name", label: "الاسم" },{ key: "address", label: "العنوان" },{ key: "rent", label: "الإيجار" },{ key: "active", label: "الحالة" }]} fileName="الفروع" title="قائمة الفروع" />
 
         {/* Table */}
         <div className="table-container">
@@ -77,7 +89,7 @@ export default function Branches() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {branches.map((b) => (
+                {filtered.map((b) => (
                   <tr key={b.id} className="hover:bg-muted/30 transition-colors group">
                     <td className="p-3.5 font-mono text-xs font-semibold text-primary">{b.id}</td>
                     <td className="p-3.5">
