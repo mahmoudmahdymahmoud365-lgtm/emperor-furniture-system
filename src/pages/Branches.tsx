@@ -29,7 +29,7 @@ export default function Branches() {
     if (deleteId) { deleteBranch(deleteId); toast({ title: "✅ تم الحذف" }); setDeleteId(null); }
   };
 
-  const totalRent = branches.filter(b => b.active).reduce((s, b) => s + b.rent, 0);
+  const totalRent = branches.filter(b => b.active).reduce((s, b) => s + Number(b.rent || 0), 0);
   const activeCount = branches.filter(b => b.active).length;
 
   return (
@@ -91,7 +91,7 @@ export default function Branches() {
                     <td className="p-3.5">
                       {b.address ? <span className="inline-flex items-center gap-1 text-xs"><MapPin className="h-3 w-3 text-muted-foreground" />{b.address}</span> : <span className="text-muted-foreground">—</span>}
                     </td>
-                    <td className="p-3.5 font-medium">{b.rent.toLocaleString()} ج.م</td>
+                    <td className="p-3.5 font-medium">{Number(b.rent || 0).toLocaleString()} ج.م</td>
                     <td className="p-3.5">
                       <span className={`badge-status ${b.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                         {b.active ? "نشط" : "غير نشط"}
@@ -99,7 +99,7 @@ export default function Branches() {
                     </td>
                     <td className="p-3.5">
                       <div className="flex gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={() => { setForm(b); setEditingId(b.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setForm({ name: b.name || "", address: b.address || "", rent: Number(b.rent || 0), active: b.active !== false }); setEditingId(b.id); setOpen(true); }} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeleteId(b.id)} className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </td>

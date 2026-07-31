@@ -50,7 +50,7 @@ function defaultDB(): DemoDB {
     invoices: [],
     receipts: [],
     employees: [],
-    branches: [{ id: "B001", name: "الفرع الرئيسي", address: "", phone: "", active: true }],
+    branches: [{ id: "B001", name: "الفرع الرئيسي", address: "", phone: "", rent: 0, active: true }],
     offers: [],
     expenses: [],
     attendance: [],
