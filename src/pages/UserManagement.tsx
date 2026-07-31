@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2, Eye, EyeOff } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, User, Check, X, Settings2, Eye, EyeOff, Search } from "lucide-react";
 import { useUsers } from "@/data/hooks";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAccount, UserRole, RolePermissions, ModuleAccess } from "@/data/types";
@@ -26,6 +26,11 @@ export default function UserManagement() {
   const [permDialogOpen, setPermDialogOpen] = useState(false);
   const [permUser, setPermUser] = useState<UserAccount | null>(null);
   const [customPerms, setCustomPerms] = useState<RolePermissions>({ ...DEFAULT_PERMISSIONS.sales });
+  const [search, setSearch] = useState("");
+
+  const filteredUsers = users.filter((u) =>
+    !search || u.name.includes(search) || u.email.toLowerCase().includes(search.toLowerCase()) || (ROLE_LABELS[u.role] || "").includes(search)
+  );
 
   const openAdd = () => { setEditing(null); setForm(emptyForm); setShowPassword(false); setDialogOpen(true); };
   const openEdit = (u: UserAccount) => {
@@ -115,6 +120,10 @@ export default function UserManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="relative mb-4">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="بحث بالاسم أو البريد أو الدور..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -127,7 +136,7 @@ export default function UserManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <tr key={u.id} className="border-b last:border-0">
                       <td className="p-3 font-medium">
                         <div className="flex items-center gap-2">
