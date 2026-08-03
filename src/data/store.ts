@@ -1047,6 +1047,7 @@ export async function addReceipt(data: Omit<Receipt, "id">): Promise<Receipt> {
   }
   cacheWrite("emp_receipts", receipts);
   notify("receipts", "invoices");
+  await refreshInvoices();
   return result;
 }
 
@@ -1067,6 +1068,7 @@ export async function updateReceipt(id: string, data: Partial<Receipt>) {
     receipts[idx] = updated;
     cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
+    await refreshInvoices();
   }
 }
 
@@ -1084,6 +1086,7 @@ export async function deleteReceipt(id: string) {
     receipts.splice(idx, 1);
     cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
+    await refreshInvoices();
   }
 }
 
