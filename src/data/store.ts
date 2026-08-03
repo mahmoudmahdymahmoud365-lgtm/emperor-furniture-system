@@ -763,7 +763,7 @@ export async function updateInvoice(id: string, data: Partial<Invoice>) {
       notify("invoices");
     }
     await refreshInvoiceContext();
-  } catch (e: any) { handleConflict(e); throw e; }
+  } catch (e: any) { handleConflict(e); }
 }
 
 
