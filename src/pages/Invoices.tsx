@@ -464,15 +464,43 @@ export default function Invoices() {
                       <option value="">بدون عرض</option>
                       {activeOffers.map(o => (
                         <option key={o.id} value={o.id}>
-                          {o.name} — {o.type === "fixed" ? `${o.value.toLocaleString()} ج.م` : `${o.value}%`} {o.productName ? `(${o.productName})` : "(الكل)"}
+                          {o.name} — {o.type === "fixed" ? `${o.value.toLocaleString()} ج.م` : o.type === "fixed_price" ? `سعر ثابت ${o.value.toLocaleString()} ج.م` : `${o.value}%`} {o.productName ? `(${o.productName})` : "(الكل)"}
                         </option>
                       ))}
                     </select>
                     {selectedOffer && (
-                      <div className="mt-2 text-sm text-primary font-medium">
-                        خصم: {offerDiscount.toLocaleString()} ج.م
+                      <div className="mt-3 space-y-2">
+                        <div className="flex gap-4 text-sm">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" checked={offerScope === "all"} onChange={() => setOfferScope("all")} />
+                            كل بنود الفاتورة
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" checked={offerScope === "selected"} onChange={() => setOfferScope("selected")} />
+                            بنود محددة
+                          </label>
+                        </div>
+                        {offerScope === "selected" && (
+                          <div className="grid gap-1 max-h-32 overflow-auto">
+                            {items.map((it, i) => (
+                              <label key={i} className="flex items-center gap-2 text-xs cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={offerTargets.includes(i)}
+                                  onChange={(e) => setOfferTargets(prev => e.target.checked ? [...prev, i] : prev.filter(x => x !== i))}
+                                />
+                                {it.productName || `بند ${i + 1}`}
+                                {offerLineDiscounts[i] > 0 && <span className="text-primary">− {offerLineDiscounts[i].toLocaleString()} ج.م</span>}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-sm text-primary font-medium">
+                          إجمالي الخصم: {offerDiscount.toLocaleString()} ج.م
+                        </div>
                       </div>
                     )}
+
                   </div>
                 )}
 
