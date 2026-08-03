@@ -7,13 +7,23 @@ import {
 } from "lucide-react";
 import { logout, getUserPermissions } from "@/data/store";
 import { useCompanySettings } from "@/data/hooks";
+import { openPOS } from "@/components/pos/posDialogState";
 
-const allMenuItems = [
+type MenuItem = {
+  title: string;
+  icon: typeof LayoutDashboard;
+  path?: string;
+  perm: string;
+  action?: "pos";
+};
+
+const allMenuItems: MenuItem[] = [
   { title: "لوحة التحكم", icon: LayoutDashboard, path: "/", perm: "dashboard" },
   { title: "العملاء", icon: Users, path: "/customers", perm: "customers" },
   { title: "المنتجات والمخزون", icon: Package, path: "/products", perm: "products" },
-  
-  { title: "نقطة البيع (POS)", icon: ShoppingCart, path: "/pos", perm: "invoices" },
+
+  { title: "نقطة البيع (POS)", icon: ShoppingCart, perm: "invoices", action: "pos" },
+
   { title: "الفواتير", icon: FileText, path: "/invoices", perm: "invoices" },
   { title: "الأقساط/المدفوعات", icon: CreditCard, path: "/installments", perm: "installments" },
   { title: "العروض", icon: Tag, path: "/offers", perm: "offers" },
