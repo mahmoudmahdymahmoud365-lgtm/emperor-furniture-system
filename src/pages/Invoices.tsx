@@ -44,6 +44,9 @@ export default function Invoices() {
   const { addReturn } = useReturns();
 
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
+  const [offerScope, setOfferScope] = useState<"all" | "selected">("all");
+  const [offerTargets, setOfferTargets] = useState<number[]>([]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
