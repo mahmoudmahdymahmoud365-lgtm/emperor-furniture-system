@@ -73,16 +73,27 @@ export function AppSidebar() {
           <ul className="space-y-1 px-2">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const cls = `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 w-full text-right ${isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"}`;
+              if (item.action === "pos") {
+                return (
+                  <li key={item.title}>
+                    <button onClick={() => { setMobileOpen(false); openPOS(); }} className={cls}>
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </button>
+                  </li>
+                );
+              }
               return (
                 <li key={item.path}>
-                  <Link to={item.path} onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"}`}>
+                  <Link to={item.path!} onClick={() => setMobileOpen(false)} className={cls}>
                     <item.icon className="h-5 w-5 shrink-0" />
                     {!collapsed && <span>{item.title}</span>}
                   </Link>
                 </li>
               );
             })}
+
           </ul>
         </nav>
 
