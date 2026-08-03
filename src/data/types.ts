@@ -225,8 +225,9 @@ export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
   timed: "عرض بفترة زمنية",
 };
 
-export const INVOICE_STATUSES = ["مسودة","مؤكدة","مدفوعة جزئياً","مدفوعة بالكامل","تم التسليم","ملغاة","مغلقة"] as const;
+export const INVOICE_STATUSES = ["مسودة","مؤكدة","مدفوعة جزئياً","مدفوعة بالكامل","تم التسليم","مرتجعة","ملغاة","مغلقة"] as const;
 export type InvoiceStatus = typeof INVOICE_STATUSES[number];
+
 
 export type AdjustmentType = "discount" | "debt_settlement" | "interest" | "manual";
 export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, string> = {
