@@ -1,7 +1,8 @@
 const router = require("express").Router();
 const pool = require("../db");
 
-const AUTO_STATUSES = new Set(["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل"]);
+const AUTO_STATUSES = new Set(["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل", "مرتجعة"]);
+const FROZEN_STATUSES = new Set(["ملغاة", "مغلقة"]);
 
 const toApi = r => ({
   id: r.id, customer: r.customer, branch: r.branch, employee: r.employee,
@@ -9,6 +10,7 @@ const toApi = r => ({
   status: r.status, paidTotal: Number(r.paid_total), commissionPercent: Number(r.commission_percent),
   appliedOfferName: r.applied_offer_name || '', appliedDiscount: Number(r.applied_discount || 0),
   notes: r.notes || '',
+  returnedTotal: Number(r.returned_total || 0),
   updatedAt: r.updated_at?.toISOString?.() || r.updated_at || null,
 });
 
@@ -18,23 +20,62 @@ function calcInvoiceTotal(inv) {
   return sub - Number(inv.applied_discount || inv.appliedDiscount || 0);
 }
 
+// Applies a signed stock delta for a list of invoice items (skips agency products)
+async function applyStockDelta(items, sign) {
+  for (const item of (items || [])) {
+    const qty = Number(item.qty) || 0;
+    if (!item.productName || !qty) continue;
+    const { rows } = await pool.query("SELECT id, is_agency FROM products WHERE name=$1 LIMIT 1", [item.productName]);
+    if (!rows[0] || rows[0].is_agency) continue;
+    await pool.query(
+      "UPDATE products SET stock = GREATEST(0, stock + $1), updated_at=NOW() WHERE id=$2",
+      [sign * qty, rows[0].id]
+    );
+  }
+}
+
+async function getReturnedTotal(invoiceId) {
+  try {
+    const { rows } = await pool.query(
+      "SELECT COALESCE(SUM(total_amount),0) AS t FROM product_returns WHERE invoice_id=$1", [invoiceId]
+    );
+    return Number(rows[0]?.t || 0);
+  } catch { return 0; }
+}
+
 async function recomputeInvoiceStatus(invoiceId) {
   const { rows } = await pool.query("SELECT * FROM invoices WHERE id=$1", [invoiceId]);
   if (!rows[0]) return;
   const inv = rows[0];
-  // Don't auto-change manual-only statuses
+  // Never auto-override manually frozen statuses
+  if (FROZEN_STATUSES.has(inv.status)) return;
   if (!AUTO_STATUSES.has(inv.status) && inv.status !== "" && inv.status !== "مدفوعة") return;
+
   const total = calcInvoiceTotal(inv);
+  const returned = await getReturnedTotal(invoiceId);
+  const net = total - returned;
   const paid = Number(inv.paid_total || 0);
-  let next = inv.status || "مسودة";
-  if (total <= 0) next = inv.status || "مسودة";
-  else if (paid <= 0) next = AUTO_STATUSES.has(inv.status) ? "مؤكدة" : inv.status;
-  else if (paid + 0.001 < total) next = "مدفوعة جزئياً";
+
+  let next;
+  if (returned > 0 && net <= 0.001) next = "مرتجعة";
+  else if (net <= 0) next = inv.status || "مسودة";
+  else if (paid <= 0) next = inv.status === "مسودة" ? "مسودة" : "مؤكدة";
+  else if (paid + 0.001 < net) next = "مدفوعة جزئياً";
   else next = "مدفوعة بالكامل";
-  if (next !== inv.status) {
+
+  if (next && next !== inv.status) {
     await pool.query("UPDATE invoices SET status=$1, updated_at=NOW() WHERE id=$2", [next, invoiceId]);
   }
 }
+
+async function fetchInvoiceApi(id) {
+  const { rows } = await pool.query("SELECT * FROM invoices WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const out = toApi(rows[0]);
+  out.returnedTotal = await getReturnedTotal(id);
+  return out;
+}
+
 
 router.get("/", async (_, res, next) => {
   try {
