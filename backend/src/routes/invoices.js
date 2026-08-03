@@ -168,8 +168,23 @@ router.delete("/:id", async (req, res, next) => {
   try {
     const { rows } = await pool.query("SELECT items, status FROM invoices WHERE id=$1", [req.params.id]);
     if (rows[0] && rows[0].status !== "ملغاة") {
-      await applyStockDelta(rows[0].items || [], +1);
+      // Give back only what is still held by the invoice (already-returned qty is back in stock)
+      const returnedQty = new Map();
+      try {
+        const { rows: rr } = await pool.query("SELECT items FROM product_returns WHERE invoice_id=$1", [req.params.id]);
+        for (const r of rr) for (const it of (r.items || [])) {
+          returnedQty.set(it.productName, (returnedQty.get(it.productName) || 0) + (Number(it.qty) || 0));
+        }
+      } catch {}
+      const net = (rows[0].items || []).map(it => {
+        const back = returnedQty.get(it.productName) || 0;
+        const take = Math.min(back, Number(it.qty) || 0);
+        returnedQty.set(it.productName, back - take);
+        return { ...it, qty: (Number(it.qty) || 0) - take };
+      }).filter(it => it.qty > 0);
+      await applyStockDelta(net, +1);
     }
+
     await pool.query("DELETE FROM receipts WHERE invoice_id=$1", [req.params.id]);
     await pool.query("DELETE FROM product_returns WHERE invoice_id=$1", [req.params.id]).catch(() => {});
     await pool.query("DELETE FROM customer_balance_adjustments WHERE invoice_id=$1", [req.params.id]).catch(() => {});
