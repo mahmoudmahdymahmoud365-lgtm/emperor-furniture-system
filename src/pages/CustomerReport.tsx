@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { useCustomers, useInvoices, useReceipts, useCompanySettings, useReturns, useAdjustments } from "@/data/hooks";
 import AdjustmentsPanel from "@/components/AdjustmentsPanel";
+import { openPOS } from "@/components/pos/posDialogState";
+
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
