@@ -726,15 +726,27 @@ export async function deleteProduct(id: string) {
 // ==============================
 export function getInvoices(): Invoice[] { return invoicesSnap; }
 
+export async function refreshProducts() {
+  try {
+    const rows = await api.getProducts();
+    if (rows) { products.length = 0; products.push(...rows); cacheWrite("emp_products", products); notify("products"); }
+  } catch {}
+}
+
+/** Re-reads invoices + products from the server so the UI always mirrors the DB. */
+export async function refreshInvoiceContext() {
+  await Promise.all([refreshInvoices(), refreshProducts()]);
+}
+
 export async function addInvoice(data: Omit<Invoice, "id">): Promise<Invoice> {
   requireApi();
   const result = await api.addInvoice(data);
   invoices.push(result);
-  // Stock deduction handled by backend
   cacheWrite("emp_invoices", invoices);
-  // Refresh products to get updated stock
-  api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
   notify("invoices", "stockMovements");
+  addAuditLog("create", "invoice", result.id, result.id, `إنشاء فاتورة: ${result.id}`);
+  // Authoritative refresh (status + stock are computed server-side)
+  await refreshInvoiceContext();
   return result;
 }
 
@@ -750,8 +762,10 @@ export async function updateInvoice(id: string, data: Partial<Invoice>) {
       addAuditLog("update", "invoice", id, invoices[idx].id, `تعديل فاتورة: ${invoices[idx].id}`);
       notify("invoices");
     }
+    await refreshInvoiceContext();
   } catch (e: any) { handleConflict(e); }
 }
+
 
 export async function deleteInvoice(id: string) {
   requireApi();
@@ -765,8 +779,10 @@ export async function deleteInvoice(id: string) {
     if (receipts[i].invoiceId === id) receipts.splice(i, 1);
   }
   cacheWrite("emp_receipts", receipts);
-  api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
   notify("invoices", "receipts", "products", "stockMovements");
+  addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id}`);
+  await refreshInvoiceContext();
+
 }
 
 // ==============================
@@ -1031,6 +1047,7 @@ export async function addReceipt(data: Omit<Receipt, "id">): Promise<Receipt> {
   }
   cacheWrite("emp_receipts", receipts);
   notify("receipts", "invoices");
+  await refreshInvoices();
   return result;
 }
 
@@ -1051,6 +1068,7 @@ export async function updateReceipt(id: string, data: Partial<Receipt>) {
     receipts[idx] = updated;
     cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
+    await refreshInvoices();
   }
 }
 
@@ -1068,6 +1086,7 @@ export async function deleteReceipt(id: string) {
     receipts.splice(idx, 1);
     cacheWrite("emp_receipts", receipts);
     notify("receipts", "invoices");
+    await refreshInvoices();
   }
 }
 

@@ -5,6 +5,10 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { ShoppingCart } from "lucide-react";
+import { POSDialog } from "@/components/pos/POSDialog";
+import { openPOS } from "@/components/pos/posDialogState";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -19,6 +23,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 md:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
             <GlobalSearch />
             <div className="flex items-center gap-1">
+              <Button size="sm" onClick={() => openPOS()} className="h-8">
+                <ShoppingCart className="h-4 w-4 ml-1.5" />
+                نقطة البيع
+              </Button>
               <ConnectionStatus />
               <NotificationCenter />
               <ThemeToggle />
@@ -29,6 +37,8 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         </main>
       </div>
+      <POSDialog />
     </TooltipProvider>
   );
 }
+

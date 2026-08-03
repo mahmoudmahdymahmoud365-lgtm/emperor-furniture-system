@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { useCustomers, useInvoices, useReceipts, useCompanySettings, useReturns, useAdjustments } from "@/data/hooks";
 import AdjustmentsPanel from "@/components/AdjustmentsPanel";
+import { openPOS } from "@/components/pos/posDialogState";
+
 import type { InvoiceItem } from "@/data/types";
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
@@ -146,7 +148,13 @@ export default function CustomerReport() {
             <Link to="/customers"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
             <h1 className="page-header mb-0">لوحة تحكم العميل</h1>
           </div>
-          <Button onClick={handlePrint}><Printer className="h-4 w-4 ml-2" />طباعة التقرير</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => openPOS(customer?.fullName || "")}>
+              <FileText className="h-4 w-4 ml-2" />فاتورة جديدة
+            </Button>
+            <Button variant="outline" onClick={handlePrint}><Printer className="h-4 w-4 ml-2" />طباعة التقرير</Button>
+          </div>
+
         </div>
 
         {/* Customer Info Card */}

@@ -34,6 +34,13 @@ export interface InvoiceItem {
   lineDiscount: number;
   color?: string;
   unit?: string;
+  /** Offer applied to this specific line (snapshot at save time) */
+  offerId?: string;
+  offerName?: string;
+  offerType?: OfferType;
+  offerValue?: number;
+  /** Money discounted from this line by the offer */
+  offerDiscount?: number;
 }
 
 export interface Invoice {
@@ -50,6 +57,9 @@ export interface Invoice {
   appliedOfferName?: string;
   appliedDiscount?: number;
   notes?: string;
+  /** Sum of all returns booked against this invoice (server computed) */
+  returnedTotal?: number;
+
   // Manufacturing tracking
   manufacturingStatus?: ManufacturingStatus;
   manufacturingNotes?: string;
@@ -215,8 +225,9 @@ export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
   timed: "عرض بفترة زمنية",
 };
 
-export const INVOICE_STATUSES = ["مسودة","مؤكدة","مدفوعة جزئياً","مدفوعة بالكامل","تم التسليم","ملغاة","مغلقة"] as const;
+export const INVOICE_STATUSES = ["مسودة","مؤكدة","مدفوعة جزئياً","مدفوعة بالكامل","تم التسليم","مرتجعة","ملغاة","مغلقة"] as const;
 export type InvoiceStatus = typeof INVOICE_STATUSES[number];
+
 
 export type AdjustmentType = "discount" | "debt_settlement" | "interest" | "manual";
 export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, string> = {
