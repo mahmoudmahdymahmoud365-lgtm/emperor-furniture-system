@@ -160,31 +160,66 @@ export default function Invoices() {
 
   const selectedOffer = activeOffers.find(o => o.id === selectedOfferId) || null;
 
-  const calcOfferDiscount = () => {
-    if (!selectedOffer) return 0;
-    const subtotal = calcTotal(items);
-    if (selectedOffer.type === "fixed") return selectedOffer.value;
-    if (selectedOffer.type === "fixed_price") {
-      // Replace unit price with the offer price for matching product(s)
-      return items.reduce((sum, it) => {
-        if (selectedOffer.productName && it.productName !== selectedOffer.productName) return sum;
-        const diff = (Number(it.unitPrice) || 0) - selectedOffer.value;
-        return sum + (diff > 0 ? diff * (Number(it.qty) || 0) : 0);
-      }, 0);
+  // Per-item offer engine: an offer can target one item, several items, or the whole invoice.
+  const offerLineDiscounts = useMemo<number[]>(() => {
+    const zeros = items.map(() => 0);
+    if (!selectedOffer) return zeros;
+    const targeted = items.map((it, i) => {
+      if (!it.productName) return false;
+      if (selectedOffer.productName && it.productName !== selectedOffer.productName) return false;
+      return offerScope === "all" ? true : offerTargets.includes(i);
+    });
+    const out = [...zeros];
+    if (selectedOffer.type === "fixed") {
+      // Split the fixed amount proportionally over the targeted lines
+      const base = items.reduce((s2, it, i) => s2 + (targeted[i] ? calcLineTotal(it) : 0), 0);
+      if (base <= 0) return out;
+      const amount = Math.min(selectedOffer.value, base);
+      items.forEach((it, i) => {
+        if (targeted[i]) out[i] = Math.round(amount * (calcLineTotal(it) / base));
+      });
+      return out;
     }
-    // percentage or timed
-    return Math.round(subtotal * selectedOffer.value / 100);
-  };
+    if (selectedOffer.type === "fixed_price") {
+      items.forEach((it, i) => {
+        if (!targeted[i]) return;
+        const diff = (Number(it.unitPrice) || 0) - selectedOffer.value;
+        out[i] = diff > 0 ? diff * (Number(it.qty) || 0) : 0;
+      });
+      return out;
+    }
+    // percentage / timed
+    items.forEach((it, i) => {
+      if (targeted[i]) out[i] = Math.round(calcLineTotal(it) * selectedOffer.value / 100);
+    });
+    return out;
+  }, [items, selectedOffer, offerScope, offerTargets]);
 
-
-  const offerDiscount = calcOfferDiscount();
+  const offerDiscount = offerLineDiscounts.reduce((s2, v) => s2 + v, 0);
   const finalTotal = calcTotal(items) - offerDiscount;
+
+  /** Items enriched with the offer snapshot, ready to persist. */
+  const itemsWithOffer = (): InvoiceItem[] => items.map((it, i) => {
+    const d = offerLineDiscounts[i] || 0;
+    if (!selectedOffer || d <= 0) {
+      const { offerId, offerName, offerType, offerValue, offerDiscount: _od, ...rest } = it as any;
+      return rest as InvoiceItem;
+    }
+    return {
+      ...it,
+      offerId: selectedOffer.id,
+      offerName: selectedOffer.name,
+      offerType: selectedOffer.type,
+      offerValue: selectedOffer.value,
+      offerDiscount: d,
+    };
+  });
 
   const resetForm = () => {
     setCustomer(""); setBranch(""); setEmployee(""); setCommissionPercent(0); setDeliveryDate("");
     setInvoiceDate(new Date().toISOString().split("T")[0]);
     setItems([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
-    setEditingId(null); setSelectedOfferId(""); setInvoiceNotes("");
+    setEditingId(null); setSelectedOfferId(""); setOfferScope("all"); setOfferTargets([]); setInvoiceNotes("");
   };
 
   const handleEdit = (inv: Invoice) => {
@@ -192,7 +227,13 @@ export default function Invoices() {
     setEmployee(inv.employee); setCommissionPercent(inv.commissionPercent);
     setDeliveryDate(inv.deliveryDate || ""); setInvoiceDate(inv.date || new Date().toISOString().split("T")[0]);
     setInvoiceNotes(inv.notes || "");
-    setItems([...inv.items]); setOpen(true);
+    setItems([...inv.items]);
+    const withOffer = inv.items.find(it => it.offerId);
+    setSelectedOfferId(withOffer?.offerId || "");
+    const targets = inv.items.map((it, i) => (it.offerId ? i : -1)).filter(i => i >= 0);
+    setOfferScope(targets.length === inv.items.length ? "all" : "selected");
+    setOfferTargets(targets);
+    setOpen(true);
   };
 
   const confirmDelete = () => {
@@ -226,10 +267,10 @@ export default function Invoices() {
       stockWarnings.forEach(w => toast({ title: "تنبيه المخزون", description: w, variant: "destructive" }));
     }
     if (editingId) {
-      updateInvoice(editingId, { customer, branch, employee, items: [...items], commissionPercent, deliveryDate, date: invoiceDate, notes: invoiceNotes });
+      updateInvoice(editingId, { customer, branch, employee, items: itemsWithOffer(), commissionPercent, deliveryDate, date: invoiceDate, notes: invoiceNotes, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0 });
       toast({ title: "تم التحديث", description: "تم تحديث الفاتورة بنجاح" });
     } else {
-      addInvoice({ customer, branch, employee, date: invoiceDate, deliveryDate, items: [...items], status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
+      addInvoice({ customer, branch, employee, date: invoiceDate, deliveryDate, items: itemsWithOffer(), status: "مسودة", paidTotal: 0, commissionPercent, appliedOfferName: selectedOffer?.name || "", appliedDiscount: offerDiscount || 0, notes: invoiceNotes });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الفاتورة بنجاح" });
     }
     resetForm(); setOpen(false);
