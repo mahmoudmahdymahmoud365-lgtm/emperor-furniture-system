@@ -779,8 +779,10 @@ export async function deleteInvoice(id: string) {
     if (receipts[i].invoiceId === id) receipts.splice(i, 1);
   }
   cacheWrite("emp_receipts", receipts);
-  api.getProducts().then(p => { if (p) { products.length = 0; products.push(...p); cacheWrite("emp_products", products); notify("products"); } }).catch(() => {});
   notify("invoices", "receipts", "products", "stockMovements");
+  addAuditLog("delete", "invoice", id, id, `حذف فاتورة: ${id}`);
+  await refreshInvoiceContext();
+
 }
 
 // ==============================
