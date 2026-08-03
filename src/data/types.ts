@@ -34,6 +34,13 @@ export interface InvoiceItem {
   lineDiscount: number;
   color?: string;
   unit?: string;
+  /** Offer applied to this specific line (snapshot at save time) */
+  offerId?: string;
+  offerName?: string;
+  offerType?: OfferType;
+  offerValue?: number;
+  /** Money discounted from this line by the offer */
+  offerDiscount?: number;
 }
 
 export interface Invoice {
@@ -50,6 +57,9 @@ export interface Invoice {
   appliedOfferName?: string;
   appliedDiscount?: number;
   notes?: string;
+  /** Sum of all returns booked against this invoice (server computed) */
+  returnedTotal?: number;
+
   // Manufacturing tracking
   manufacturingStatus?: ManufacturingStatus;
   manufacturingNotes?: string;
