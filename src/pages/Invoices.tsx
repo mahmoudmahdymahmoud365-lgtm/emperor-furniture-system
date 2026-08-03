@@ -15,7 +15,7 @@ import { useInvoices, useCustomers, useEmployees, useProducts, useBranches, useR
 import type { InvoiceItem, Invoice } from "@/data/types";
 
 const PAYMENT_METHODS = ["نقدي", "تحويل بنكي", "فيزا", "فودافون كاش", "إنستاباي", "شيك"];
-const STATUSES = ["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل", "تم التسليم", "ملغاة", "مغلقة"];
+const STATUSES = ["مسودة", "مؤكدة", "مدفوعة جزئياً", "مدفوعة بالكامل", "تم التسليم", "مرتجعة", "ملغاة", "مغلقة"];
 
 const calcLineTotal = (item: InvoiceItem) => item.qty * item.unitPrice - item.lineDiscount;
 const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + calcLineTotal(item), 0);
@@ -23,9 +23,14 @@ const calcTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + ca
 const statusColors: Record<string, string> = {
   "مسودة": "bg-muted text-muted-foreground",
   "مؤكدة": "bg-info/10 text-info",
+  "مدفوعة جزئياً": "bg-warning/10 text-warning",
+  "مدفوعة بالكامل": "bg-success/10 text-success",
   "تم التسليم": "bg-success/10 text-success",
+  "مرتجعة": "bg-warning/10 text-warning",
+  "ملغاة": "bg-destructive/10 text-destructive",
   "مغلقة": "bg-muted text-muted-foreground",
 };
+
 
 export default function Invoices() {
   const { invoices, addInvoice, updateInvoice, deleteInvoice } = useInvoices();
