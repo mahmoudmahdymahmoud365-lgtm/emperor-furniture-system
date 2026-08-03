@@ -80,7 +80,12 @@ async function fetchInvoiceApi(id) {
 router.get("/", async (_, res, next) => {
   try {
     const { rows } = await pool.query("SELECT * FROM invoices ORDER BY created_at DESC");
-    res.json(rows.map(toApi));
+    let returnsByInvoice = {};
+    try {
+      const { rows: rr } = await pool.query("SELECT invoice_id, COALESCE(SUM(total_amount),0) AS t FROM product_returns GROUP BY invoice_id");
+      for (const r of rr) returnsByInvoice[r.invoice_id] = Number(r.t);
+    } catch {}
+    res.json(rows.map(r => ({ ...toApi(r), returnedTotal: returnsByInvoice[r.id] || 0 })));
   } catch (e) { next(e); }
 });
 
@@ -95,21 +100,20 @@ router.post("/", async (req, res, next) => {
        d.appliedOfferName||'', d.appliedDiscount||0, d.notes||'']
     );
     // Decrement stock — skip agency items
-    for (const item of (d.items || [])) {
-      const { rows: prows } = await pool.query("SELECT id, is_agency FROM products WHERE name=$1 LIMIT 1", [item.productName]);
-      if (prows[0] && !prows[0].is_agency) {
-        await pool.query("UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2", [item.qty, prows[0].id]);
-      }
-    }
+    await applyStockDelta(d.items || [], -1);
     await recomputeInvoiceStatus(rows[0].id);
-    const { rows: fresh } = await pool.query("SELECT * FROM invoices WHERE id=$1", [rows[0].id]);
-    res.json(toApi(fresh[0]));
+    res.json(await fetchInvoiceApi(rows[0].id));
   } catch (e) { next(e); }
 });
 
 router.put("/:id", async (req, res, next) => {
   try {
     const d = req.body;
+    const { rows: prev } = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
+    if (!prev[0]) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+    const prevItems = prev[0].items || [];
+    const prevStatus = prev[0].status;
+
     const sets = []; const vals = []; let i = 1;
     if (d.customer !== undefined) { sets.push(`customer=$${i++}`); vals.push(d.customer); }
     if (d.branch !== undefined) { sets.push(`branch=$${i++}`); vals.push(d.branch); }
@@ -123,7 +127,7 @@ router.put("/:id", async (req, res, next) => {
     if (d.appliedOfferName !== undefined) { sets.push(`applied_offer_name=$${i++}`); vals.push(d.appliedOfferName); }
     if (d.appliedDiscount !== undefined) { sets.push(`applied_discount=$${i++}`); vals.push(d.appliedDiscount); }
     if (d.notes !== undefined) { sets.push(`notes=$${i++}`); vals.push(d.notes); }
-    if (sets.length === 0) return res.json({ ok: true });
+    if (sets.length === 0) return res.json(await fetchInvoiceApi(req.params.id));
 
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id);
@@ -135,33 +139,45 @@ router.put("/:id", async (req, res, next) => {
     }
     query += " RETURNING *";
 
-    const { rowCount, rows } = await pool.query(query, vals);
+    const { rowCount } = await pool.query(query, vals);
     if (rowCount === 0) {
       const cur = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
       if (cur.rowCount === 0) return res.status(404).json({ error: "الفاتورة غير موجودة" });
       return res.status(409).json({ error: "CONFLICT", message: "تم تعديل هذا السجل من جهاز آخر.", current: toApi(cur.rows[0]) });
     }
+
+    // --- Real stock reconciliation when items changed ---
+    if (d.items !== undefined) {
+      await applyStockDelta(prevItems, +1);   // give back everything previously reserved
+      await applyStockDelta(d.items, -1);     // take the new quantities
+    }
+    // --- Cancelling an invoice returns its stock; un-cancelling takes it again ---
+    if (d.status !== undefined && d.status !== prevStatus) {
+      const currentItems = d.items !== undefined ? d.items : prevItems;
+      if (d.status === "ملغاة" && prevStatus !== "ملغاة") await applyStockDelta(currentItems, +1);
+      if (prevStatus === "ملغاة" && d.status !== "ملغاة") await applyStockDelta(currentItems, -1);
+    }
+
     // Only auto-recompute when status was NOT explicitly set in this request
     if (d.status === undefined) await recomputeInvoiceStatus(req.params.id);
-    const { rows: fresh } = await pool.query("SELECT * FROM invoices WHERE id=$1", [req.params.id]);
-    res.json(toApi(fresh[0]));
+    res.json(await fetchInvoiceApi(req.params.id));
   } catch (e) { next(e); }
 });
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const { rows } = await pool.query("SELECT items FROM invoices WHERE id=$1", [req.params.id]);
-    if (rows[0]) {
-      for (const item of (rows[0].items || [])) {
-        await pool.query("UPDATE products SET stock = stock + $1 WHERE name = $2", [item.qty, item.productName]);
-      }
+    const { rows } = await pool.query("SELECT items, status FROM invoices WHERE id=$1", [req.params.id]);
+    if (rows[0] && rows[0].status !== "ملغاة") {
+      await applyStockDelta(rows[0].items || [], +1);
     }
     await pool.query("DELETE FROM receipts WHERE invoice_id=$1", [req.params.id]);
+    await pool.query("DELETE FROM product_returns WHERE invoice_id=$1", [req.params.id]).catch(() => {});
     await pool.query("DELETE FROM customer_balance_adjustments WHERE invoice_id=$1", [req.params.id]).catch(() => {});
     await pool.query("DELETE FROM invoices WHERE id=$1", [req.params.id]);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
+
 
 module.exports = router;
 module.exports.recomputeInvoiceStatus = recomputeInvoiceStatus;
